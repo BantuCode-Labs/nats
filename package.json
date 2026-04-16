@@ -1,6 +1,6 @@
 {
   "name": "nats",
-  "version": "0.1.0",
+  "version": "1.0.0-alpha",
   "private": true,
   "scripts": {
     "dev": "sh -c 'lsof -ti:3000 | xargs kill -9 2>/dev/null || true' && next dev",
