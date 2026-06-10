@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomInput } from "@/components/ui/custom-input";
 import {
   Table,
@@ -309,203 +310,250 @@ export function SalesShipmentForm({
             )}
           </PageFormActions>
         </PageFormHeader>
-        <PageFormContent className="grid gap-4 mt-4 p-0 bg-transparent border-none shadow-none">
-          <div className="grid gap-4 md:grid-cols-2">
-            <CustomInput
-              label={t("shipment_number")}
-              value={shipment?.shipmentNumber || t("placeholder_auto_generate")}
-              disabled={true}
-            />
-            <div>
-              {" "}
-              <label className="text-sm font-medium">{t("customer")}</label>
-              <SearchableSelect
-                value={formData.contactId}
-                onValueChange={(val: any) => handleContactChange(val)}
-                options={customers.map((c) => ({ label: c.name, value: c.id }))}
-                disabled={readonly}
-                placeholder={t("placeholder_select_customer")}
-              />
-            </div>
+        <PageFormContent className="grid gap-3 mt-3 p-0 bg-transparent border-none shadow-none">
+          <div className="space-y-3">
+            <Card>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomInput
+                        label={t("shipment_number")}
+                        value={
+                          shipment?.shipmentNumber ||
+                          t("placeholder_auto_generate")
+                        }
+                        disabled={true}
+                      />
+                      <div>
+                        <label className="text-sm font-medium">
+                          {t("customer")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.contactId}
+                          onValueChange={(val: any) => handleContactChange(val)}
+                          options={customers.map((c) => ({
+                            label: c.name,
+                            value: c.id,
+                          }))}
+                          disabled={readonly}
+                          placeholder={t("placeholder_select_customer")}
+                        />
+                      </div>
+                    </div>
 
-            <CustomSelect
-              label={t("sales_order_optional")}
-              value={formData.salesOrderId || ""}
-              onValueChange={(val: any) => handleSalesOrderChange(val)}
-              options={filteredSalesOrders.map((so) => ({
-                label: so.orderNumber,
-                value: so.id,
-              }))}
-              disabled={readonly || !formData.contactId}
-              placeholder={t("placeholder_select_so")}
-            />
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomSelect
+                        label={t("sales_order_optional")}
+                        value={formData.salesOrderId || ""}
+                        onValueChange={(val: any) =>
+                          handleSalesOrderChange(val)
+                        }
+                        options={filteredSalesOrders.map((so) => ({
+                          label: so.orderNumber,
+                          value: so.id,
+                        }))}
+                        disabled={readonly || !formData.contactId}
+                        placeholder={t("placeholder_select_so")}
+                      />
 
-            <div className="col-span-2 grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t("department")}</label>
-                <SearchableSelect
-                  value={formData.departmentId || ""}
-                  onValueChange={(val) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      departmentId: val || null,
-                    }))
-                  }
-                  options={departments.map((d) => ({
-                    value: d.id,
-                    label: d.name,
-                  }))}
-                  placeholder={t("placeholder_select_department")}
-                  disabled={readonly}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t("project")}</label>
-                <SearchableSelect
-                  value={formData.projectId || ""}
-                  onValueChange={(val) =>
-                    setFormData((prev) => ({ ...prev, projectId: val || null }))
-                  }
-                  options={projects.map((p) => ({
-                    value: p.id,
-                    label: p.name,
-                  }))}
-                  placeholder={t("placeholder_select_project")}
-                  disabled={readonly}
-                />
-              </div>
-            </div>
+                      <CustomInput
+                        label={t("shipment_date")}
+                        type="date"
+                        value={
+                          formData.shipmentDate.toISOString().split("T")[0]
+                        }
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            shipmentDate: new Date(e.target.value),
+                          })
+                        }
+                        disabled={readonly}
+                        required
+                      />
+                    </div>
 
-            <CustomInput
-              label={t("shipment_date")}
-              type="date"
-              value={formData.shipmentDate.toISOString().split("T")[0]}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  shipmentDate: new Date(e.target.value),
-                })
-              }
-              disabled={readonly}
-              required
-            />
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomInput
+                        label={t("tracking_number")}
+                        value={formData.trackingNumber || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            trackingNumber: e.target.value,
+                          })
+                        }
+                        disabled={readonly}
+                        placeholder={t("tracking_number")}
+                      />
 
-            <CustomInput
-              label={t("tracking_number")}
-              value={formData.trackingNumber || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, trackingNumber: e.target.value })
-              }
-              disabled={readonly}
-              placeholder={t("tracking_number")}
-            />
+                      <CustomInput
+                        label={t("carrier")}
+                        value={formData.carrier || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, carrier: e.target.value })
+                        }
+                        disabled={readonly}
+                        placeholder={t("carrier")}
+                      />
+                    </div>
 
-            <CustomInput
-              label={t("carrier")}
-              value={formData.carrier || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, carrier: e.target.value })
-              }
-              disabled={readonly}
-              placeholder={t("carrier")}
-            />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("department")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.departmentId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              departmentId: val || null,
+                            }))
+                          }
+                          options={departments.map((d) => ({
+                            value: d.id,
+                            label: d.name,
+                          }))}
+                          placeholder={t("placeholder_select_department")}
+                          disabled={readonly}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("project")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.projectId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              projectId: val || null,
+                            }))
+                          }
+                          options={projects.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                          }))}
+                          placeholder={t("placeholder_select_project")}
+                          disabled={readonly}
+                        />
+                      </div>
+                    </div>
 
-            <CustomTextarea
-              label={t("notes")}
-              value={formData.notes || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
-              placeholder={t("placeholder_notes")}
-              disabled={readonly}
-            />
-          </div>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsAttachmentDialogOpen(true)}
+                        className="w-fit"
+                      >
+                        <Paperclip className="mr-2 h-4 w-4" />
+                        {tCommon("attachments")} ({attachments.length})
+                      </Button>
+                    </div>
+                  </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">{t("shipment_items")}</h3>
-            </div>
+                  <CustomTextarea
+                    value={formData.notes || ""}
+                    label={t("notes")}
+                    className="resize-none h-[77%]"
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    placeholder={t("placeholder_notes")}
+                    disabled={readonly}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-            <div className="rounded-md border">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[40px]"></TableHead>
-                      <TableHead>{tCommon("product")}</TableHead>
-                      <TableHead className="w-[150px]">
-                        {tCommon("quantity")}
-                      </TableHead>
-                      <TableHead className="w-[80px]">
-                        {tCommon("unit")}
-                      </TableHead>
-                      {!readonly && (
-                        <TableHead className="w-[50px]"></TableHead>
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <SortableContext
-                      items={formData.items.map((item) => item.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {formData.items.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={5}
-                            className="text-center h-24 text-muted-foreground"
-                          >
-                            {t("no_shipments_found")}
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        formData.items.map((item, index) => (
-                          <SortableTableRow key={item.id} id={item.id}>
-                            <TableCell>
-                              {getProductName(item.productId)}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between py-3">
+                <CardTitle className="text-lg">{t("shipment_items")}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px]"></TableHead>
+                        <TableHead>{tCommon("product")}</TableHead>
+                        <TableHead className="w-[150px]">
+                          {tCommon("quantity")}
+                        </TableHead>
+                        <TableHead className="w-[80px]">
+                          {tCommon("unit")}
+                        </TableHead>
+                        {!readonly && (
+                          <TableHead className="w-[50px]"></TableHead>
+                        )}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <SortableContext
+                        items={formData.items.map((item) => item.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {formData.items.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={5}
+                              className="text-center h-24 text-muted-foreground"
+                            >
+                              {t("no_shipments_found")}
                             </TableCell>
-                            <TableCell>
-                              <CustomInput
-                                type="number"
-                                min="0"
-                                value={item.quantity}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "quantity",
-                                    Number(e.target.value),
-                                  )
-                                }
-                                disabled={readonly}
-                              />
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {getProductUnit(item.productId)}
-                            </TableCell>
-                            {!readonly && (
+                          </TableRow>
+                        ) : (
+                          formData.items.map((item, index) => (
+                            <SortableTableRow key={item.id} id={item.id}>
                               <TableCell>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveItem(index)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {getProductName(item.productId)}
                               </TableCell>
-                            )}
-                          </SortableTableRow>
-                        ))
-                      )}
-                    </SortableContext>
-                  </TableBody>
-                </Table>
-              </DndContext>
-            </div>
+                              <TableCell>
+                                <CustomInput
+                                  type="number"
+                                  min="0"
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "quantity",
+                                      Number(e.target.value),
+                                    )
+                                  }
+                                  disabled={readonly}
+                                />
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {getProductUnit(item.productId)}
+                              </TableCell>
+                              {!readonly && (
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveItem(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              )}
+                            </SortableTableRow>
+                          ))
+                        )}
+                      </SortableContext>
+                    </TableBody>
+                  </Table>
+                </DndContext>
+              </CardContent>
+            </Card>
           </div>
         </PageFormContent>
       </form>
