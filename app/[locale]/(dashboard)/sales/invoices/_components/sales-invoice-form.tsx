@@ -483,216 +483,227 @@ export function SalesInvoiceForm({
             </Button>
           </PageFormActions>
         </PageFormHeader>
-        <PageFormContent className="grid gap-4 mt-4 p-0 bg-transparent border-none shadow-none">
-          <div className="space-y-4">
+        <PageFormContent className="grid gap-3 mt-3 p-0 bg-transparent border-none shadow-none">
+          <div className="space-y-3">
             <Card>
-              <CardContent className="grid gap-4 md:grid-cols-2 mt-4">
-                <CustomSelect
-                  label={t("sales_order_optional")}
-                  value={formData.salesOrderId || "none"}
-                  onValueChange={(val) =>
-                    handleSalesOrderChange(val === "none" ? "" : val)
-                  }
-                  placeholder="Select Sales Order"
-                  disabled={readonly}
-                >
-                  <SelectItem value="none">None</SelectItem>
-                  {filteredSalesOrders.map((so) => (
-                    <SelectItem key={so.id} value={so.id}>
-                      <div className="flex items-center">
-                        <span>{so.orderNumber}</span>
-                        <span className="text-muted-foreground ml-2">
-                          ({so.contact.name})
-                        </span>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomSelect
+                        label={t("sales_order_optional")}
+                        value={formData.salesOrderId || "none"}
+                        onValueChange={(val) =>
+                          handleSalesOrderChange(val === "none" ? "" : val)
+                        }
+                        placeholder="Select Sales Order"
+                        disabled={readonly}
+                      >
+                        <SelectItem value="none">None</SelectItem>
+                        {filteredSalesOrders.map((so) => (
+                          <SelectItem key={so.id} value={so.id}>
+                            <div className="flex items-center">
+                              <span>{so.orderNumber}</span>
+                              <span className="text-muted-foreground ml-2">
+                                ({so.contact.name})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </CustomSelect>
+
+                      <CustomInput
+                        label={t("invoice_number")}
+                        value={formData.invoiceNumber}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            invoiceNumber: e.target.value,
+                          }))
+                        }
+                        placeholder="Leave empty to auto-generate"
+                        disabled={readonly}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomInput
+                        label={t("invoice_date")}
+                        type="date"
+                        value={
+                          formData.invoiceDate
+                            ? format(formData.invoiceDate, "yyyy-MM-dd")
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            invoiceDate: e.target.value
+                              ? new Date(e.target.value)
+                              : new Date(),
+                          }))
+                        }
+                        disabled={readonly}
+                      />
+
+                      <CustomInput
+                        label={t("due_date")}
+                        type="date"
+                        value={
+                          formData.dueDate
+                            ? format(formData.dueDate, "yyyy-MM-dd")
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            dueDate: e.target.value
+                              ? new Date(e.target.value)
+                              : new Date(),
+                          }))
+                        }
+                        disabled={readonly}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("customer")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.contactId}
+                          onValueChange={(val) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              contactId: val as string,
+                              salesOrderId: undefined,
+                            }));
+                          }}
+                          options={customers.map((c) => ({
+                            value: c.id,
+                            label: c.name,
+                          }))}
+                          placeholder="Select Customer"
+                          disabled={readonly || !!formData.salesOrderId}
+                        />
                       </div>
-                    </SelectItem>
-                  ))}
-                </CustomSelect>
 
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("department")}
-                    </label>
-                    <SearchableSelect
-                      value={formData.departmentId || ""}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          departmentId: val || null,
-                        }))
-                      }
-                      options={departments.map((d) => ({
-                        value: d.id,
-                        label: d.name,
-                      }))}
-                      placeholder={t("placeholder_select_department")}
-                      disabled={readonly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("project")}
-                    </label>
-                    <SearchableSelect
-                      value={formData.projectId || ""}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          projectId: val || null,
-                        }))
-                      }
-                      options={projects.map((p) => ({
-                        value: p.id,
-                        label: p.name,
-                      }))}
-                      placeholder={t("placeholder_select_project")}
-                      disabled={readonly}
-                    />
-                  </div>
-                </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("department")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.departmentId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              departmentId: val || null,
+                            }))
+                          }
+                          options={departments.map((d) => ({
+                            value: d.id,
+                            label: d.name,
+                          }))}
+                          placeholder={t("placeholder_select_department")}
+                          disabled={readonly}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("project")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.projectId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              projectId: val || null,
+                            }))
+                          }
+                          options={projects.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                          }))}
+                          placeholder={t("placeholder_select_project")}
+                          disabled={readonly}
+                        />
+                      </div>
+                    </div>
 
-                <CustomInput
-                  label={t("invoice_number")}
-                  value={formData.invoiceNumber}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      invoiceNumber: e.target.value,
-                    }))
-                  }
-                  placeholder="Leave empty to auto-generate"
-                  disabled={readonly}
-                />
-                <div>
-                  <label className="text-sm font-medium">{t("customer")}</label>
-                  <SearchableSelect
-                    value={formData.contactId}
-                    onValueChange={(val) => {
+                    {isEditing && (
+                      <CustomSelect
+                        value={formData.status}
+                        label={t("status")}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        onValueChange={(val: any) =>
+                          setFormData((prev) => ({ ...prev, status: val }))
+                        }
+                        disabled={
+                          readonly ||
+                          invoice.status === "PAID" ||
+                          invoice.status === "CANCELLED"
+                        }
+                      >
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="ISSUED">Issued</SelectItem>
+                        <SelectItem value="PAID">Paid</SelectItem>
+                        <SelectItem value="PARTIALLY_PAID">
+                          Partially Paid
+                        </SelectItem>
+                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                      </CustomSelect>
+                    )}
+                  </div>
+
+                  <CustomTextarea
+                    value={formData.notes || ""}
+                    label={t("notes")}
+                    className="resize-none h-[85%]"
+                    onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        contactId: val as string,
-                        salesOrderId: undefined,
-                      }));
-                    }}
-                    options={customers.map((c) => ({
-                      value: c.id,
-                      label: c.name,
-                    }))}
-                    placeholder="Select Customer"
-                    disabled={readonly || !!formData.salesOrderId}
+                        notes: e.target.value,
+                      }))
+                    }
+                    placeholder="Add notes here..."
+                    disabled={readonly}
                   />
                 </div>
-
-                <CustomInput
-                  label={t("invoice_date")}
-                  type="date"
-                  value={
-                    formData.invoiceDate
-                      ? format(formData.invoiceDate, "yyyy-MM-dd")
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      invoiceDate: e.target.value
-                        ? new Date(e.target.value)
-                        : new Date(),
-                    }))
-                  }
-                  disabled={readonly}
-                />
-
-                <CustomInput
-                  label={t("due_date")}
-                  type="date"
-                  value={
-                    formData.dueDate
-                      ? format(formData.dueDate, "yyyy-MM-dd")
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      dueDate: e.target.value
-                        ? new Date(e.target.value)
-                        : new Date(),
-                    }))
-                  }
-                  disabled={readonly}
-                />
-
-                {isEditing && (
-                  <CustomSelect
-                    value={formData.status}
-                    label={t("status")}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onValueChange={(val: any) =>
-                      setFormData((prev) => ({ ...prev, status: val }))
-                    }
-                    disabled={
-                      readonly ||
-                      invoice.status === "PAID" ||
-                      invoice.status === "CANCELLED"
-                    }
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAttachmentDialogOpen(true)}
+                    className="w-fit"
                   >
-                    <SelectItem value="DRAFT">Draft</SelectItem>
-                    <SelectItem value="ISSUED">Issued</SelectItem>
-                    <SelectItem value="PAID">Paid</SelectItem>
-                    <SelectItem value="PARTIALLY_PAID">
-                      Partially Paid
-                    </SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  </CustomSelect>
-                )}
-                <CustomTextarea
-                  label={t("notes")}
-                  value={formData.notes || ""}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      notes: e.target.value,
-                    }))
-                  }
-                  placeholder="Add notes here..."
-                  disabled={readonly}
-                />
-                <div className="col-span-2">
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAttachmentDialogOpen(true)}
-                      className="w-fit"
-                    >
-                      <Paperclip className="mr-2 h-4 w-4" />
-                      Attachments ({attachments.length})
-                    </Button>
-                    <div className="flex flex-wrap gap-2">
-                      {attachments.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
+                    <Paperclip className="mr-2 h-4 w-4" />
+                    Attachments ({attachments.length})
+                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
+                      >
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
                         >
-                          <a
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:underline"
-                          >
-                            {file.name}
-                          </a>
-                        </div>
-                      ))}
-                    </div>
+                          {file.name}
+                        </a>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>{tCommon("products")}</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between py-3">
+                <CardTitle className="text-lg">{tCommon("products")}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <DndContext
@@ -857,11 +868,11 @@ export function SalesInvoiceForm({
                   </Table>
                 </DndContext>
                 {formData.items.length === 0 && (
-                  <div className="py-8 text-center text-muted-foreground">
+                  <div className="py-4 text-center text-muted-foreground">
                     No items added.
                   </div>
                 )}
-                <div className="flex justify-between items-start p-4 border-t">
+                <div className="flex justify-between items-start p-3 border-t">
                   <Button
                     type="button"
                     variant="outline"
@@ -871,12 +882,14 @@ export function SalesInvoiceForm({
                   >
                     <PlusIcon /> Add Item
                   </Button>
-                  <div className="w-1/3 space-y-2">
+                  <div className="w-1/3 space-y-1">
                     <div className="flex justify-between">
                       <span className="text-sm font-medium">
                         Subtotal (Net)
                       </span>
-                      <span>{itemsNetTotal.toLocaleString()}</span>
+                      <span className="text-sm">
+                        {itemsNetTotal.toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center gap-2">
                       <span className="text-sm font-medium">
@@ -891,7 +904,7 @@ export function SalesInvoiceForm({
                           }))
                         }
                         disabled={readonly}
-                        className="w-24 h-8"
+                        className="w-24 h-7"
                       />
                     </div>
                     <div className="flex justify-between items-center gap-2">
@@ -900,7 +913,7 @@ export function SalesInvoiceForm({
                         value={formData.totalTax}
                         onChange={() => {}}
                         disabled={true}
-                        className="w-24 h-8 bg-muted"
+                        className="w-24 h-7 bg-muted"
                       />
                     </div>
                     <div className="flex justify-between items-center gap-2">
@@ -914,12 +927,12 @@ export function SalesInvoiceForm({
                           }))
                         }
                         disabled={readonly}
-                        className="w-24 h-8"
+                        className="w-24 h-7"
                       />
                     </div>
-                    <div className="flex justify-between border-t pt-2">
-                      <span className="font-bold">Total</span>
-                      <span className="font-bold">
+                    <div className="flex justify-between border-t pt-1 mt-1">
+                      <span className="font-bold text-sm">Total</span>
+                      <span className="font-bold text-sm">
                         {totalAmount.toLocaleString()}
                       </span>
                     </div>
