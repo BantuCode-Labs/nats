@@ -277,14 +277,6 @@ export function SalesShipmentForm({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsAttachmentDialogOpen(true)}
-                >
-                  <Paperclip className="mr-2 h-4 w-4" />
-                  Attachments ({attachments.length})
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
                   onClick={() => router.back()}
                   disabled={loading}
                 >
