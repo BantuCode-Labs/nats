@@ -77,7 +77,10 @@ import { SuperJSONResult } from "superjson";
 import { SuperJSON } from "@/lib/superjson";
 import { ProductWithDetails } from "@/app/[locale]/(dashboard)/inventory/types";
 import { useFormatDate, useFormatCurrency } from "@/hooks";
-import { AttachmentDialog, Attachment } from "@/components/ui/attachment-dialog";
+import {
+  AttachmentDialog,
+  Attachment,
+} from "@/components/ui/attachment-dialog";
 import { uploadFile } from "@/app/[locale]/(dashboard)/general/files/actions";
 import { Paperclip } from "lucide-react";
 import { ReportPreviewDialog } from "@/app/[locale]/(dashboard)/reporting/_components/report-preview-dialog";
@@ -139,7 +142,7 @@ export function SalesOrderForm({
       id: a.id,
       name: a.name,
       url: a.url,
-    })) || []
+    })) || [],
   );
   const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
   const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
@@ -383,9 +386,13 @@ export function SalesOrderForm({
     <PageFormLayout>
       <PageFormHeader>
         <div className="flex gap-5 items-center">
-          <PageFormTitle title={displayOrderNumber === "Draft"
-            ? "Draft Sales Order"
-            : `Sales Order ${displayOrderNumber || "New"}`} />
+          <PageFormTitle
+            title={
+              displayOrderNumber === "Draft"
+                ? "Draft Sales Order"
+                : `Sales Order ${displayOrderNumber || "New"}`
+            }
+          />
           <div className="flex items-center gap-2">
             <div
               className={cn(
@@ -578,7 +585,6 @@ export function SalesOrderForm({
             <ArrowLeftSquare className="mr-2 h-4 w-4" />
             {tCommon("close")}
           </Button>
-
         </PageFormActions>
       </PageFormHeader>
       {budgetWarning && (
@@ -587,28 +593,34 @@ export function SalesOrderForm({
           <AlertTitle>Budget Warning</AlertTitle>
           <AlertDescription>{budgetWarning}</AlertDescription>
         </Alert>
-      )} <form onSubmit={handleSubmit}>
+      )}{" "}
+      <form onSubmit={handleSubmit}>
         <PageFormContent className="grid gap-4 mt-4 p-0 bg-transparent border-none shadow-none">
           <div className="space-y-4">
             <Card>
               <CardContent>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-2">
-                    <CustomSelect
-                      value={formData.contactId}
-                      label={t("customer")}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({ ...prev, contactId: val }))
-                      }
-                      placeholder={t("placeholder_select_customer")}
-                      disabled={isReadOnly}
-                    >
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </CustomSelect>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        {t("customer")}
+                      </label>
+                      <SearchableSelect
+                        value={formData.contactId}
+                        onValueChange={(val) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            contactId: val as string,
+                          }))
+                        }
+                        options={customers.map((c) => ({
+                          value: c.id,
+                          label: c.name,
+                        }))}
+                        placeholder={t("placeholder_select_customer")}
+                        disabled={isReadOnly}
+                      />
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       <CustomInput
                         type="date"
@@ -652,21 +664,41 @@ export function SalesOrderForm({
 
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">{t("department")}</label>
+                        <label className="text-sm font-medium">
+                          {t("department")}
+                        </label>
                         <SearchableSelect
                           value={formData.departmentId || ""}
-                          onValueChange={(val) => setFormData(prev => ({ ...prev, departmentId: val || null }))}
-                          options={departments.map(d => ({ value: d.id, label: d.name }))}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              departmentId: val || null,
+                            }))
+                          }
+                          options={departments.map((d) => ({
+                            value: d.id,
+                            label: d.name,
+                          }))}
                           placeholder={t("placeholder_select_department")}
                           disabled={isReadOnly}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">{t("project")}</label>
+                        <label className="text-sm font-medium">
+                          {t("project")}
+                        </label>
                         <SearchableSelect
                           value={formData.projectId || ""}
-                          onValueChange={(val) => setFormData(prev => ({ ...prev, projectId: val || null }))}
-                          options={projects.map(p => ({ value: p.id, label: p.name }))}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              projectId: val || null,
+                            }))
+                          }
+                          options={projects.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                          }))}
                           placeholder={t("placeholder_select_project")}
                           disabled={isReadOnly}
                         />
@@ -733,10 +765,18 @@ export function SalesOrderForm({
                       <TableRow>
                         <TableHead className="w-[40px]"></TableHead>
                         <TableHead>{tCommon("product")}</TableHead>
-                        <TableHead className="w-[120px]">{tCommon("quantity")}</TableHead>
-                        <TableHead className="w-[80px]">{tCommon("unit")}</TableHead>
-                        <TableHead className="w-[150px]">{tCommon("price")}</TableHead>
-                        <TableHead className="w-[150px]">{tCommon("total")}</TableHead>
+                        <TableHead className="w-[120px]">
+                          {tCommon("quantity")}
+                        </TableHead>
+                        <TableHead className="w-[80px]">
+                          {tCommon("unit")}
+                        </TableHead>
+                        <TableHead className="w-[150px]">
+                          {tCommon("price")}
+                        </TableHead>
+                        <TableHead className="w-[150px]">
+                          {tCommon("total")}
+                        </TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -753,7 +793,9 @@ export function SalesOrderForm({
                                 onValueChange={(val) =>
                                   handleItemChange(index, "productId", val)
                                 }
-                                placeholder={tCommon("placeholder_select_product")}
+                                placeholder={tCommon(
+                                  "placeholder_select_product",
+                                )}
                                 disabled={isReadOnly}
                               >
                                 {products?.map(
@@ -857,10 +899,8 @@ export function SalesOrderForm({
               </CardFooter>
             </Card>
           </div>
-
         </PageFormContent>
       </form>
-
       <AttachmentDialog
         open={isAttachmentDialogOpen}
         onOpenChange={setIsAttachmentDialogOpen}
@@ -872,6 +912,6 @@ export function SalesOrderForm({
         }}
         readonly={isReadOnly}
       />
-    </PageFormLayout >
+    </PageFormLayout>
   );
 }

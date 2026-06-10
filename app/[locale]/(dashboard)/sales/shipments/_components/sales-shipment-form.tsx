@@ -316,15 +316,17 @@ export function SalesShipmentForm({
               value={shipment?.shipmentNumber || t("placeholder_auto_generate")}
               disabled={true}
             />
-
-            <CustomSelect
-              label={t("customer")}
-              defaultValue={formData.contactId}
-              onValueChange={(val: any) => handleContactChange(val)}
-              options={customers.map((c) => ({ label: c.name, value: c.id }))}
-              disabled={readonly}
-              placeholder={t("placeholder_select_customer")}
-            />
+            <div>
+              {" "}
+              <label className="text-sm font-medium">{t("customer")}</label>
+              <SearchableSelect
+                value={formData.contactId}
+                onValueChange={(val: any) => handleContactChange(val)}
+                options={customers.map((c) => ({ label: c.name, value: c.id }))}
+                disabled={readonly}
+                placeholder={t("placeholder_select_customer")}
+              />
+            </div>
 
             <CustomSelect
               label={t("sales_order_optional")}
