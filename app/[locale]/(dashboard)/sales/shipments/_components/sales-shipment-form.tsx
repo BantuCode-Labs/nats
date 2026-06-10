@@ -4,29 +4,28 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CustomInput } from "@/components/ui/custom-input";
-import { Label } from "@/components/ui/label";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    DragEndEvent,
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
 } from "@dnd-kit/core";
 import {
-    arrayMove,
-    SortableContext,
-    sortableKeyboardCoordinates,
-    verticalListSortingStrategy,
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Trash2, ArrowLeft, Paperclip } from "lucide-react";
 import { createSalesShipment, updateSalesShipment } from "../actions";
@@ -39,472 +38,486 @@ import { generateId } from "@/lib/utils";
 import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
 import { SalesOrderWithDetails } from "../../orders/types";
-import { AttachmentDialog, Attachment } from "@/components/ui/attachment-dialog";
+import {
+  AttachmentDialog,
+  Attachment,
+} from "@/components/ui/attachment-dialog";
 import { uploadFile } from "@/app/[locale]/(dashboard)/general/files/actions";
 import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
-    PageFormTitle,
+  PageFormActions,
+  PageFormContent,
+  PageFormHeader,
+  PageFormLayout,
+  PageFormTitle,
 } from "@/components/layout/page/form-layout";
 import { useTranslations } from "next-intl";
 
 interface SalesShipmentFormProps {
-    shipment?: SuperJSONResult;
-    customers: { id: string; name: string }[];
-    salesOrders: SuperJSONResult;
-    departments?: Department[];
-    projects?: Project[];
-    readonly?: boolean;
+  shipment?: SuperJSONResult;
+  customers: { id: string; name: string }[];
+  salesOrders: SuperJSONResult;
+  departments?: Department[];
+  projects?: Project[];
+  readonly?: boolean;
 }
 
 export function SalesShipmentForm({
-    shipment: serializedShipment,
-    customers,
-    salesOrders: serializedSalesOrders,
-    departments = [],
-    projects = [],
-    readonly = false,
+  shipment: serializedShipment,
+  customers,
+  salesOrders: serializedSalesOrders,
+  departments = [],
+  projects = [],
+  readonly = false,
 }: SalesShipmentFormProps) {
-    const router = useRouter();
-    const t = useTranslations("Sales");
-    const tCommon = useTranslations("Common");
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const t = useTranslations("Sales");
+  const tCommon = useTranslations("Common");
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
-    const shipment = serializedShipment
-        ? SuperJSON.deserialize<SalesShipmentWithDetails>(serializedShipment)
-        : undefined;
+  const shipment = serializedShipment
+    ? SuperJSON.deserialize<SalesShipmentWithDetails>(serializedShipment)
+    : undefined;
 
-    const [attachments, setAttachments] = useState<Attachment[]>(
-        shipment?.attachments?.map((a) => ({
-            id: a.id,
-            name: a.name,
-            url: a.url,
-        })) || [],
-    );
-    const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>(
+    shipment?.attachments?.map((a) => ({
+      id: a.id,
+      name: a.name,
+      url: a.url,
+    })) || [],
+  );
+  const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
 
-    const salesOrders = useMemo(
-        () =>
-            SuperJSON.deserialize<SalesOrderWithDetails[]>(
-                serializedSalesOrders,
-            ),
-        [serializedSalesOrders],
-    );
+  const salesOrders = useMemo(
+    () => SuperJSON.deserialize<SalesOrderWithDetails[]>(serializedSalesOrders),
+    [serializedSalesOrders],
+  );
 
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        }),
-    );
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
-    const [formData, setFormData] = useState<
-        Omit<SalesShipmentInput, "items"> & {
-            items: (SalesShipmentInput["items"][0] & { id: string })[];
-        }
-    >({
-        contactId: shipment?.contactId || "",
-        salesOrderId: shipment?.salesOrderId || undefined,
-        departmentId: shipment?.departmentId || null,
-        projectId: shipment?.projectId || null,
-        shipmentDate: shipment?.shipmentDate
-            ? new Date(shipment.shipmentDate)
-            : new Date(),
-        notes: shipment?.notes || "",
-        trackingNumber: shipment?.trackingNumber || "",
-        carrier: shipment?.carrier || "",
-        items:
-            shipment?.items.map((item) => ({
-                id: generateId(),
-                productId: item.productId,
-                quantity: item.quantity,
-                salesOrderItemId: item.salesOrderItemId || undefined,
-            })) || [],
-    });
+  const [formData, setFormData] = useState<
+    Omit<SalesShipmentInput, "items"> & {
+      items: (SalesShipmentInput["items"][0] & { id: string })[];
+    }
+  >({
+    contactId: shipment?.contactId || "",
+    salesOrderId: shipment?.salesOrderId || undefined,
+    departmentId: shipment?.departmentId || null,
+    projectId: shipment?.projectId || null,
+    shipmentDate: shipment?.shipmentDate
+      ? new Date(shipment.shipmentDate)
+      : new Date(),
+    notes: shipment?.notes || "",
+    trackingNumber: shipment?.trackingNumber || "",
+    carrier: shipment?.carrier || "",
+    items:
+      shipment?.items.map((item) => ({
+        id: generateId(),
+        productId: item.productId,
+        quantity: item.quantity,
+        salesOrderItemId: item.salesOrderItemId || undefined,
+      })) || [],
+  });
 
-    const filteredSalesOrders = useMemo(() => {
-        if (formData.contactId) {
-            return salesOrders.filter((so) => so.contactId === formData.contactId);
-        }
-        return [];
-    }, [formData.contactId, salesOrders]);
+  const filteredSalesOrders = useMemo(() => {
+    if (formData.contactId) {
+      return salesOrders.filter((so) => so.contactId === formData.contactId);
+    }
+    return [];
+  }, [formData.contactId, salesOrders]);
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event;
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
 
-        if (over && active.id !== over.id) {
-            setFormData((prev) => {
-                const oldIndex = prev.items.findIndex((item) => item.id === active.id);
-                const newIndex = prev.items.findIndex((item) => item.id === over.id);
-                return {
-                    ...prev,
-                    items: arrayMove(prev.items, oldIndex, newIndex),
-                };
-            });
-        }
-    };
-
-    const handleContactChange = (contactId: string) => {
-        setFormData((prev) => ({
-            ...prev,
-            contactId,
-            salesOrderId: undefined,
-            items: [], // Clear items on customer change
-        }));
-    };
-
-    const handleSalesOrderChange = (soId: string) => {
-        const so = salesOrders.find((s) => s.id === soId);
-        setFormData((prev) => ({
-            ...prev,
-            salesOrderId: soId,
-            departmentId: so?.departmentId || prev.departmentId,
-            projectId: so?.projectId || prev.projectId,
-            items: so
-                ? so.items.map((item) => ({
-                    id: generateId(),
-                    productId: item.productId,
-                    quantity: item.quantity - item.shippedQuantity, // Default to remaining quantity
-                    salesOrderItemId: item.id,
-                })).filter(item => item.quantity > 0) // Only include items with remaining quantity
-                : [],
-        }));
-    };
-
-    const handleItemChange = (
-        index: number,
-        field: keyof SalesShipmentInput["items"][0],
-        value: number,
-    ) => {
-        setFormData((prev) => {
-            const newItems = [...prev.items];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            newItems[index] = { ...newItems[index], [field]: value } as any;
-            return { ...prev, items: newItems };
-        });
-    };
-
-    const handleRemoveItem = (index: number) => {
-        setFormData((prev) => ({
-            ...prev,
-            items: prev.items.filter((_, i) => i !== index),
-        }));
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const submissionData = {
-            ...formData,
-            items: formData.items.map(({ id, ...rest }) => rest),
-            attachmentIds: attachments.map((a) => a.id),
+    if (over && active.id !== over.id) {
+      setFormData((prev) => {
+        const oldIndex = prev.items.findIndex((item) => item.id === active.id);
+        const newIndex = prev.items.findIndex((item) => item.id === over.id);
+        return {
+          ...prev,
+          items: arrayMove(prev.items, oldIndex, newIndex),
         };
+      });
+    }
+  };
 
-        try {
-            if (shipment) {
-                const result = await updateSalesShipment(
-                    shipment.id,
-                    submissionData,
-                );
-                if (!result.success) throw new Error(result.error);
-                toast({
-                    title: "Success",
-                    description: "Sales shipment updated successfully",
-                });
-            } else {
-                const result = await createSalesShipment(submissionData);
-                if (!result.success) throw new Error(result.error);
-                toast({
-                    title: "Success",
-                    description: "Sales shipment created successfully",
-                });
-            }
-            router.push("/sales/shipments");
-        } catch (error) {
-            toast({
-                title: "Error",
-                description: (error as Error).message || "Something went wrong",
-                variant: "destructive",
-            });
-        } finally {
-            setLoading(false);
-        }
+  const handleContactChange = (contactId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      contactId,
+      salesOrderId: undefined,
+      items: [], // Clear items on customer change
+    }));
+  };
+
+  const handleSalesOrderChange = (soId: string) => {
+    const so = salesOrders.find((s) => s.id === soId);
+    setFormData((prev) => ({
+      ...prev,
+      salesOrderId: soId,
+      departmentId: so?.departmentId || prev.departmentId,
+      projectId: so?.projectId || prev.projectId,
+      items: so
+        ? so.items
+            .map((item) => ({
+              id: generateId(),
+              productId: item.productId,
+              quantity: item.quantity - item.shippedQuantity, // Default to remaining quantity
+              salesOrderItemId: item.id,
+            }))
+            .filter((item) => item.quantity > 0) // Only include items with remaining quantity
+        : [],
+    }));
+  };
+
+  const handleItemChange = (
+    index: number,
+    field: keyof SalesShipmentInput["items"][0],
+    value: number,
+  ) => {
+    setFormData((prev) => {
+      const newItems = [...prev.items];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      newItems[index] = { ...newItems[index], [field]: value } as any;
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const submissionData = {
+      ...formData,
+      items: formData.items.map(({ id, ...rest }) => rest),
+      attachmentIds: attachments.map((a) => a.id),
     };
 
-    const getProductName = (productId: string) => {
-        const so = salesOrders.find((s) => s.id === formData.salesOrderId);
-        if (so) {
-            const item = so.items.find((i) => i.productId === productId);
-            if (item) return item.product.name;
-        }
-        if (shipment) {
-            const item = shipment.items.find((i) => i.productId === productId);
-            if (item) return item.product.name;
-        }
-        return "Unknown Product";
-    };
+    try {
+      if (shipment) {
+        const result = await updateSalesShipment(shipment.id, submissionData);
+        if (!result.success) throw new Error(result.error);
+        toast({
+          title: "Success",
+          description: "Sales shipment updated successfully",
+        });
+      } else {
+        const result = await createSalesShipment(submissionData);
+        if (!result.success) throw new Error(result.error);
+        toast({
+          title: "Success",
+          description: "Sales shipment created successfully",
+        });
+      }
+      router.push("/sales/shipments");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: (error as Error).message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const getProductUnit = (productId: string) => {
-        const so = salesOrders.find((s) => s.id === formData.salesOrderId);
-        if (so) {
-            const item = so.items.find((i) => i.productId === productId);
-            if (item)
-                return (
-                    item.product.salesUnit?.symbol || item.product.baseUnit?.symbol
-                );
-        }
-        if (shipment) {
-            const item = shipment.items.find((i) => i.productId === productId);
-            if (item)
-                return (
-                    item.product.salesUnit?.symbol || item.product.baseUnit?.symbol
-                );
-        }
-        return "-";
-    };
+  const getProductName = (productId: string) => {
+    const so = salesOrders.find((s) => s.id === formData.salesOrderId);
+    if (so) {
+      const item = so.items.find((i) => i.productId === productId);
+      if (item) return item.product.name;
+    }
+    if (shipment) {
+      const item = shipment.items.find((i) => i.productId === productId);
+      if (item) return item.product.name;
+    }
+    return "Unknown Product";
+  };
 
-    return (
-        <PageFormLayout>
-            <form onSubmit={handleSubmit} className="space-y-8 w-full">
-                <PageFormHeader>
-                    <PageFormTitle title={shipment ? t("edit_shipment") : t("new_shipment")} />
-                    <PageFormActions>
-                        {!readonly && (
-                            <>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setIsAttachmentDialogOpen(true)}
-                                >
-                                    <Paperclip className="mr-2 h-4 w-4" />
-                                    Attachments ({attachments.length})
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => router.back()}
-                                    disabled={loading}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button type="submit" disabled={loading}>
-                                    {loading ? tCommon("saving") : shipment ? tCommon("update") : tCommon("create")}
-                                </Button>
-                            </>
-                        )}
-                        {readonly && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => router.back()}
-                            >
-                                <ArrowLeft className="mr-2 h-4 w-4" /> {tCommon("back")}
-                            </Button>
-                        )}
-                    </PageFormActions>
-                </PageFormHeader>
-                <PageFormContent className="grid gap-4 mt-4 p-0 bg-transparent border-none shadow-none">
-                <div className="grid gap-4 md:grid-cols-2">
-                        <CustomInput
-                            label={t("shipment_number")}
-                            value={shipment?.shipmentNumber || t("placeholder_auto_generate")}
-                            disabled={true}
-                        />
+  const getProductUnit = (productId: string) => {
+    const so = salesOrders.find((s) => s.id === formData.salesOrderId);
+    if (so) {
+      const item = so.items.find((i) => i.productId === productId);
+      if (item)
+        return item.product.salesUnit?.symbol || item.product.baseUnit?.symbol;
+    }
+    if (shipment) {
+      const item = shipment.items.find((i) => i.productId === productId);
+      if (item)
+        return item.product.salesUnit?.symbol || item.product.baseUnit?.symbol;
+    }
+    return "-";
+  };
 
-                        <CustomSelect
-                            label={t("customer")}
-                            defaultValue={formData.contactId}
-                            onValueChange={(val: any) => handleContactChange(val)}
-                            options={customers.map((c) => ({ label: c.name, value: c.id }))}
-                            disabled={readonly}
-                            placeholder={t("placeholder_select_customer")}
-                        />
-
-                        <CustomSelect
-                            label={t("sales_order_optional")}
-                            value={formData.salesOrderId || ""}
-                            onValueChange={(val: any) => handleSalesOrderChange(val)}
-                            options={filteredSalesOrders.map((so) => ({
-                                label: so.orderNumber,
-                                value: so.id,
-                            }))}
-                            disabled={readonly || !formData.contactId}
-                            placeholder={t("placeholder_select_so")}
-                        />
-
-                    <div className="col-span-2 grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">{t("department")}</label>
-                                <SearchableSelect
-                                    value={formData.departmentId || ""}
-                                    onValueChange={(val) =>
-                                        setFormData((prev) => ({ ...prev, departmentId: val || null }))
-                                    }
-                                    options={departments.map((d) => ({
-                                        value: d.id,
-                                        label: d.name,
-                                    }))}
-                                    placeholder={t("placeholder_select_department")}
-                                    disabled={readonly}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">{t("project")}</label>
-                                <SearchableSelect
-                                    value={formData.projectId || ""}
-                                    onValueChange={(val) =>
-                                        setFormData((prev) => ({ ...prev, projectId: val || null }))
-                                    }
-                                    options={projects.map((p) => ({
-                                        value: p.id,
-                                        label: p.name,
-                                    }))}
-                                    placeholder={t("placeholder_select_project")}
-                                    disabled={readonly}
-                                />
-                            </div>
-                    </div>
-
-                        <CustomInput
-                            label={t("shipment_date")}
-                            type="date"
-                            value={formData.shipmentDate.toISOString().split("T")[0]}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    shipmentDate: new Date(e.target.value),
-                                })
-                            }
-                            disabled={readonly}
-                            required
-                        />
-
-                        <CustomInput
-                            label={t("tracking_number")}
-                            value={formData.trackingNumber || ""}
-                            onChange={(e) =>
-                                setFormData({ ...formData, trackingNumber: e.target.value })
-                            }
-                            disabled={readonly}
-                            placeholder={t("tracking_number")}
-                        />
-
-                        <CustomInput
-                            label={t("carrier")}
-                            value={formData.carrier || ""}
-                            onChange={(e) =>
-                                setFormData({ ...formData, carrier: e.target.value })
-                            }
-                            disabled={readonly}
-                            placeholder={t("carrier")}
-                        />
-
-                        <CustomTextarea
-                            label={t("notes")}
-                            value={formData.notes || ""}
-                            onChange={(e) =>
-                                setFormData({ ...formData, notes: e.target.value })
-                            }
-                            placeholder={t("placeholder_notes")}
-                            disabled={readonly}
-                        />
-                </div>
-
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium">{t("shipment_items")}</h3>
-                    </div>
-
-                    <div className="rounded-md border">
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[40px]"></TableHead>
-                                        <TableHead>{tCommon("product")}</TableHead>
-                                        <TableHead className="w-[150px]">{tCommon("quantity")}</TableHead>
-                                        <TableHead className="w-[80px]">{tCommon("unit")}</TableHead>
-                                        {!readonly && <TableHead className="w-[50px]"></TableHead>}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <SortableContext
-                                        items={formData.items.map((item) => item.id)}
-                                        strategy={verticalListSortingStrategy}
-                                    >
-                                        {formData.items.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={5}
-                                                    className="text-center h-24 text-muted-foreground"
-                                                >
-                                                    {t("no_shipments_found")}
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            formData.items.map((item, index) => (
-                                                <SortableTableRow key={item.id} id={item.id}>
-                                                    <TableCell>
-                                                        {getProductName(item.productId)}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <CustomInput
-                                                            type="number"
-                                                            min="0"
-                                                            value={item.quantity}
-                                                            onChange={(e) =>
-                                                                handleItemChange(
-                                                                    index,
-                                                                    "quantity",
-                                                                    Number(e.target.value),
-                                                                )
-                                                            }
-                                                            disabled={readonly}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="text-muted-foreground">
-                                                        {getProductUnit(item.productId)}
-                                                    </TableCell>
-                                                    {!readonly && (
-                                                        <TableCell>
-                                                            <Button
-                                                                type="button"
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => handleRemoveItem(index)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </TableCell>
-                                                    )}
-                                                </SortableTableRow>
-                                            ))
-                                        )}
-                                    </SortableContext>
-                                </TableBody>
-                            </Table>
-                        </DndContext>
-                    </div>
-                </div>
-                </PageFormContent>
-            </form>
-            <AttachmentDialog
-                open={isAttachmentDialogOpen}
-                onOpenChange={setIsAttachmentDialogOpen}
-                attachments={attachments}
-                onAttachmentsChange={setAttachments}
-                uploadAction={async (formData) => {
-                    const res = await uploadFile(formData);
-                    return res;
-                }}
-                readonly={readonly}
+  return (
+    <PageFormLayout>
+      <form onSubmit={handleSubmit} className="space-y-8 w-full">
+        <PageFormHeader>
+          <PageFormTitle
+            title={shipment ? t("edit_shipment") : t("new_shipment")}
+          />
+          <PageFormActions>
+            {!readonly && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAttachmentDialogOpen(true)}
+                >
+                  <Paperclip className="mr-2 h-4 w-4" />
+                  Attachments ({attachments.length})
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading
+                    ? tCommon("saving")
+                    : shipment
+                      ? tCommon("update")
+                      : tCommon("create")}
+                </Button>
+              </>
+            )}
+            {readonly && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> {tCommon("back")}
+              </Button>
+            )}
+          </PageFormActions>
+        </PageFormHeader>
+        <PageFormContent className="grid gap-4 mt-4 p-0 bg-transparent border-none shadow-none">
+          <div className="grid gap-4 md:grid-cols-2">
+            <CustomInput
+              label={t("shipment_number")}
+              value={shipment?.shipmentNumber || t("placeholder_auto_generate")}
+              disabled={true}
             />
-        </PageFormLayout>
-    );
+
+            <CustomSelect
+              label={t("customer")}
+              defaultValue={formData.contactId}
+              onValueChange={(val: any) => handleContactChange(val)}
+              options={customers.map((c) => ({ label: c.name, value: c.id }))}
+              disabled={readonly}
+              placeholder={t("placeholder_select_customer")}
+            />
+
+            <CustomSelect
+              label={t("sales_order_optional")}
+              value={formData.salesOrderId || ""}
+              onValueChange={(val: any) => handleSalesOrderChange(val)}
+              options={filteredSalesOrders.map((so) => ({
+                label: so.orderNumber,
+                value: so.id,
+              }))}
+              disabled={readonly || !formData.contactId}
+              placeholder={t("placeholder_select_so")}
+            />
+
+            <div className="col-span-2 grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("department")}</label>
+                <SearchableSelect
+                  value={formData.departmentId || ""}
+                  onValueChange={(val) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      departmentId: val || null,
+                    }))
+                  }
+                  options={departments.map((d) => ({
+                    value: d.id,
+                    label: d.name,
+                  }))}
+                  placeholder={t("placeholder_select_department")}
+                  disabled={readonly}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("project")}</label>
+                <SearchableSelect
+                  value={formData.projectId || ""}
+                  onValueChange={(val) =>
+                    setFormData((prev) => ({ ...prev, projectId: val || null }))
+                  }
+                  options={projects.map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                  }))}
+                  placeholder={t("placeholder_select_project")}
+                  disabled={readonly}
+                />
+              </div>
+            </div>
+
+            <CustomInput
+              label={t("shipment_date")}
+              type="date"
+              value={formData.shipmentDate.toISOString().split("T")[0]}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  shipmentDate: new Date(e.target.value),
+                })
+              }
+              disabled={readonly}
+              required
+            />
+
+            <CustomInput
+              label={t("tracking_number")}
+              value={formData.trackingNumber || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, trackingNumber: e.target.value })
+              }
+              disabled={readonly}
+              placeholder={t("tracking_number")}
+            />
+
+            <CustomInput
+              label={t("carrier")}
+              value={formData.carrier || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, carrier: e.target.value })
+              }
+              disabled={readonly}
+              placeholder={t("carrier")}
+            />
+
+            <CustomTextarea
+              label={t("notes")}
+              value={formData.notes || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
+              placeholder={t("placeholder_notes")}
+              disabled={readonly}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">{t("shipment_items")}</h3>
+            </div>
+
+            <div className="rounded-md border">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px]"></TableHead>
+                      <TableHead>{tCommon("product")}</TableHead>
+                      <TableHead className="w-[150px]">
+                        {tCommon("quantity")}
+                      </TableHead>
+                      <TableHead className="w-[80px]">
+                        {tCommon("unit")}
+                      </TableHead>
+                      {!readonly && (
+                        <TableHead className="w-[50px]"></TableHead>
+                      )}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <SortableContext
+                      items={formData.items.map((item) => item.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {formData.items.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="text-center h-24 text-muted-foreground"
+                          >
+                            {t("no_shipments_found")}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        formData.items.map((item, index) => (
+                          <SortableTableRow key={item.id} id={item.id}>
+                            <TableCell>
+                              {getProductName(item.productId)}
+                            </TableCell>
+                            <TableCell>
+                              <CustomInput
+                                type="number"
+                                min="0"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "quantity",
+                                    Number(e.target.value),
+                                  )
+                                }
+                                disabled={readonly}
+                              />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {getProductUnit(item.productId)}
+                            </TableCell>
+                            {!readonly && (
+                              <TableCell>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveItem(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            )}
+                          </SortableTableRow>
+                        ))
+                      )}
+                    </SortableContext>
+                  </TableBody>
+                </Table>
+              </DndContext>
+            </div>
+          </div>
+        </PageFormContent>
+      </form>
+      <AttachmentDialog
+        open={isAttachmentDialogOpen}
+        onOpenChange={setIsAttachmentDialogOpen}
+        attachments={attachments}
+        onAttachmentsChange={setAttachments}
+        uploadAction={async (formData) => {
+          const res = await uploadFile(formData);
+          return res;
+        }}
+        readonly={readonly}
+      />
+    </PageFormLayout>
+  );
 }
