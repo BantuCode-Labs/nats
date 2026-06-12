@@ -476,7 +476,15 @@
         "receive_number": "Receive #",
         "search_receives": "Search receives...",
         "return_number": "Return Number",
-        "new_return": "New Return"
+        "new_return": "New Return",
+        "edit_return": "Edit Purchase Return",
+        "return_date": "Return Date",
+        "return_items": "Return Items",
+        "purchase_invoice_optional": "Purchase Invoice (Optional)",
+        "status_draft": "Draft",
+        "status_approved": "Approved",
+        "status_completed": "Completed",
+        "status_cancelled": "Cancelled"
     },
     "Inventory": {
         "products": "Products",

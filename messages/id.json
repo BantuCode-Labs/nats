@@ -476,7 +476,15 @@
         "receive_number": "Nomor Penerimaan",
         "search_receives": "Cari penerimaan...",
         "return_number": "Nomor Retur",
-        "new_return": "Retur Baru"
+        "new_return": "Retur Baru",
+        "edit_return": "Ubah Retur Pembelian",
+        "return_date": "Tanggal Retur",
+        "return_items": "Item Retur",
+        "purchase_invoice_optional": "Faktur Pembelian (Opsional)",
+        "status_draft": "Draft",
+        "status_approved": "Disetujui",
+        "status_completed": "Selesai",
+        "status_cancelled": "Dibatalkan"
     },
     "Inventory": {
         "products": "Daftar Produk",

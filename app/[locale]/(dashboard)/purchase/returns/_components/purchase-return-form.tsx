@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CustomInput } from "@/components/ui/custom-input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -28,7 +27,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Trash2, ArrowLeft } from "lucide-react";
+import { Trash2, Paperclip, ArrowLeftSquare } from "lucide-react";
 import { createPurchaseReturn, updatePurchaseReturn } from "../actions";
 import { PurchaseReturnInput, PurchaseReturnWithDetails } from "../types";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -40,11 +39,23 @@ import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
 import { PurchaseOrderWithDetails } from "../../orders/types";
 import { PurchaseInvoiceWithDetails } from "../../invoices/types";
-import { AttachmentDialog, Attachment } from "@/components/ui/attachment-dialog";
+import {
+  AttachmentDialog,
+  Attachment,
+} from "@/components/ui/attachment-dialog";
 import { uploadFile } from "@/app/[locale]/(dashboard)/general/files/actions";
-import { Paperclip } from "lucide-react";
 import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useTranslations } from "next-intl";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
+import {
+  PageFormActions,
+  PageFormContent,
+  PageFormHeader,
+  PageFormLayout,
+  PageFormTitle,
+} from "@/components/layout/page/form-layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PurchaseReturnFormProps {
   returnItem?: SuperJSONResult;
@@ -68,6 +79,9 @@ export function PurchaseReturnForm({
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const formatCurrency = useFormatCurrency();
+  const t = useTranslations("Purchase");
+  const tCommon = useTranslations("Common");
 
   const returnItem = serializedReturnItem
     ? SuperJSON.deserialize<PurchaseReturnWithDetails>(serializedReturnItem)
@@ -78,8 +92,8 @@ export function PurchaseReturnForm({
       Array.isArray(serializedPurchaseOrders)
         ? []
         : SuperJSON.deserialize<PurchaseOrderWithDetails[]>(
-          serializedPurchaseOrders as SuperJSONResult,
-        ),
+            serializedPurchaseOrders as SuperJSONResult,
+          ),
     [serializedPurchaseOrders],
   );
   const purchaseInvoices = useMemo(
@@ -87,8 +101,8 @@ export function PurchaseReturnForm({
       Array.isArray(serializedPurchaseInvoices)
         ? []
         : SuperJSON.deserialize<PurchaseInvoiceWithDetails[]>(
-          serializedPurchaseInvoices as SuperJSONResult,
-        ),
+            serializedPurchaseInvoices as SuperJSONResult,
+          ),
     [serializedPurchaseInvoices],
   );
 
@@ -104,7 +118,7 @@ export function PurchaseReturnForm({
       id: a.id,
       name: a.name,
       url: a.url,
-    })) || []
+    })) || [],
   );
   const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
 
@@ -183,11 +197,11 @@ export function PurchaseReturnForm({
       projectId: po?.projectId || prev.projectId,
       items: po
         ? po.items.map((item) => ({
-          id: generateId(),
-          productId: item.productId,
-          quantity: 0, // Default to 0 or 1? Maybe 0 to force user input.
-          unitPrice: Number(item.unitCost),
-        }))
+            id: generateId(),
+            productId: item.productId,
+            quantity: 0, // Default to 0 or 1? Maybe 0 to force user input.
+            unitPrice: Number(item.unitCost),
+          }))
         : [],
     }));
   };
@@ -299,324 +313,370 @@ export function PurchaseReturnForm({
   };
 
   return (
-    <div className="flex-1 space-y-4 px-4">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-xl font-bold tracking-tight">
-          New Purchase Return
-        </h2>
-        <div className="flex">
+    <PageFormLayout>
+      <PageFormHeader>
+        <PageFormTitle
+          title={returnItem ? t("edit_return") : t("new_return")}
+        />
+        <PageFormActions>
           {!readonly && (
-            <div className="flex justify-end gap-2">
+            <>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.back()}
                 disabled={loading}
               >
-                Cancel
+                {tCommon("cancel")}
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : returnItem ? "Update" : "Create"}
+                {loading
+                  ? tCommon("saving")
+                  : returnItem
+                    ? tCommon("update")
+                    : tCommon("create")}
               </Button>
-            </div>
+            </>
           )}
           {readonly && (
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-      <form onSubmit={handleSubmit} className="space-y-8 w-full">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Return Number</Label>
-            <CustomInput
-              value={formData.returnNumber}
-              onChange={(e) =>
-                setFormData({ ...formData, returnNumber: e.target.value })
-              }
-              placeholder="RTN-00001"
-              disabled={readonly}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Vendor</Label>
-            <CustomSelect
-              defaultValue={formData.contactId}
-              onValueChange={(val: any) => handleContactChange(val)}
-              options={vendors.map((v) => ({ label: v.name, value: v.id }))}
-              disabled={readonly}
-              placeholder="Select vendor..."
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Purchase Order (Optional)</Label>
-            <CustomSelect
-              value={formData.purchaseOrderId || ""}
-              onValueChange={(val: any) => handlePurchaseOrderChange(val)}
-              options={filteredPurchaseOrders.map((po) => ({
-                label: po.orderNumber,
-                value: po.id,
-              }))}
-              disabled={readonly || !formData.contactId}
-              placeholder="Select PO..."
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Purchase Invoice (Optional)</Label>
-            <CustomSelect
-              value={formData.purchaseInvoiceId || ""}
-              onValueChange={(val: any) =>
-                setFormData((prev) => ({ ...prev, purchaseInvoiceId: val }))
-              }
-              options={filteredPurchaseInvoices.map((pi) => ({
-                label: pi.invoiceNumber,
-                value: pi.id,
-              }))}
-              disabled={readonly || !formData.contactId}
-              placeholder="Select Invoice..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Department</Label>
-              <SearchableSelect
-                value={formData.departmentId || ""}
-                onValueChange={(val) =>
-                  setFormData((prev) => ({ ...prev, departmentId: val || null }))
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back();
+                } else {
+                  window.close();
                 }
-                options={departments.map((d) => ({
-                  value: d.id,
-                  label: d.name,
-                }))}
-                placeholder="Select Department"
-                disabled={readonly}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Project</Label>
-              <SearchableSelect
-                value={formData.projectId || ""}
-                onValueChange={(val) =>
-                  setFormData((prev) => ({ ...prev, projectId: val || null }))
-                }
-                options={projects.map((p) => ({
-                  value: p.id,
-                  label: p.name,
-                }))}
-                placeholder="Select Project"
-                disabled={readonly}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Return Date</Label>
-              <CustomInput
-                type="date"
-                value={
-                  formData.returnDate instanceof Date
-                    ? formData.returnDate.toISOString().split("T")[0]
-                    : formData.returnDate
-                }
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    returnDate: new Date(e.target.value),
-                  }))
-                }
-                disabled={readonly}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <CustomSelect
-              value={formData.status || "DRAFT"}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onValueChange={(val: any) =>
-                setFormData((prev) => ({ ...prev, status: val }))
-              }
-              options={[
-                { label: "Draft", value: "DRAFT" },
-                { label: "Approved", value: "APPROVED" },
-                { label: "Completed", value: "COMPLETED" },
-                { label: "Cancelled", value: "CANCELLED" },
-              ]}
-              disabled={
-                readonly ||
-                returnItem?.status === "COMPLETED" ||
-                returnItem?.status === "CANCELLED"
-              }
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Notes</Label>
-            <CustomTextarea
-              value={formData.notes || ""}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
-              placeholder="Additional notes..."
-              disabled={readonly}
-            />
-            <div className="flex flex-col gap-2 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAttachmentDialogOpen(true)}
-                className="w-fit"
-              >
-                <Paperclip className="mr-2 h-4 w-4" />
-                Attachments ({attachments.length})
-              </Button>
-              <div className="flex flex-wrap gap-2">
-                {attachments.map((file) => (
-                  <div
-                    key={file.id}
-                    className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
-                  >
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline"
-                    >
-                      {file.name}
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Return Items</h3>
-          </div>
-
-          <div className="rounded-md border">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
+              }}
             >
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px]"></TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="w-[150px]">Quantity</TableHead>
-                    <TableHead className="w-[80px]">Unit</TableHead>
-                    <TableHead className="w-[150px]">Unit Price</TableHead>
-                    <TableHead className="w-[150px] text-right">
-                      Total
-                    </TableHead>
-                    {!readonly && <TableHead className="w-[50px]"></TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <SortableContext
-                    items={formData.items.map((item) => item.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {formData.items.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
-                          className="text-center h-24 text-muted-foreground"
-                        >
-                          No items selected. Select a Purchase Order to populate
-                          items.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      formData.items.map((item, index) => (
-                        <SortableTableRow key={item.id} id={item.id}>
-                          <TableCell>
-                            {getProductName(item.productId)}
-                          </TableCell>
-                          <TableCell>
-                            <CustomInput
-                              type="number"
-                              min="0"
-                              value={item.quantity}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "quantity",
-                                  Number(e.target.value),
-                                )
-                              }
-                              disabled={readonly}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <CustomInput
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={item.unitPrice}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "unitPrice",
-                                  Number(e.target.value),
-                                )
-                              }
-                              disabled={readonly}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {(item.quantity * item.unitPrice).toLocaleString()}
-                          </TableCell>
-                          {!readonly && (
-                            <TableCell>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveItem(index)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          )}
-                        </SortableTableRow>
-                      ))
-                    )}
-                  </SortableContext>
-                </TableBody>
-              </Table>
-            </DndContext>
-          </div>
+              <ArrowLeftSquare className="mr-2 h-4 w-4" />
+              {tCommon("close")}
+            </Button>
+          )}
+        </PageFormActions>
+      </PageFormHeader>
+      <PageFormContent className="grid gap-3 mt-3 p-0 bg-transparent border-none shadow-none">
+        <form onSubmit={handleSubmit} className="space-y-3 w-full">
+          <div className="space-y-3">
+            <Card>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomInput
+                        label={t("return_number")}
+                        value={formData.returnNumber}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            returnNumber: e.target.value,
+                          })
+                        }
+                        placeholder={t("placeholder_auto_generate")}
+                        disabled={readonly}
+                        required
+                      />
+                      <div>
+                        <label className="text-sm font-medium">
+                          {t("vendor")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.contactId}
+                          onValueChange={(val: any) => handleContactChange(val)}
+                          options={vendors.map((v) => ({
+                            label: v.name,
+                            value: v.id,
+                          }))}
+                          disabled={readonly}
+                          placeholder={t("placeholder_select_vendor")}
+                        />
+                      </div>
+                    </div>
 
-          <div className="flex justify-end">
-            <div className="text-right">
-              <span className="font-medium mr-4">Total Amount:</span>
-              <span className="text-xl font-bold">
-                {calculateTotal().toLocaleString()}
-              </span>
-            </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomSelect
+                        label={t("purchase_order_optional")}
+                        value={formData.purchaseOrderId || ""}
+                        onValueChange={(val: any) =>
+                          handlePurchaseOrderChange(val)
+                        }
+                        options={filteredPurchaseOrders.map((po) => ({
+                          label: po.orderNumber,
+                          value: po.id,
+                        }))}
+                        disabled={readonly || !formData.contactId}
+                        placeholder={t("placeholder_select_purchase_order")}
+                      />
+
+                      <CustomSelect
+                        label={t("purchase_invoice_optional")}
+                        value={formData.purchaseInvoiceId || ""}
+                        onValueChange={(val: any) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            purchaseInvoiceId: val,
+                          }))
+                        }
+                        options={filteredPurchaseInvoices.map((pi) => ({
+                          label: pi.invoiceNumber,
+                          value: pi.id,
+                        }))}
+                        disabled={readonly || !formData.contactId}
+                        placeholder={t("placeholder_select_invoice")}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomInput
+                        label={t("return_date")}
+                        type="date"
+                        value={
+                          formData.returnDate instanceof Date
+                            ? formData.returnDate.toISOString().split("T")[0]
+                            : formData.returnDate
+                        }
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            returnDate: new Date(e.target.value),
+                          }))
+                        }
+                        disabled={readonly}
+                      />
+
+                      <CustomSelect
+                        label={t("status")}
+                        value={formData.status || "DRAFT"}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        onValueChange={(val: any) =>
+                          setFormData((prev) => ({ ...prev, status: val }))
+                        }
+                        options={[
+                          { label: t("status_draft"), value: "DRAFT" },
+                          { label: t("status_approved"), value: "APPROVED" },
+                          { label: t("status_completed"), value: "COMPLETED" },
+                          { label: t("status_cancelled"), value: "CANCELLED" },
+                        ]}
+                        disabled={
+                          readonly ||
+                          returnItem?.status === "COMPLETED" ||
+                          returnItem?.status === "CANCELLED"
+                        }
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("department")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.departmentId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              departmentId: val || null,
+                            }))
+                          }
+                          options={departments.map((d) => ({
+                            value: d.id,
+                            label: d.name,
+                          }))}
+                          placeholder={t("placeholder_select_department")}
+                          disabled={readonly}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("project")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.projectId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              projectId: val || null,
+                            }))
+                          }
+                          options={projects.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                          }))}
+                          placeholder={t("placeholder_select_project")}
+                          disabled={readonly}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsAttachmentDialogOpen(true)}
+                        className="w-fit"
+                      >
+                        <Paperclip className="mr-2 h-4 w-4" />
+                        {tCommon("attachments")} ({attachments.length})
+                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        {attachments.map((file) => (
+                          <div
+                            key={file.id}
+                            className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
+                          >
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline"
+                            >
+                              {file.name}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <CustomTextarea
+                    value={formData.notes || ""}
+                    label={t("notes")}
+                    className="resize-none h-[77%]"
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    placeholder={t("placeholder_notes")}
+                    disabled={readonly}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between py-3">
+                <CardTitle className="text-lg">{t("return_items")}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px]"></TableHead>
+                        <TableHead>{tCommon("product")}</TableHead>
+                        <TableHead className="w-[150px]">
+                          {tCommon("quantity")}
+                        </TableHead>
+                        <TableHead className="w-[80px]">
+                          {tCommon("unit")}
+                        </TableHead>
+                        <TableHead className="w-[150px]">
+                          {tCommon("price")}
+                        </TableHead>
+                        <TableHead className="w-[150px] text-right">
+                          {tCommon("total")}
+                        </TableHead>
+                        {!readonly && (
+                          <TableHead className="w-[50px]"></TableHead>
+                        )}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <SortableContext
+                        items={formData.items.map((item) => item.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {formData.items.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="text-center h-24 text-muted-foreground"
+                            >
+                              {t("no_returns_found")}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          formData.items.map((item, index) => (
+                            <SortableTableRow key={item.id} id={item.id}>
+                              <TableCell>
+                                {getProductName(item.productId)}
+                              </TableCell>
+                              <TableCell>
+                                <CustomInput
+                                  type="number"
+                                  min="0"
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "quantity",
+                                      Number(e.target.value),
+                                    )
+                                  }
+                                  disabled={readonly}
+                                />
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {getProductUnit(item.productId)}
+                              </TableCell>
+                              <TableCell>
+                                <CustomInput
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.unitPrice}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "unitPrice",
+                                      Number(e.target.value),
+                                    )
+                                  }
+                                  disabled={readonly}
+                                />
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(item.quantity * item.unitPrice)}
+                              </TableCell>
+                              {!readonly && (
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveItem(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              )}
+                            </SortableTableRow>
+                          ))
+                        )}
+                      </SortableContext>
+                    </TableBody>
+                  </Table>
+                </DndContext>
+                <div className="flex justify-between items-start p-3 border-t">
+                  <div className="text-right">
+                    <span className="font-medium mr-4">
+                      {tCommon("total")}:
+                    </span>
+                    <span className="text-xl font-bold">
+                      {formatCurrency(calculateTotal())}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      </form>
+        </form>
+      </PageFormContent>
 
       <AttachmentDialog
         open={isAttachmentDialogOpen}
@@ -629,6 +689,6 @@ export function PurchaseReturnForm({
         }}
         readonly={readonly}
       />
-    </div>
+    </PageFormLayout>
   );
 }

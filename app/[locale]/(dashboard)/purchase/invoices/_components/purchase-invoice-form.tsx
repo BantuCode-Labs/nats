@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomInput } from "@/components/ui/custom-input";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { CustomTextarea } from "@/components/ui/custom-textarea";
-import { SelectItem } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -59,6 +58,7 @@ import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import {
   PageFormActions,
   PageFormContent,
@@ -98,6 +98,7 @@ export function PurchaseInvoiceForm({
   const isEditing = !!invoice;
   const confirm = useConfirm();
   const { toast } = useToast();
+  const formatCurrency = useFormatCurrency();
   const t = useTranslations("Purchase");
   const tCommon = useTranslations("Common");
 
@@ -243,26 +244,29 @@ export function PurchaseInvoiceForm({
     setFormData((prev) => ({ ...prev, items: newItems }));
   };
 
-  const calculateItemValues = (item: (typeof formData.items)[0]) => {
-    const quantity = item.quantity || 0;
-    const unitPrice = item.unitPrice || 0;
-    const subtotal = quantity * unitPrice;
-    const discountAmount = subtotal * ((item.discount || 0) / 100);
-    const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const calculateItemValues = useCallback(
+    (item: PurchaseInvoiceInput["items"][0] & { id: string }) => {
+      const quantity = item.quantity || 0;
+      const unitPrice = item.unitPrice || 0;
+      const subtotal = quantity * unitPrice;
+      const discountAmount = subtotal * ((item.discount || 0) / 100);
+      const taxableAmount = Math.max(0, subtotal - discountAmount);
 
-    let taxAmount = 0;
-    if (item.taxRateId) {
-      const rateObj = taxRates.find((r) => r.id === item.taxRateId);
-      if (rateObj) {
-        taxAmount = taxableAmount * (Number(rateObj.rate) / 100);
+      let taxAmount = 0;
+      if (item.taxRateId) {
+        const rateObj = taxRates.find((r) => r.id === item.taxRateId);
+        if (rateObj) {
+          taxAmount = taxableAmount * (Number(rateObj.rate) / 100);
+        }
+      } else {
+        taxAmount = item.tax || 0;
       }
-    } else {
-      taxAmount = item.tax || 0;
-    }
 
-    const total = taxableAmount + taxAmount;
-    return { subtotal, discountAmount, taxableAmount, taxAmount, total };
-  };
+      const total = taxableAmount + taxAmount;
+      return { subtotal, discountAmount, taxableAmount, taxAmount, total };
+    },
+    [taxRates],
+  );
 
   useEffect(() => {
     const calculatedTotalTax = formData.items.reduce((sum, item) => {
@@ -274,7 +278,7 @@ export function PurchaseInvoiceForm({
     if (Math.abs(calculatedTotalTax - formData.totalTax) > 0.001) {
       setFormData((prev) => ({ ...prev, totalTax: calculatedTotalTax }));
     }
-  }, [formData.items]);
+  }, [formData.items, formData.totalTax, calculateItemValues]);
 
   const itemsTotal = formData.items.reduce(
     (sum, item) => sum + calculateItemValues(item).total,
@@ -341,7 +345,14 @@ export function PurchaseInvoiceForm({
     try {
       const submissionData = {
         ...formData,
-        items: formData.items.map(({ id, ...item }) => item),
+        items: formData.items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discount,
+          tax: item.tax,
+          taxRateId: item.taxRateId || undefined,
+        })),
         attachmentIds: attachments.map((a) => a.id),
       };
       let result;
@@ -466,11 +477,7 @@ export function PurchaseInvoiceForm({
             )}
             {!readonly && (
               <>
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  onClick={handleSubmit}
-                >
+                <Button type="submit" disabled={isLoading}>
                   {isLoading && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
@@ -508,19 +515,14 @@ export function PurchaseInvoiceForm({
                         }
                         placeholder={t("placeholder_select_purchase_order")}
                         disabled={readonly}
-                      >
-                        <SelectItem value="none">None</SelectItem>
-                        {filteredPurchaseOrders.map((po) => (
-                          <SelectItem key={po.id} value={po.id}>
-                            <div className="flex items-center">
-                              <span>{po.orderNumber}</span>
-                              <span className="text-muted-foreground ml-2">
-                                ({po.contact.name})
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </CustomSelect>
+                        options={[
+                          { label: "None", value: "none" },
+                          ...filteredPurchaseOrders.map((po) => ({
+                            label: `${po.orderNumber} (${po.contact.name})`,
+                            value: po.id,
+                          })),
+                        ]}
+                      />
 
                       <CustomInput
                         label={t("invoice_number")}
@@ -645,7 +647,6 @@ export function PurchaseInvoiceForm({
                       <CustomSelect
                         value={formData.status}
                         label={t("status")}
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         onValueChange={(val: any) =>
                           setFormData((prev) => ({ ...prev, status: val }))
                         }
@@ -654,15 +655,14 @@ export function PurchaseInvoiceForm({
                           invoice.status === "PAID" ||
                           invoice.status === "CANCELED"
                         }
-                      >
-                        <SelectItem value="DRAFT">Draft</SelectItem>
-                        <SelectItem value="BILLED">Billed</SelectItem>
-                        <SelectItem value="PAID">Paid</SelectItem>
-                        <SelectItem value="PARTIALLY_PAID">
-                          Partially Paid
-                        </SelectItem>
-                        <SelectItem value="CANCELED">Canceled</SelectItem>
-                      </CustomSelect>
+                        options={[
+                          { label: "Draft", value: "DRAFT" },
+                          { label: "Billed", value: "BILLED" },
+                          { label: "Paid", value: "PAID" },
+                          { label: "Partially Paid", value: "PARTIALLY_PAID" },
+                          { label: "Canceled", value: "CANCELED" },
+                        ]}
+                      />
                     )}
                   </div>
 
@@ -748,7 +748,7 @@ export function PurchaseInvoiceForm({
                     </TableHeader>
                     <TableBody>
                       <SortableContext
-                        items={formData.items}
+                        items={formData.items.map((item) => item.id)}
                         strategy={verticalListSortingStrategy}
                       >
                         {formData.items.map((item, index) => (
@@ -811,27 +811,24 @@ export function PurchaseInvoiceForm({
                               />
                             </TableCell>
                             <TableCell>
-                              <select
-                                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={item.taxRateId || ""}
-                                onChange={(e) =>
+                              <CustomSelect
+                                value={item.taxRateId || "manual"}
+                                onValueChange={(val) =>
                                   handleItemChange(
                                     index,
                                     "taxRateId",
-                                    e.target.value === ""
-                                      ? undefined
-                                      : e.target.value,
+                                    val === "manual" ? undefined : val,
                                   )
                                 }
                                 disabled={readonly}
-                              >
-                                <option value="">Manual</option>
-                                {taxRates.map((rate) => (
-                                  <option key={rate.id} value={rate.id}>
-                                    {rate.name} ({Number(rate.rate)}%)
-                                  </option>
-                                ))}
-                              </select>
+                                options={[
+                                  { label: "Manual", value: "manual" },
+                                  ...taxRates.map((rate) => ({
+                                    label: `${rate.name} (${Number(rate.rate)}%)`,
+                                    value: rate.id,
+                                  })),
+                                ]}
+                              />
                               {!item.taxRateId && (
                                 <CustomInput
                                   type="number"
@@ -852,9 +849,9 @@ export function PurchaseInvoiceForm({
                             </TableCell>
                             <TableCell>
                               <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm">
-                                {calculateItemValues(
-                                  item,
-                                ).total.toLocaleString()}
+                                {formatCurrency(
+                                  calculateItemValues(item).total,
+                                )}
                               </div>
                             </TableCell>
                             {!readonly && (
@@ -897,7 +894,7 @@ export function PurchaseInvoiceForm({
                         {t("subtotal_net")}
                       </span>
                       <span className="text-sm">
-                        {itemsNetTotal.toLocaleString()}
+                        {formatCurrency(itemsNetTotal)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center gap-2">
@@ -964,7 +961,7 @@ export function PurchaseInvoiceForm({
                         {tCommon("total")}
                       </span>
                       <span className="font-bold text-sm">
-                        {totalAmount.toLocaleString()}
+                        {formatCurrency(totalAmount)}
                       </span>
                     </div>
                   </div>
