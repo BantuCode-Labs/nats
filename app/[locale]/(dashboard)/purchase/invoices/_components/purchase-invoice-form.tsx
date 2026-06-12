@@ -8,7 +8,6 @@ import { CustomInput } from "@/components/ui/custom-input";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { CustomTextarea } from "@/components/ui/custom-textarea";
 import { SelectItem } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -16,7 +15,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableFooter,
 } from "@/components/ui/table";
 import {
   DndContext,
@@ -32,9 +30,8 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-  useSortable,
 } from "@dnd-kit/sortable";
-import { Loader2, Plus, Trash2, GripVertical, PlusIcon } from "lucide-react";
+import { Loader2, Trash2, PlusIcon } from "lucide-react";
 import {
   createPurchaseInvoice,
   updatePurchaseInvoice,
@@ -44,7 +41,7 @@ import {
 import { TaxRate } from "@/prisma/generated/prisma/client";
 import { PurchaseInvoiceWithDetails, PurchaseInvoiceInput } from "../types";
 import { PurchaseOrderWithDetails } from "../../orders/types";
-import { useFormatDate } from "@/hooks";
+import { format } from "date-fns";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { SortableTableRow } from "@/components/ui/sortable-row";
 import { generateId } from "@/lib/utils";
@@ -52,12 +49,23 @@ import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useToast } from "@/hooks/use-toast";
-import { AttachmentDialog, Attachment } from "@/components/ui/attachment-dialog";
+import {
+  AttachmentDialog,
+  Attachment,
+} from "@/components/ui/attachment-dialog";
 import { uploadFile } from "@/app/[locale]/(dashboard)/general/files/actions";
 import { Paperclip } from "lucide-react";
 import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import {
+  PageFormActions,
+  PageFormContent,
+  PageFormHeader,
+  PageFormLayout,
+  PageFormTitle,
+} from "@/components/layout/page/form-layout";
 
 interface PurchaseInvoiceFormProps {
   invoice?: SuperJSONResult | null;
@@ -88,16 +96,17 @@ export function PurchaseInvoiceForm({
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const isEditing = !!invoice;
-  const formatDate = useFormatDate();
   const confirm = useConfirm();
   const { toast } = useToast();
+  const t = useTranslations("Purchase");
+  const tCommon = useTranslations("Common");
 
   const [attachments, setAttachments] = useState<Attachment[]>(
     invoice?.attachments?.map((a) => ({
       id: a.id,
       name: a.name,
       url: a.url,
-    })) || []
+    })) || [],
   );
   const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
 
@@ -160,7 +169,6 @@ export function PurchaseInvoiceForm({
 
     if (poId) {
       try {
-        const po = purchaseOrders.find((p) => p.id === poId);
         // Note: We might need to fetch full PO details if items are not passed fully,
         // but here we rely on purchaseOrders prop or fetch if needed.
         // Actually getPurchaseOrder action is available.
@@ -176,7 +184,7 @@ export function PurchaseInvoiceForm({
             contactId: fullPo.contactId,
             // Inherit dimensions from PO if available and not already set
             departmentId: fullPo.departmentId || prev.departmentId,
-            projectId: fullPo.projectId || prev.projectId
+            projectId: fullPo.projectId || prev.projectId,
           }));
 
           // Populate items from PO
@@ -187,7 +195,9 @@ export function PurchaseInvoiceForm({
             unitPrice: Number(item.unitCost),
             discount: 0,
             tax: 0,
-            taxRateId: (item as any).taxRateId || taxRates.find(r => r.code === "VAT-S")?.id,
+            taxRateId:
+              (item as any).taxRateId ||
+              taxRates.find((r) => r.code === "VAT-S")?.id,
           }));
 
           setFormData((prev) => ({ ...prev, items: newItems }));
@@ -210,7 +220,7 @@ export function PurchaseInvoiceForm({
           unitPrice: 0,
           discount: 0,
           tax: 0,
-          taxRateId: taxRates.find(r => r.code === "VAT-S")?.id,
+          taxRateId: taxRates.find((r) => r.code === "VAT-S")?.id,
         },
       ],
     }));
@@ -242,7 +252,7 @@ export function PurchaseInvoiceForm({
 
     let taxAmount = 0;
     if (item.taxRateId) {
-      const rateObj = taxRates.find(r => r.id === item.taxRateId);
+      const rateObj = taxRates.find((r) => r.id === item.taxRateId);
       if (rateObj) {
         taxAmount = taxableAmount * (Number(rateObj.rate) / 100);
       }
@@ -354,7 +364,8 @@ export function PurchaseInvoiceForm({
       console.error(error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred",
+        description:
+          error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
     } finally {
@@ -367,7 +378,8 @@ export function PurchaseInvoiceForm({
     if (
       !(await confirm({
         title: "Post Invoice",
-        description: "Are you sure you want to post this invoice? This will create a journal entry and cannot be undone.",
+        description:
+          "Are you sure you want to post this invoice? This will create a journal entry and cannot be undone.",
       }))
     ) {
       return;
@@ -411,7 +423,8 @@ export function PurchaseInvoiceForm({
       console.error(error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "An error occurred",
+        description:
+          error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
     } finally {
@@ -425,247 +438,282 @@ export function PurchaseInvoiceForm({
     : purchaseOrders;
 
   return (
-    <div className="flex-1 space-y-4 px-4">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-xl font-bold tracking-tight">
-          New Purchase Invoice
-        </h2>
-        <div className="flex gap-2">
-          {invoice ? (
-            <Button asChild type="button" variant="outline" size="sm">
-              <Link
-                href={`/admin/integrations/outbox?search=${encodeURIComponent(invoice.id)}`}
+    <PageFormLayout>
+      <form onSubmit={handleSubmit}>
+        <PageFormHeader>
+          <PageFormTitle
+            title={isEditing ? t("edit_invoice") : t("new_invoice")}
+          />
+          <PageFormActions>
+            {invoice && (
+              <Button asChild type="button" variant="outline" size="sm">
+                <Link
+                  href={`/admin/integrations/outbox?search=${encodeURIComponent(invoice.id)}`}
+                >
+                  Outbox
+                </Link>
+              </Button>
+            )}
+            {invoice?.status === "DRAFT" && (
+              <Button
+                type="button"
+                variant="default"
+                onClick={handlePost}
+                disabled={isLoading}
               >
-                Outbox
-              </Link>
-            </Button>
-          ) : null}
-          {invoice?.status === "DRAFT" && (
+                Post Invoice
+              </Button>
+            )}
+            {!readonly && (
+              <>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  onClick={handleSubmit}
+                >
+                  {isLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isEditing ? tCommon("update") : tCommon("create")}
+                </Button>
+              </>
+            )}
             <Button
               type="button"
-              variant="default"
-              onClick={handlePost}
-              disabled={isLoading}
+              variant="outline"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back();
+                } else {
+                  window.close();
+                }
+              }}
             >
-              Post Invoice
+              {tCommon("close")}
             </Button>
-          )}
-          {!readonly && (
-            <>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? "Update" : "Create"}
-              </Button>
-            </>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              if (window.history.length > 1) {
-                router.back();
-              } else {
-                window.close();
-              }
-            }}
-          >
-            Close
-          </Button>
-
-        </div>
-      </div>
-      <form onSubmit={handleSubmit}>
-        <div className="grid gap-4">
-          <div className="space-y-4">
+          </PageFormActions>
+        </PageFormHeader>
+        <PageFormContent className="grid gap-3 mt-3 p-0 bg-transparent border-none shadow-none">
+          <div className="space-y-3">
             <Card>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <CustomSelect
-                  label="Purchase Order (Optional)"
-                  value={formData.purchaseOrderId || "none"}
-                  onValueChange={(val) =>
-                    handlePurchaseOrderChange(val === "none" ? "" : val)
-                  }
-                  placeholder="Select Purchase Order"
-                  disabled={readonly}
-                >
-                  <SelectItem value="none">None</SelectItem>
-                  {filteredPurchaseOrders.map((po) => (
-                    <SelectItem key={po.id} value={po.id}>
-                      <div className="flex items-center">
-                        <span>{po.orderNumber}</span>
-                        <span className="text-muted-foreground ml-2">
-                          ({po.contact.name})
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </CustomSelect>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Department</Label>
-                    <SearchableSelect
-                      value={formData.departmentId || ""}
-                      onValueChange={(val) => setFormData(prev => ({ ...prev, departmentId: val || null }))}
-                      options={departments.map(d => ({ value: d.id, label: d.name }))}
-                      placeholder="Select Department"
-                      disabled={readonly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Project</Label>
-                    <SearchableSelect
-                      value={formData.projectId || ""}
-                      onValueChange={(val) => setFormData(prev => ({ ...prev, projectId: val || null }))}
-                      options={projects.map(p => ({ value: p.id, label: p.name }))}
-                      placeholder="Select Project"
-                      disabled={readonly}
-                    />
-                  </div>
-                </div>
-
-                <CustomInput
-                  label="Invoice Number"
-                  value={formData.invoiceNumber}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      invoiceNumber: e.target.value,
-                    }))
-                  }
-                  placeholder="e.g. INV-001"
-                  disabled={readonly}
-                />
-
-                <CustomSelect
-                  value={formData.contactId}
-                  label="Vendor"
-                  onValueChange={(val) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      contactId: val,
-                      purchaseOrderId: undefined,
-                    }));
-                  }}
-                  placeholder="Select Vendor"
-                  disabled={readonly || !!formData.purchaseOrderId}
-                >
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </CustomSelect>
-
-                <CustomInput
-                  label="Invoice Date"
-                  type="date"
-                  value={
-                    formData.invoiceDate
-                      ? formatDate(formData.invoiceDate)
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      invoiceDate: e.target.value
-                        ? new Date(e.target.value)
-                        : new Date(),
-                    }))
-                  }
-                  disabled={readonly}
-                />
-
-                <CustomInput
-                  label="Due Date"
-                  type="date"
-                  value={
-                    formData.dueDate
-                      ? formatDate(formData.dueDate)
-                      : ""
-                  }
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      dueDate: e.target.value
-                        ? new Date(e.target.value)
-                        : new Date(),
-                    }))
-                  }
-                  disabled={readonly}
-                />
-
-                {isEditing && (
-                  <CustomSelect
-                    value={formData.status}
-                    label="Status"
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onValueChange={(val: any) =>
-                      setFormData((prev) => ({ ...prev, status: val }))
-                    }
-                    disabled={
-                      readonly ||
-                      invoice.status === "PAID" ||
-                      invoice.status === "CANCELED"
-                    }
-                  >
-                    <SelectItem value="DRAFT">Draft</SelectItem>
-                    <SelectItem value="BILLED">Billed</SelectItem>
-                    <SelectItem value="PAID">Paid</SelectItem>
-                    <SelectItem value="PARTIALLY_PAID">
-                      Partially Paid
-                    </SelectItem>
-                    <SelectItem value="CANCELED">Canceled</SelectItem>
-                  </CustomSelect>
-                )}
-                <CustomTextarea
-                  label="Notes"
-                  value={formData.notes || ""}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      notes: e.target.value,
-                    }))
-                  }
-                  placeholder="Add notes here..."
-                  disabled={readonly}
-                />
-                <div className="col-span-2">
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAttachmentDialogOpen(true)}
-                      className="w-fit"
-                    >
-                      <Paperclip className="mr-2 h-4 w-4" />
-                      Attachments ({attachments.length})
-                    </Button>
-                    <div className="flex flex-wrap gap-2">
-                      {attachments.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
-                        >
-                          <a
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:underline"
-                          >
-                            {file.name}
-                          </a>
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomSelect
+                        label={t("purchase_order_optional")}
+                        value={formData.purchaseOrderId || "none"}
+                        onValueChange={(val) =>
+                          handlePurchaseOrderChange(val === "none" ? "" : val)
+                        }
+                        placeholder={t("placeholder_select_purchase_order")}
+                        disabled={readonly}
+                      >
+                        <SelectItem value="none">None</SelectItem>
+                        {filteredPurchaseOrders.map((po) => (
+                          <SelectItem key={po.id} value={po.id}>
+                            <div className="flex items-center">
+                              <span>{po.orderNumber}</span>
+                              <span className="text-muted-foreground ml-2">
+                                ({po.contact.name})
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </CustomSelect>
+
+                      <CustomInput
+                        label={t("invoice_number")}
+                        value={formData.invoiceNumber}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            invoiceNumber: e.target.value,
+                          }))
+                        }
+                        placeholder={t("placeholder_auto_generate")}
+                        disabled={readonly}
+                      />
                     </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomInput
+                        label={t("invoice_date")}
+                        type="date"
+                        value={
+                          formData.invoiceDate
+                            ? format(formData.invoiceDate, "yyyy-MM-dd")
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            invoiceDate: e.target.value
+                              ? new Date(e.target.value)
+                              : new Date(),
+                          }))
+                        }
+                        disabled={readonly}
+                      />
+
+                      <CustomInput
+                        label={t("due_date")}
+                        type="date"
+                        value={
+                          formData.dueDate
+                            ? format(formData.dueDate, "yyyy-MM-dd")
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            dueDate: e.target.value
+                              ? new Date(e.target.value)
+                              : new Date(),
+                          }))
+                        }
+                        disabled={readonly}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("vendor")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.contactId}
+                          onValueChange={(val) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              contactId: val as string,
+                              purchaseOrderId: undefined,
+                            }));
+                          }}
+                          options={vendors.map((v) => ({
+                            value: v.id,
+                            label: v.name,
+                          }))}
+                          placeholder={t("placeholder_select_vendor")}
+                          disabled={readonly || !!formData.purchaseOrderId}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("department")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.departmentId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              departmentId: val || null,
+                            }))
+                          }
+                          options={departments.map((d) => ({
+                            value: d.id,
+                            label: d.name,
+                          }))}
+                          placeholder={t("placeholder_select_department")}
+                          disabled={readonly}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("project")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.projectId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              projectId: val || null,
+                            }))
+                          }
+                          options={projects.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                          }))}
+                          placeholder={t("placeholder_select_project")}
+                          disabled={readonly}
+                        />
+                      </div>
+                    </div>
+
+                    {isEditing && (
+                      <CustomSelect
+                        value={formData.status}
+                        label={t("status")}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        onValueChange={(val: any) =>
+                          setFormData((prev) => ({ ...prev, status: val }))
+                        }
+                        disabled={
+                          readonly ||
+                          invoice.status === "PAID" ||
+                          invoice.status === "CANCELED"
+                        }
+                      >
+                        <SelectItem value="DRAFT">Draft</SelectItem>
+                        <SelectItem value="BILLED">Billed</SelectItem>
+                        <SelectItem value="PAID">Paid</SelectItem>
+                        <SelectItem value="PARTIALLY_PAID">
+                          Partially Paid
+                        </SelectItem>
+                        <SelectItem value="CANCELED">Canceled</SelectItem>
+                      </CustomSelect>
+                    )}
+                  </div>
+
+                  <CustomTextarea
+                    value={formData.notes || ""}
+                    label={t("notes")}
+                    className="resize-none h-[85%]"
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
+                    placeholder={t("placeholder_notes")}
+                    disabled={readonly}
+                  />
+                </div>
+                <div className="flex flex-col gap-2 mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAttachmentDialogOpen(true)}
+                    className="w-fit"
+                  >
+                    <Paperclip className="mr-2 h-4 w-4" />
+                    {tCommon("attachments")} ({attachments.length})
+                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {attachments.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
+                      >
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {file.name}
+                        </a>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Products</CardTitle>
+              <CardHeader className="flex flex-row items-center justify-between py-3">
+                <CardTitle className="text-lg">{tCommon("products")}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <DndContext
@@ -677,15 +725,22 @@ export function PurchaseInvoiceForm({
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[40px]"></TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="w-[200px]">Account</TableHead>
-                        <TableHead className="w-[100px]">Qty</TableHead>
-                        <TableHead className="w-[120px]">Unit Price</TableHead>
-                        <TableHead className="w-[120px]">
-                          Discount (%)
+                        <TableHead>{tCommon("description")}</TableHead>
+                        <TableHead className="w-[100px]">
+                          {tCommon("quantity")}
                         </TableHead>
-                        <TableHead className="w-[180px]">Tax Rate</TableHead>
-                        <TableHead className="w-[100px]">Total</TableHead>
+                        <TableHead className="w-[120px]">
+                          {tCommon("price")}
+                        </TableHead>
+                        <TableHead className="w-[120px]">
+                          {tCommon("discount")} (%)
+                        </TableHead>
+                        <TableHead className="w-[180px]">
+                          {tCommon("tax_rate")}
+                        </TableHead>
+                        <TableHead className="w-[100px]">
+                          {tCommon("total")}
+                        </TableHead>
                         {!readonly && (
                           <TableHead className="w-[50px]"></TableHead>
                         )}
@@ -763,7 +818,9 @@ export function PurchaseInvoiceForm({
                                   handleItemChange(
                                     index,
                                     "taxRateId",
-                                    e.target.value === "" ? undefined : e.target.value
+                                    e.target.value === ""
+                                      ? undefined
+                                      : e.target.value,
                                   )
                                 }
                                 disabled={readonly}
@@ -789,7 +846,7 @@ export function PurchaseInvoiceForm({
                                   }
                                   disabled={readonly}
                                   className="mt-1"
-                                  placeholder="Amount"
+                                  placeholder={tCommon("amount")}
                                 />
                               )}
                             </TableCell>
@@ -820,11 +877,11 @@ export function PurchaseInvoiceForm({
                   </Table>
                 </DndContext>
                 {formData.items.length === 0 && (
-                  <div className="py-8 text-center text-muted-foreground">
-                    No items added.
+                  <div className="py-4 text-center text-muted-foreground">
+                    {t("no_items_added")}
                   </div>
                 )}
-                <div className="flex justify-between items-start p-4 border-t">
+                <div className="flex justify-between items-start p-3 border-t">
                   <Button
                     type="button"
                     variant="outline"
@@ -832,18 +889,20 @@ export function PurchaseInvoiceForm({
                     size="sm"
                     onClick={handleAddItem}
                   >
-                    <PlusIcon /> Add Item
+                    <PlusIcon /> {t("add_item")}
                   </Button>
-                  <div className="w-1/3 space-y-2">
+                  <div className="w-1/3 space-y-1">
                     <div className="flex justify-between">
                       <span className="text-sm font-medium">
-                        Subtotal (Net)
+                        {t("subtotal_net")}
                       </span>
-                      <span>{itemsNetTotal.toLocaleString()}</span>
+                      <span className="text-sm">
+                        {itemsNetTotal.toLocaleString()}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center gap-2">
                       <span className="text-sm font-medium">
-                        Global Discount
+                        {t("global_discount")}
                       </span>
                       <CurrencyInput
                         value={formData.globalDiscount}
@@ -854,20 +913,24 @@ export function PurchaseInvoiceForm({
                           }))
                         }
                         disabled={readonly}
-                        className="w-24 h-8"
+                        className="w-24 h-7"
                       />
                     </div>
                     <div className="flex justify-between items-center gap-2">
-                      <span className="text-sm font-medium">Total Tax</span>
+                      <span className="text-sm font-medium">
+                        {t("total_tax")}
+                      </span>
                       <CurrencyInput
                         value={formData.totalTax}
-                        onChange={() => { }}
+                        onChange={() => {}}
                         disabled={true}
-                        className="w-24 h-8 bg-muted"
+                        className="w-24 h-7 bg-muted"
                       />
                     </div>
                     <div className="flex justify-between items-center gap-2">
-                      <span className="text-sm font-medium">Shipping</span>
+                      <span className="text-sm font-medium">
+                        {t("shipping")}
+                      </span>
                       <CurrencyInput
                         value={formData.shippingCost}
                         onChange={(val) =>
@@ -877,11 +940,13 @@ export function PurchaseInvoiceForm({
                           }))
                         }
                         disabled={readonly}
-                        className="w-24 h-8"
+                        className="w-24 h-7"
                       />
                     </div>
                     <div className="flex justify-between items-center gap-2">
-                      <span className="text-sm font-medium">Handling</span>
+                      <span className="text-sm font-medium">
+                        {t("handling")}
+                      </span>
                       <CurrencyInput
                         value={formData.handlingCost}
                         onChange={(val) =>
@@ -891,12 +956,14 @@ export function PurchaseInvoiceForm({
                           }))
                         }
                         disabled={readonly}
-                        className="w-24 h-8"
+                        className="w-24 h-7"
                       />
                     </div>
-                    <div className="flex justify-between border-t pt-2">
-                      <span className="font-bold">Total</span>
-                      <span className="font-bold">
+                    <div className="flex justify-between border-t pt-1 mt-1">
+                      <span className="font-bold text-sm">
+                        {tCommon("total")}
+                      </span>
+                      <span className="font-bold text-sm">
                         {totalAmount.toLocaleString()}
                       </span>
                     </div>
@@ -905,7 +972,7 @@ export function PurchaseInvoiceForm({
               </CardContent>
             </Card>
           </div>
-        </div>
+        </PageFormContent>
       </form>
 
       <AttachmentDialog
@@ -919,6 +986,6 @@ export function PurchaseInvoiceForm({
         }}
         readonly={readonly}
       />
-    </div>
+    </PageFormLayout>
   );
 }
