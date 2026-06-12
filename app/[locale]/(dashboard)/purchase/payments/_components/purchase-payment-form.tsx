@@ -25,15 +25,19 @@ import {
   PageFormLayout,
   PageFormTitle,
 } from "@/components/layout/page/form-layout";
+import { useTranslations } from "next-intl";
 import {
   PurchaseInvoice,
   Contact,
   CashAccount,
 } from "@/prisma/generated/prisma/client";
 import { PurchasePaymentInput, PurchasePaymentWithDetails } from "../types";
-import { AttachmentDialog, Attachment } from "@/components/ui/attachment-dialog";
+import {
+  AttachmentDialog,
+  Attachment,
+} from "@/components/ui/attachment-dialog";
 import { uploadFile } from "@/app/[locale]/(dashboard)/general/files/actions";
-import { useFormatDate } from "@/hooks";
+import { useFormatDate, useFormatCurrency } from "@/hooks";
 
 import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -54,20 +58,26 @@ export function PurchasePaymentForm({
 }: PurchasePaymentFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const t = useTranslations("Purchase");
+  const tCommon = useTranslations("Common");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const formatDate = useFormatDate();
+  const formatCurrency = useFormatCurrency();
 
   const [formData, setFormData] = useState<PurchasePaymentInput>({
     paymentNumber: initialData?.paymentNumber || "",
     contactId: initialData?.contactId || "",
     purchaseInvoiceId: initialData?.purchaseInvoiceId || "",
-    paymentDate: initialData?.paymentDate ? new Date(initialData.paymentDate) : new Date(),
+    paymentDate: initialData?.paymentDate
+      ? new Date(initialData.paymentDate)
+      : new Date(),
     amount: initialData ? Number(initialData.amount) : 0,
     reference: initialData?.reference || "",
     notes: initialData?.notes || "",
     departmentId: initialData?.departmentId || null,
     projectId: initialData?.projectId || null,
     cashAccountId: initialData?.cashAccountId || "",
+    attachmentIds: initialData?.attachments?.map((a) => a.id) || [],
   });
 
   // Date string for input
@@ -94,14 +104,18 @@ export function PurchasePaymentForm({
         (PurchaseInvoice & { contact: Contact; payments: any[] })[]
       >(data as unknown as SuperJSONResult);
     },
+    enabled: !readonly,
   });
 
   const { data: cashAccountsData, isLoading: isLoadingAccounts } = useQuery({
     queryKey: ["cash-accounts"],
     queryFn: async () => {
       const data = await getCashAccounts();
-      return SuperJSON.deserialize<CashAccount[]>(data as unknown as SuperJSONResult);
+      return SuperJSON.deserialize<CashAccount[]>(
+        data as unknown as SuperJSONResult,
+      );
     },
+    enabled: !readonly,
   });
 
   useEffect(() => {
@@ -120,67 +134,52 @@ export function PurchasePaymentForm({
           ...prev,
           amount: remaining,
           contactId: invoice.contactId,
-          paymentNumber:
-            prev.paymentNumber ||
-            `PAY-${invoice.invoiceNumber}`,
+          // paymentNumber will be generated on server if empty
         }));
       }
     }
-  }, [formData.purchaseInvoiceId, invoicesData, formatDate]);
+  }, [formData.purchaseInvoiceId, invoicesData, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readonly) return;
 
-    if (!formData.purchaseInvoiceId) {
-      toast({
-        title: "Error",
-        description: "Please select an invoice",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!formData.cashAccountId) {
-      toast({
-        title: "Error",
-        description: "Please select a cash account",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (formData.amount <= 0) {
-      toast({
-        title: "Error",
-        description: "Amount must be greater than 0",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
     try {
-      const result = await createPurchasePayment({
+      setIsSubmitting(true);
+      const payload = {
         ...formData,
         paymentDate: new Date(dateStr),
         attachmentIds: attachments.map((a) => a.id),
-      });
+      };
 
-      if (!result.success) throw new Error(result.error);
+      const result = await createPurchasePayment(payload);
 
-      toast({ title: "Success", description: "Payment created successfully" });
-      router.push("/purchase/payments");
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Payment created successfully",
+        });
+        router.push("/purchase/payments");
+        router.refresh();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error,
+        });
+      }
     } catch (error) {
       toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to create payment",
         variant: "destructive",
+        title: "Error",
+        description: "Something went wrong",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoadingInvoices || isLoadingAccounts) {
+  if ((isLoadingInvoices || isLoadingAccounts) && !readonly) {
     return (
       <div className="flex justify-center p-8">
         <Loader2 className="animate-spin" />
@@ -192,14 +191,22 @@ export function PurchasePaymentForm({
     <PageFormLayout>
       <form onSubmit={handleSubmit}>
         <PageFormHeader>
-          <PageFormTitle title={initialData ? "View Payment" : "New Payment"} />
+          <PageFormTitle
+            title={
+              initialData
+                ? readonly
+                  ? t("view_payment")
+                  : t("edit_payment")
+                : t("new_payment")
+            }
+          />
           <PageFormActions>
             <Button
               type="button"
               variant="outline"
               onClick={() => router.back()}
             >
-              {readonly ? "Back" : "Cancel"}
+              {readonly ? tCommon("back") : tCommon("cancel")}
             </Button>
             {initialData ? (
               <Button asChild type="button" variant="outline">
@@ -215,39 +222,45 @@ export function PurchasePaymentForm({
                 {isSubmitting && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Save Payment
+                {t("save_payment")}
               </Button>
             )}
           </PageFormActions>
         </PageFormHeader>
         <PageFormContent className="grid gap-6 md:grid-cols-2 pt-6 mt-4">
           <CustomSelect
-            label="Invoice"
+            label={t("invoice")}
             value={formData.purchaseInvoiceId}
             onValueChange={(val) =>
               setFormData((prev) => ({ ...prev, purchaseInvoiceId: val }))
             }
-            placeholder="Select invoice to pay"
-            disabled={readonly}
+            placeholder={t("placeholder_select_invoice")}
+            disabled={readonly || !!initialData}
           >
-            {invoicesData?.map((invoice) => {
-              const totalPaid = invoice.payments.reduce(
-                (sum: number, p: any) => sum + Number(p.amount),
-                0,
-              );
-              const remaining = Number(invoice.totalAmount) - totalPaid;
-              return (
-                <SelectItem key={invoice.id} value={invoice.id}>
-                  {invoice.invoiceNumber} - {invoice.contact.name} (Due:{" "}
-                  {formatDate(invoice.dueDate)}) - Rem:{" "}
-                  {remaining.toFixed(2)}
-                </SelectItem>
-              );
-            })}
+            {initialData && readonly && initialData.purchaseInvoice ? (
+              <SelectItem value={initialData.purchaseInvoice.id}>
+                {initialData.purchaseInvoice.invoiceNumber} -{" "}
+                {initialData.contact?.name}
+              </SelectItem>
+            ) : (
+              invoicesData?.map((invoice) => {
+                const totalPaid = invoice.payments.reduce(
+                  (sum: number, p: any) => sum + Number(p.amount),
+                  0,
+                );
+                const remaining = Number(invoice.totalAmount) - totalPaid;
+                return (
+                  <SelectItem key={invoice.id} value={invoice.id}>
+                    {invoice.invoiceNumber} - {invoice.contact.name} (Due:{" "}
+                    {formatCurrency(remaining)})
+                  </SelectItem>
+                );
+              })
+            )}
           </CustomSelect>
 
           <CustomInput
-            label="Payment Number"
+            label={t("payment_number")}
             value={formData.paymentNumber}
             onChange={(e) =>
               setFormData((prev) => ({
@@ -255,34 +268,43 @@ export function PurchasePaymentForm({
                 paymentNumber: e.target.value,
               }))
             }
+            placeholder={t("placeholder_auto_generate")}
+            disabled={readonly || !!initialData}
           />
 
           <CustomInput
-            label="Payment Date"
+            label={t("payment_date")}
             type="date"
             value={dateStr}
             onChange={(e) => setDateStr(e.target.value)}
             disabled={readonly}
+            required
           />
 
           <CustomSelect
-            label="Cash/Bank Account"
+            label={t("deposit_from")}
             value={formData.cashAccountId}
             onValueChange={(val) =>
               setFormData((prev) => ({ ...prev, cashAccountId: val }))
             }
-            placeholder="Select account"
+            placeholder={t("placeholder_select_account")}
             disabled={readonly}
           >
-            {cashAccountsData?.map((account) => (
-              <SelectItem key={account.id} value={account.id}>
-                {account.name} ({account.type})
+            {readonly && initialData?.cashAccount ? (
+              <SelectItem value={initialData.cashAccount.id}>
+                {initialData.cashAccount.name}
               </SelectItem>
-            ))}
+            ) : (
+              cashAccountsData?.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  {account.name} ({account.accountNumber})
+                </SelectItem>
+              ))
+            )}
           </CustomSelect>
 
           <CustomInput
-            label="Amount"
+            label={t("amount")}
             type="number"
             step="0.01"
             value={formData.amount}
@@ -292,11 +314,13 @@ export function PurchasePaymentForm({
                 amount: Number(e.target.value),
               }))
             }
+            placeholder="0.00"
             disabled={readonly}
+            min={0}
           />
 
           <CustomInput
-            label="Reference"
+            label={t("reference")}
             value={formData.reference || ""}
             onChange={(e) =>
               setFormData((prev) => ({
@@ -304,27 +328,31 @@ export function PurchasePaymentForm({
                 reference: e.target.value,
               }))
             }
+            placeholder={t("placeholder_reference")}
             disabled={readonly}
           />
 
-          <div className="col-span-2 grid grid-cols-2 gap-4">
+          <div className="md:col-span-2 grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Department</label>
+              <label className="text-sm font-medium">{t("department")}</label>
               <SearchableSelect
                 value={formData.departmentId || ""}
                 onValueChange={(val) =>
-                  setFormData((prev) => ({ ...prev, departmentId: val || null }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    departmentId: val || null,
+                  }))
                 }
                 options={departments.map((d) => ({
                   value: d.id,
                   label: d.name,
                 }))}
-                placeholder="Select Department"
+                placeholder={t("placeholder_select_department")}
                 disabled={readonly}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Project</label>
+              <label className="text-sm font-medium">{t("project")}</label>
               <SearchableSelect
                 value={formData.projectId || ""}
                 onValueChange={(val) =>
@@ -334,36 +362,77 @@ export function PurchasePaymentForm({
                   value: p.id,
                   label: p.name,
                 }))}
-                placeholder="Select Project"
+                placeholder={t("placeholder_select_project")}
                 disabled={readonly}
               />
             </div>
           </div>
 
-          <div className="col-span-2">
+          <div className="md:col-span-2">
             <CustomTextarea
-              label="Notes"
+              label={t("notes")}
               value={formData.notes || ""}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, notes: e.target.value }))
               }
+              placeholder={t("placeholder_notes")}
               disabled={readonly}
             />
           </div>
 
-          <div className="col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setAttachmentDialogOpen(true)}
-            >
-              <Paperclip className="mr-2 h-4 w-4" />
-              Attachments ({attachments.length})
-            </Button>
+          <div className="md:col-span-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium">
+                {tCommon("attachments")}
+              </label>
+              {!readonly && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAttachmentDialogOpen(true)}
+                >
+                  <Paperclip className="mr-2 h-4 w-4" />
+                  {tCommon("add_files")}
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((file) => (
+                <div
+                  key={file.id}
+                  className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
+                >
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {file.name}
+                  </a>
+                  {!readonly && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAttachments((prev) =>
+                          prev.filter((a) => a.id !== file.id),
+                        )
+                      }
+                      className="ml-2 text-muted-foreground hover:text-foreground"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+              {attachments.length === 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {tCommon("no_attachments")}
+                </span>
+              )}
+            </div>
           </div>
-
-
-
         </PageFormContent>
       </form>
       <AttachmentDialog
@@ -371,7 +440,10 @@ export function PurchasePaymentForm({
         onOpenChange={setAttachmentDialogOpen}
         attachments={attachments}
         onAttachmentsChange={setAttachments}
-        uploadAction={uploadFile}
+        uploadAction={async (formData) => {
+          const res = await uploadFile(formData);
+          return res;
+        }}
         readonly={readonly}
       />
     </PageFormLayout>
