@@ -462,9 +462,6 @@ export function SalesShipmentForm({
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between py-3">
-                <CardTitle className="text-lg">{t("shipment_items")}</CardTitle>
-              </CardHeader>
               <CardContent className="p-0">
                 <DndContext
                   sensors={sensors}

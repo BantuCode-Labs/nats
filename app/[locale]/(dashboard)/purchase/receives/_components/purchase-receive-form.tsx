@@ -1,20 +1,11 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomInput } from "@/components/ui/custom-input";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { CustomTextarea } from "@/components/ui/custom-textarea";
-import { SelectItem } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -38,17 +29,13 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, ArrowLeft, Paperclip } from "lucide-react";
 import {
   createPurchaseReceive,
   updatePurchaseReceive,
   getPurchaseOrder,
-  getPurchaseReceive,
-  getProducts,
-  getPurchaseOrdersForSelect,
 } from "../actions";
 import { PurchaseReceiveInput } from "../types";
-import { format } from "date-fns";
 import { SortableTableRow } from "@/components/ui/sortable-row";
 import { getContacts } from "@/app/[locale]/(dashboard)/general/contacts/actions";
 import { generateId } from "@/lib/utils";
@@ -56,11 +43,21 @@ import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
 import { PurchaseReceiveWithDetails } from "../types";
 import { PurchaseOrderWithDetails } from "../../orders/types";
-import { AttachmentDialog, Attachment } from "@/components/ui/attachment-dialog";
+import {
+  AttachmentDialog,
+  Attachment,
+} from "@/components/ui/attachment-dialog";
 import { uploadFile } from "@/app/[locale]/(dashboard)/general/files/actions";
-import { Paperclip } from "lucide-react";
 import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  PageFormActions,
+  PageFormContent,
+  PageFormHeader,
+  PageFormLayout,
+  PageFormTitle,
+} from "@/components/layout/page/form-layout";
+import { useTranslations } from "next-intl";
 
 interface ProductForSelect {
   id: string;
@@ -83,8 +80,6 @@ interface PurchaseOrderForSelect {
   }[];
 }
 
-import { useFormatDate } from "@/hooks/use-format-date";
-
 interface PurchaseReceiveFormProps {
   receive?: SuperJSONResult | null;
   vendors: Awaited<ReturnType<typeof getContacts>>["data"];
@@ -104,23 +99,35 @@ export function PurchaseReceiveForm({
   purchaseOrders: serializedPurchaseOrders,
   readonly = false,
 }: PurchaseReceiveFormProps) {
+  const router = useRouter();
+  const t = useTranslations("Purchase");
+  const tCommon = useTranslations("Common");
+  const [isLoading, setIsLoading] = useState(false);
+
   const receive = serializedReceive
     ? SuperJSON.deserialize<PurchaseReceiveWithDetails>(serializedReceive)
     : undefined;
-  const products = Array.isArray(serializedProducts)
-    ? []
-    : SuperJSON.deserialize<ProductForSelect[]>(
-      serializedProducts as SuperJSONResult,
-    );
-  const purchaseOrders = Array.isArray(serializedPurchaseOrders)
-    ? []
-    : SuperJSON.deserialize<PurchaseOrderForSelect[]>(
-      serializedPurchaseOrders as SuperJSONResult,
-    );
 
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const formatDate = useFormatDate();
+  const products = useMemo(
+    () =>
+      Array.isArray(serializedProducts)
+        ? []
+        : SuperJSON.deserialize<ProductForSelect[]>(
+            serializedProducts as SuperJSONResult,
+          ),
+    [serializedProducts],
+  );
+
+  const purchaseOrders = useMemo(
+    () =>
+      Array.isArray(serializedPurchaseOrders)
+        ? []
+        : SuperJSON.deserialize<PurchaseOrderForSelect[]>(
+            serializedPurchaseOrders as SuperJSONResult,
+          ),
+    [serializedPurchaseOrders],
+  );
+
   const isEditing = !!receive;
 
   const [attachments, setAttachments] = useState<Attachment[]>(
@@ -128,7 +135,7 @@ export function PurchaseReceiveForm({
       id: a.id,
       name: a.name,
       url: a.url,
-    })) || []
+    })) || [],
   );
   const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
 
@@ -139,6 +146,8 @@ export function PurchaseReceiveForm({
   >({
     contactId: receive?.contactId || "",
     purchaseOrderId: receive?.purchaseOrderId || undefined,
+    departmentId: receive?.departmentId || null,
+    projectId: receive?.projectId || null,
     receiveDate: receive?.receiveDate
       ? new Date(receive.receiveDate)
       : new Date(),
@@ -175,6 +184,14 @@ export function PurchaseReceiveForm({
     receive?.status || "DRAFT",
   );
 
+  // Filter purchase orders based on selected vendor
+  const filteredPurchaseOrders = useMemo(() => {
+    if (formData.contactId) {
+      return purchaseOrders.filter((po) => po.contactId === formData.contactId);
+    }
+    return [];
+  }, [formData.contactId, purchaseOrders]);
+
   // When Purchase Order is selected, populate items
   const handlePurchaseOrderChange = async (poId: string) => {
     setFormData((prev) => ({ ...prev, purchaseOrderId: poId }));
@@ -186,23 +203,29 @@ export function PurchaseReceiveForm({
           const po =
             SuperJSON.deserialize<PurchaseOrderWithDetails>(serializedPo);
           // Auto-select vendor
-          setFormData((prev) => ({ ...prev, contactId: po.contactId }));
-
-          // Populate items with remaining quantity
-          const newItems = po.items
-            .filter((item) => item.quantity > item.receivedQuantity)
-            .map((item) => ({
-              id: generateId(),
-              productId: item.productId,
-              quantity: item.quantity - item.receivedQuantity,
-              purchaseOrderItemId: item.id,
-            }));
-
-          setFormData((prev) => ({ ...prev, items: newItems }));
+          setFormData(
+            (prev) =>
+              ({
+                ...prev,
+                contactId: po.contactId,
+                departmentId: (po.departmentId as string) || prev.departmentId,
+                projectId: (po.projectId as string) || prev.projectId,
+                items: po.items
+                  .filter((item) => item.quantity > item.receivedQuantity)
+                  .map((item) => ({
+                    id: generateId(),
+                    productId: item.productId,
+                    quantity: item.quantity - item.receivedQuantity,
+                    purchaseOrderItemId: item.id,
+                  })),
+              }) as any,
+          );
         }
       } catch (error) {
         console.error("Failed to fetch PO details", error);
       }
+    } else {
+      setFormData((prev) => ({ ...prev, items: [] }));
     }
   };
 
@@ -226,7 +249,7 @@ export function PurchaseReceiveForm({
     value: string | number | undefined,
   ) => {
     const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
+    newItems[index] = { ...newItems[index], [field]: value } as any;
     setFormData((prev) => ({ ...prev, items: newItems }));
   };
 
@@ -257,7 +280,7 @@ export function PurchaseReceiveForm({
       const dataToSubmit = {
         ...formData,
         status,
-        items: formData.items.map(({ id, ...item }) => item),
+        items: formData.items.map(({ id: _id, ...item }) => item),
         attachmentIds: attachments.map((a) => a.id),
       };
 
@@ -280,215 +303,229 @@ export function PurchaseReceiveForm({
     }
   };
 
-  // Filter purchase orders based on selected vendor
-  const filteredPurchaseOrders = formData.contactId
-    ? purchaseOrders.filter((po) => po.contactId === formData.contactId)
-    : purchaseOrders;
+  const getProductName = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    return product ? `${product.name} (${product.sku})` : "Unknown Product";
+  };
+
+  const getProductUnit = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    return product?.purchaseUnit?.symbol || product?.baseUnit?.symbol || "-";
+  };
 
   return (
-    <div className="flex-1 space-y-4 px-4">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-lg font-bold tracking-tight">
-          {receive?.receiveNumber ?? "New Purchase Receive"}
-        </h2>
-        <div className="flex gap-2">
-          {!readonly && (
-            <>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? "Update" : "Create"}
-              </Button>
-              {isEditing && status !== "COMPLETED" && (
+    <PageFormLayout>
+      <form onSubmit={handleSubmit} className="space-y-8 w-full">
+        <PageFormHeader>
+          <PageFormTitle
+            title={receive ? t("edit_receive") : t("new_receive")}
+          />
+          <PageFormActions>
+            {!readonly && (
+              <>
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full mt-2"
-                  onClick={() => setStatus("COMPLETED")}
+                  onClick={() => router.back()}
+                  disabled={isLoading}
                 >
-                  Mark as Completed
+                  {tCommon("cancel")}
                 </Button>
-              )}
-            </>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={() => router.back()}
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
-      <form onSubmit={handleSubmit}>
-        <div className="grid gap-4">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Receive Details</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Vendor</Label>
-                  <CustomSelect
-                    value={formData.contactId}
-                    onValueChange={(val) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        contactId: val,
-                        purchaseOrderId: undefined,
-                      }));
-                    }}
-                    placeholder="Select Vendor"
-                    disabled={readonly || !!formData.purchaseOrderId} // Disable if PO selected (unless we want to allow changing vendor which clears PO)
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {isEditing ? tCommon("update") : tCommon("create")}
+                </Button>
+                {isEditing && status !== "COMPLETED" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setStatus("COMPLETED")}
                   >
-                    {vendors.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.name}
-                      </SelectItem>
-                    ))}
-                  </CustomSelect>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Purchase Order (Optional)</Label>
-                  <CustomSelect
-                    value={formData.purchaseOrderId || "none"}
-                    onValueChange={(val) =>
-                      handlePurchaseOrderChange(val === "none" ? "" : val)
-                    }
-                    placeholder="Select Purchase Order"
-                    disabled={readonly}
-                  >
-                    <SelectItem value="none">None</SelectItem>
-                    {filteredPurchaseOrders.map((po) => (
-                      <SelectItem key={po.id} value={po.id}>
-                        {po.orderNumber} ({po.contact.name})
-                      </SelectItem>
-                    ))}
-                  </CustomSelect>
-                </div>
-
-                <div className="col-span-2 grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Department</Label>
-                    <SearchableSelect
-                      value={formData.departmentId || ""}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({ ...prev, departmentId: val || null }))
-                      }
-                      options={departments.map((d) => ({
-                        value: d.id,
-                        label: d.name,
-                      }))}
-                      placeholder="Select Department"
-                      disabled={readonly}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Project</Label>
-                    <SearchableSelect
-                      value={formData.projectId || ""}
-                      onValueChange={(val) =>
-                        setFormData((prev) => ({ ...prev, projectId: val || null }))
-                      }
-                      options={projects.map((p) => ({
-                        value: p.id,
-                        label: p.name,
-                      }))}
-                      placeholder="Select Project"
-                      disabled={readonly}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Receive Date</Label>
-                  <CustomInput
-                    type="date"
-                    value={
-                      formData.receiveDate
-                        ? format(formData.receiveDate, "yyyy-MM-dd")
-                        : ""
-                    }
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        receiveDate: e.target.value
-                          ? new Date(e.target.value)
-                          : new Date(),
-                      }))
-                    }
-                    disabled={readonly}
-                  />
-                </div>
-
-                {isEditing && (
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                    <CustomSelect
-                      value={status}
-                      onValueChange={(val) =>
-                        setStatus(val as "DRAFT" | "COMPLETED" | "CANCELLED")
-                      }
-                      disabled={readonly || receive.status === "COMPLETED"}
-                    >
-                      <SelectItem value="DRAFT">Draft</SelectItem>
-                      <SelectItem value="COMPLETED">Completed</SelectItem>
-                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    </CustomSelect>
-                  </div>
+                    Mark as Completed
+                  </Button>
                 )}
+              </>
+            )}
+            {readonly && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> {tCommon("back")}
+              </Button>
+            )}
+          </PageFormActions>
+        </PageFormHeader>
 
-                <div className="space-y-2">
-                  <Label>Notes</Label>
+        <PageFormContent className="grid gap-3 mt-3 p-0 bg-transparent border-none shadow-none">
+          <div className="space-y-3">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomInput
+                        label={t("receive_number")}
+                        value={
+                          receive?.receiveNumber ||
+                          t("placeholder_auto_generate")
+                        }
+                        disabled={true}
+                      />
+                      <div>
+                        <label className="text-sm font-medium">
+                          {t("vendor")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.contactId}
+                          onValueChange={(val) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              contactId: val || "",
+                              purchaseOrderId: undefined,
+                            }));
+                          }}
+                          options={vendors.map((v) => ({
+                            label: v.name,
+                            value: v.id,
+                          }))}
+                          placeholder={t("placeholder_select_vendor")}
+                          disabled={readonly || !!formData.purchaseOrderId}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <CustomSelect
+                        label={t("purchase_order_optional")}
+                        value={formData.purchaseOrderId || ""}
+                        onValueChange={(val) => handlePurchaseOrderChange(val)}
+                        options={filteredPurchaseOrders.map((po) => ({
+                          label: po.orderNumber,
+                          value: po.id,
+                        }))}
+                        placeholder={t("placeholder_select_purchase_order")}
+                        disabled={readonly || !formData.contactId}
+                      />
+
+                      <CustomInput
+                        label={tCommon("date")}
+                        type="date"
+                        value={
+                          formData.receiveDate
+                            ? formData.receiveDate.toISOString().split("T")[0]
+                            : ""
+                        }
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            receiveDate: e.target.value
+                              ? new Date(e.target.value)
+                              : new Date(),
+                          }))
+                        }
+                        disabled={readonly}
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("department")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.departmentId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              departmentId: val || null,
+                            }))
+                          }
+                          options={departments.map((d) => ({
+                            value: d.id,
+                            label: d.name,
+                          }))}
+                          placeholder={t("placeholder_select_department")}
+                          disabled={readonly}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          {t("project")}
+                        </label>
+                        <SearchableSelect
+                          value={formData.projectId || ""}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              projectId: val || null,
+                            }))
+                          }
+                          options={projects.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                          }))}
+                          placeholder={t("placeholder_select_project")}
+                          disabled={readonly}
+                        />
+                      </div>
+                    </div>
+
+                    {isEditing && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <CustomSelect
+                          label={t("status")}
+                          value={status}
+                          onValueChange={(val) =>
+                            setStatus(
+                              val as "DRAFT" | "COMPLETED" | "CANCELLED",
+                            )
+                          }
+                          options={[
+                            { value: "DRAFT", label: "Draft" },
+                            { value: "COMPLETED", label: "Completed" },
+                            { value: "CANCELLED", label: "Cancelled" },
+                          ]}
+                          disabled={readonly || receive.status === "COMPLETED"}
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsAttachmentDialogOpen(true)}
+                        className="w-fit"
+                      >
+                        <Paperclip className="mr-2 h-4 w-4" />
+                        {tCommon("attachments")} ({attachments.length})
+                      </Button>
+                    </div>
+                  </div>
+
                   <CustomTextarea
                     value={formData.notes || ""}
+                    label={t("notes")}
+                    className="resize-none h-[80%]"
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
                         notes: e.target.value,
                       }))
                     }
-                    placeholder="Add notes here..."
+                    placeholder={t("placeholder_notes")}
                     disabled={readonly}
                   />
-                  <div className="flex flex-col gap-2 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAttachmentDialogOpen(true)}
-                      className="w-fit"
-                    >
-                      <Paperclip className="mr-2 h-4 w-4" />
-                      Attachments ({attachments.length})
-                    </Button>
-                    <div className="flex flex-wrap gap-2">
-                      {attachments.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center gap-2 rounded-md border bg-muted px-3 py-1 text-sm"
-                        >
-                          <a
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:underline"
-                          >
-                            {file.name}
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Received Items</CardTitle>
-              </CardHeader>
               <CardContent className="p-0">
                 <DndContext
                   sensors={sensors}
@@ -499,86 +536,107 @@ export function PurchaseReceiveForm({
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-[40px]"></TableHead>
-                        <TableHead>Product</TableHead>
-                        <TableHead className="w-[150px]">Quantity</TableHead>
-                        <TableHead className="w-[80px]">Unit</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead>{tCommon("product")}</TableHead>
+                        <TableHead className="w-[150px]">
+                          {tCommon("quantity")}
+                        </TableHead>
+                        <TableHead className="w-[80px]">
+                          {tCommon("unit")}
+                        </TableHead>
+                        {!readonly && (
+                          <TableHead className="w-[50px]"></TableHead>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       <SortableContext
-                        items={formData.items}
+                        items={formData.items.map((item) => item.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        {formData.items.map((item, index) => (
-                          <SortableTableRow key={item.id} id={item.id}>
-                            <TableCell>
-                              <CustomSelect
-                                value={item.productId}
-                                onValueChange={(val) =>
-                                  handleItemChange(index, "productId", val)
-                                }
-                                disabled={
-                                  readonly || !!item.purchaseOrderItemId
-                                }
-                              >
-                                {products?.map((p) => (
-                                  <SelectItem key={p.id} value={p.id}>
-                                    {p.name} ({p.sku})
-                                  </SelectItem>
-                                ))}
-                              </CustomSelect>
+                        {formData.items.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={5}
+                              className="text-center h-24 text-muted-foreground"
+                            >
+                              {t("no_receives_found")}
                             </TableCell>
-                            <TableCell>
-                              <CustomInput
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "quantity",
-                                    parseInt(e.target.value) || 0,
-                                  )
-                                }
-                                disabled={readonly}
-                              />
-                            </TableCell>
-                            <TableCell>
+                          </TableRow>
+                        ) : (
+                          formData.items.map((item, index) => (
+                            <SortableTableRow key={item.id} id={item.id}>
+                              <TableCell>
+                                {!!item.purchaseOrderItemId ? (
+                                  <div className="py-2 px-3 text-sm">
+                                    {getProductName(item.productId)}
+                                  </div>
+                                ) : (
+                                  <CustomSelect
+                                    value={item.productId}
+                                    onValueChange={(val) =>
+                                      handleItemChange(index, "productId", val)
+                                    }
+                                    options={products.map((p) => ({
+                                      label: `${p.name} (${p.sku})`,
+                                      value: p.id,
+                                    }))}
+                                    disabled={readonly}
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <CustomInput
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    handleItemChange(
+                                      index,
+                                      "quantity",
+                                      parseInt(e.target.value) || 0,
+                                    )
+                                  }
+                                  disabled={readonly}
+                                />
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {getProductUnit(item.productId)}
+                              </TableCell>
                               {!readonly && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="mb-0.5"
-                                  onClick={() => handleRemoveItem(index)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveItem(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
                               )}
-                            </TableCell>
-                          </SortableTableRow>
-                        ))}
+                            </SortableTableRow>
+                          ))
+                        )}
                       </SortableContext>
                     </TableBody>
                   </Table>
                 </DndContext>
-                {formData.items.length === 0 && (
-                  <div className="py-8 text-center text-muted-foreground">
-                    No items added.
-                  </div>
-                )}
               </CardContent>
-              <CardFooter>
-                {!readonly && (
-                  <Button type="button" size="sm" onClick={handleAddItem}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Item
+              {!readonly && (
+                <div className="p-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddItem}
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> {t("add_item")}
                   </Button>
-                )}
-              </CardFooter>
+                </div>
+              )}
             </Card>
           </div>
-        </div>
+        </PageFormContent>
       </form>
 
       <AttachmentDialog
@@ -592,6 +650,6 @@ export function PurchaseReceiveForm({
         }}
         readonly={readonly}
       />
-    </div>
+    </PageFormLayout>
   );
 }
