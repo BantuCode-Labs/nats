@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { useState, useMemo, useEffect, useRef } from "react";
 import {
   closePOSSession,
@@ -93,6 +94,21 @@ export function POSView({
   const [globalDiscount, setGlobalDiscount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery] = useDebounce(searchQuery, 300);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const saved = localStorage.getItem("pos_search_history");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [originalQuery, setOriginalQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const { toast } = useToast();
@@ -101,6 +117,35 @@ export function POSView({
   const sessionData = useSession();
   const isCashier = sessionData?.role === "Cashier";
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        historyRef.current &&
+        !historyRef.current.contains(event.target as Node) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target as Node)
+      ) {
+        setShowHistory(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const saveSearchToHistory = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    setSearchHistory((prev) => {
+      const filtered = prev.filter((h) => h !== trimmed);
+      const newHistory = [trimmed, ...filtered].slice(0, 10);
+      localStorage.setItem("pos_search_history", JSON.stringify(newHistory));
+      return newHistory;
+    });
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -223,54 +268,108 @@ export function POSView({
     setGlobalDiscount(0);
   };
 
+  const performSearch = async (query: string) => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
+
+    saveSearchToHistory(trimmedQuery);
+
+    // Try to find in current products first (already loaded in the grid)
+    let productToAdd = products.find(
+      (p) =>
+        p.sku.toLowerCase() === trimmedQuery.toLowerCase() ||
+        p.name.toLowerCase() === trimmedQuery.toLowerCase(),
+    );
+
+    // If not found in current view, fetch directly from server (important for fast barcode scans)
+    if (!productToAdd) {
+      try {
+        const res = await getPOSProducts(1, 1, trimmedQuery);
+        const data = SuperJSON.deserialize<{
+          items: POSProduct[];
+          total: number;
+          hasMore: boolean;
+        }>(res);
+
+        if (data.items.length > 0) {
+          // Check for exact match in the fetched result
+          const match = data.items.find(
+            (p) =>
+              p.sku.toLowerCase() === trimmedQuery.toLowerCase() ||
+              p.name.toLowerCase() === trimmedQuery.toLowerCase(),
+          );
+          // Use the match, or fallback to the first result if it's a specific search
+          productToAdd = match || data.items[0];
+        }
+      } catch (error) {
+        console.error("Failed to fetch product on Enter:", error);
+      }
+    }
+
+    if (productToAdd) {
+      addToCart(productToAdd);
+      setSearchQuery("");
+      setOriginalQuery("");
+      toast({
+        title: t("items_added"),
+        description: productToAdd.name,
+      });
+    }
+  };
+
   const handleSearchKeyDown = async (
     e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
-    if (e.key === "Enter") {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (searchHistory.length === 0) return;
+
+      if (!showHistory) {
+        setShowHistory(true);
+        setOriginalQuery(searchQuery);
+        setHistoryIndex(0);
+        setSearchQuery(searchHistory[0]);
+        return;
+      }
+
+      const nextIndex =
+        historyIndex + 1 >= searchHistory.length ? -1 : historyIndex + 1;
+      setHistoryIndex(nextIndex);
+      setSearchQuery(
+        nextIndex === -1 ? originalQuery : searchHistory[nextIndex],
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (searchHistory.length === 0) return;
+
+      if (!showHistory) {
+        setShowHistory(true);
+        setOriginalQuery(searchQuery);
+        setHistoryIndex(searchHistory.length - 1);
+        setSearchQuery(searchHistory[searchHistory.length - 1]);
+        return;
+      }
+
+      const nextIndex =
+        historyIndex - 1 < -1 ? searchHistory.length - 1 : historyIndex - 1;
+      setHistoryIndex(nextIndex);
+      setSearchQuery(
+        nextIndex === -1 ? originalQuery : searchHistory[nextIndex],
+      );
+    } else if (e.key === "Escape") {
+      if (showHistory && historyIndex !== -1) {
+        setSearchQuery(originalQuery);
+      }
+      setShowHistory(false);
+      setHistoryIndex(-1);
+    } else if (e.key === "Enter") {
       e.preventDefault();
       const trimmedQuery = searchQuery.trim();
       if (!trimmedQuery) return;
 
-      // Try to find in current products first (already loaded in the grid)
-      let productToAdd = products.find(
-        (p) =>
-          p.sku.toLowerCase() === trimmedQuery.toLowerCase() ||
-          p.name.toLowerCase() === trimmedQuery.toLowerCase(),
-      );
-
-      // If not found in current view, fetch directly from server (important for fast barcode scans)
-      if (!productToAdd) {
-        try {
-          const res = await getPOSProducts(1, 1, trimmedQuery);
-          const data = SuperJSON.deserialize<{
-            items: POSProduct[];
-            total: number;
-            hasMore: boolean;
-          }>(res);
-
-          if (data.items.length > 0) {
-            // Check for exact match in the fetched result
-            const match = data.items.find(
-              (p) =>
-                p.sku.toLowerCase() === trimmedQuery.toLowerCase() ||
-                p.name.toLowerCase() === trimmedQuery.toLowerCase(),
-            );
-            // Use the match, or fallback to the first result if it's a specific search
-            productToAdd = match || data.items[0];
-          }
-        } catch (error) {
-          console.error("Failed to fetch product on Enter:", error);
-        }
-      }
-
-      if (productToAdd) {
-        addToCart(productToAdd);
-        setSearchQuery("");
-        toast({
-          title: t("items_added"),
-          description: productToAdd.name,
-        });
-      }
+      setShowHistory(false);
+      setHistoryIndex(-1);
+      await performSearch(trimmedQuery);
     }
   };
 
@@ -511,9 +610,40 @@ export function POSView({
               placeholder={`${t("search_products")} (F4)`}
               className="h-11 pl-10 text-base shadow-sm transition-all focus-visible:ring-2"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setOriginalQuery(e.target.value);
+                setHistoryIndex(-1);
+              }}
               onKeyDown={handleSearchKeyDown}
+              onFocus={() => searchHistory.length > 0 && setShowHistory(true)}
             />
+            {showHistory && searchHistory.length > 0 && (
+              <div
+                ref={historyRef}
+                className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover p-1 shadow-md"
+              >
+                {searchHistory.map((item, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                      index === historyIndex &&
+                        "bg-accent text-accent-foreground",
+                    )}
+                    onClick={() => {
+                      setShowHistory(false);
+                      setHistoryIndex(-1);
+                      performSearch(item);
+                      searchInputRef.current?.focus();
+                    }}
+                  >
+                    <History className="mr-2 h-4 w-4 text-muted-foreground" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
             <Button
