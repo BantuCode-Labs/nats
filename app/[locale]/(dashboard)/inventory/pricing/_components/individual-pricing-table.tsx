@@ -192,11 +192,20 @@ export function IndividualPricingTable() {
   };
 
   const handlePrintLabels = () => {
-    const ids = Array.from(selectedProducts).join(",");
-    // Navigate to the print page (still in products directory as per plan, or move it if needed but user only asked to move feature access)
-    // The print page is at /inventory/products/print-labels
-    // We can use the same route.
-    window.open(`/inventory/products/print-labels?ids=${ids}`, "_blank");
+    const ids = Array.from(selectedProducts);
+    const sessionKey = `print_labels_${Date.now()}`;
+
+    try {
+      localStorage.setItem(sessionKey, JSON.stringify(ids));
+      window.open(`/inventory/products/print-labels?s=${sessionKey}`, "_blank");
+    } catch (error) {
+      console.error(
+        "Failed to save to localStorage, falling back to URL (might fail for large selections)",
+        error,
+      );
+      const idsParam = ids.join(",");
+      window.open(`/inventory/products/print-labels?ids=${idsParam}`, "_blank");
+    }
   };
 
   const isAllSelected =
