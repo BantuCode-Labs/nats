@@ -151,9 +151,9 @@ export function ProductForm({
   }
 
   return (
-    <div className="w-full mx-auto p-4">
-      <div className="mb-4">
-        <h2 className="text-lg font-bold tracking-tight">
+    <div className="w-full mx-auto p-2">
+      <div className="flex items-center justify-between mb-4 px-2">
+        <h2 className="text-base font-bold tracking-tight">
           {readonly
             ? "Product Details"
             : isEditing
@@ -164,14 +164,16 @@ export function ProductForm({
 
       <form onSubmit={handleSubmit}>
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="pricing">Pricing & Inventory</TabsTrigger>
-            <TabsTrigger value="image">Product Image</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between mb-2">
+            <TabsList className="h-8 p-0.5 bg-muted/50">
+              <TabsTrigger value="general" className="px-3 text-xs h-7">General</TabsTrigger>
+              <TabsTrigger value="pricing" className="px-3 text-xs h-7">Pricing & Inventory</TabsTrigger>
+              <TabsTrigger value="image" className="px-3 text-xs h-7">Product Image</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <Card>
-            <CardContent className="pt-6">
+          <Card className="shadow-none border">
+            <CardContent className="p-4">
               <TabsContent value="general" className="mt-0">
                 <GeneralSection
                   formData={formData}
@@ -200,17 +202,18 @@ export function ProductForm({
               </TabsContent>
             </CardContent>
 
-            <CardFooter className="flex justify-end space-x-2 border-t p-6">
+            <CardFooter className="flex justify-end space-x-2 border-t p-3 bg-muted/5">
               <Button
                 variant="outline"
                 type="button"
+                size="sm"
                 disabled={isLoading}
                 onClick={() => router.back()}
               >
                 {readonly ? "Back" : "Cancel"}
               </Button>
               {!readonly && (
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" size="sm" disabled={isLoading}>
                   {isLoading && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
@@ -223,7 +226,7 @@ export function ProductForm({
       </form>
 
       {isEditing && product?.priceHistory && (
-        <div className="mt-6">
+        <div className="mt-4">
           <PriceHistory history={product.priceHistory} />
         </div>
       )}

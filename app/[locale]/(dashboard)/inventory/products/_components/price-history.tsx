@@ -29,25 +29,25 @@ export function PriceHistory({ history }: PriceHistoryProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Price History</CardTitle>
+    <Card className="shadow-none border">
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-sm font-bold">Price History</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Price</TableHead>
+            <TableRow className="hover:bg-transparent border-none">
+              <TableHead className="h-8 text-xs">Date</TableHead>
+              <TableHead className="h-8 text-xs text-right">Price</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {history.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell>
+              <TableRow key={entry.id} className="hover:bg-muted/50">
+                <TableCell className="py-2 text-xs">
                   {formatDate(entry.effectiveDate, { includeTime: true })}
                 </TableCell>
-                <TableCell className="text-right font-medium">
+                <TableCell className="py-2 text-xs text-right font-medium">
                   {formatCurrency(entry.price)}
                 </TableCell>
               </TableRow>

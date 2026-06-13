@@ -24,8 +24,8 @@ export function GeneralSection({
   readonly = false,
 }: GeneralSectionProps) {
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
         <CustomInput
           label="SKU"
           id="sku"
@@ -34,7 +34,8 @@ export function GeneralSection({
           onChange={(e) => handleInputChange("sku", e.target.value)}
           required
           disabled={readonly}
-          containerClassName="grid gap-2"
+          containerClassName="grid gap-1"
+          className="h-8 text-sm"
         />
         <CustomInput
           label="Name"
@@ -44,7 +45,8 @@ export function GeneralSection({
           onChange={(e) => handleInputChange("name", e.target.value)}
           required
           disabled={readonly}
-          containerClassName="grid gap-2"
+          containerClassName="grid gap-1"
+          className="h-8 text-sm"
         />
       </div>
 
@@ -55,10 +57,11 @@ export function GeneralSection({
         value={formData.description}
         onChange={(e) => handleInputChange("description", e.target.value)}
         disabled={readonly}
-        containerClassName="grid gap-2"
+        containerClassName="grid gap-1"
+        className="min-h-[60px] text-sm"
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <CustomSelect
           label="Category"
           name="categoryId"
@@ -66,7 +69,8 @@ export function GeneralSection({
           onValueChange={(val) => handleInputChange("categoryId", val)}
           disabled={readonly}
           placeholder="Select category"
-          containerClassName="grid gap-2"
+          containerClassName="grid gap-1"
+          triggerClassName="h-8 text-sm"
         >
           {categories.map((c) => (
             <SelectItem key={c.id} value={c.id}>
@@ -74,15 +78,16 @@ export function GeneralSection({
             </SelectItem>
           ))}
         </CustomSelect>
-        <div className="flex items-center space-x-2 pt-8">
+        <div className="flex items-center space-x-2 h-full pt-6">
           <Switch
             id="isActive"
             name="isActive"
             checked={formData.isActive}
             onCheckedChange={(val) => handleInputChange("isActive", val)}
             disabled={readonly}
+            className="scale-75 origin-left"
           />
-          <Label htmlFor="isActive">Active Status</Label>
+          <Label htmlFor="isActive" className="text-sm">Active Status</Label>
         </div>
       </div>
     </div>

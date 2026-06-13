@@ -59,9 +59,9 @@ export function ImageSection({
     };
 
     return (
-        <div className="grid gap-4">
-            <div className="flex items-center gap-4">
-                <div className="relative h-40 w-40 overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+        <div className="grid gap-3">
+            <div className="flex items-start gap-4">
+                <div className="relative h-24 w-24 overflow-hidden rounded-md border bg-muted flex items-center justify-center flex-shrink-0">
                     {formData.image ? (
                         <Image
                             src={formData.image}
@@ -70,10 +70,10 @@ export function ImageSection({
                             className="object-cover"
                         />
                     ) : (
-                        <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
                     )}
                 </div>
-                <div className="space-y-4 flex-1">
+                <div className="space-y-3 flex-1">
                     <CustomInput
                         label="Image URL"
                         id="image"
@@ -81,12 +81,13 @@ export function ImageSection({
                         value={formData.image}
                         onChange={(e) => handleInputChange("image", e.target.value)}
                         disabled={readonly}
-                        containerClassName="grid gap-2"
+                        containerClassName="grid gap-1"
+                        className="h-8 text-sm"
                         placeholder="https://example.com/image.jpg"
                     />
                     {!readonly && (
-                        <div>
-                            <Label htmlFor="file-upload" className="mb-2 block">
+                        <div className="flex flex-col gap-1">
+                            <Label htmlFor="file-upload" className="text-xs font-medium">
                                 Or Upload Image
                             </Label>
                             <div className="flex items-center gap-2">
@@ -101,15 +102,17 @@ export function ImageSection({
                                 <Button
                                     type="button"
                                     variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs"
                                     onClick={() =>
                                         document.getElementById("file-upload")?.click()
                                     }
                                     disabled={isUploading}
                                 >
                                     {isUploading ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                                     ) : (
-                                        <Upload className="mr-2 h-4 w-4" />
+                                        <Upload className="mr-2 h-3 w-3" />
                                     )}
                                     {isUploading ? "Uploading..." : "Select File"}
                                 </Button>
