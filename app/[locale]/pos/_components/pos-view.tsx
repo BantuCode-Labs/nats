@@ -61,6 +61,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ModeToggle } from "@/components/layout/others/mode-toggle";
+import { ThemeCustomizer } from "@/components/layout/others/theme-customizer";
 
 interface POSViewProps {
   initialProducts: SuperJSONResult;
@@ -349,7 +351,9 @@ export function POSView({
       {/* Header */}
       <header className="flex h-16 items-center justify-between border-b bg-background px-2 sm:px-4">
         <div className="flex items-center gap-4 flex-1">
-          <h1 className="hidden text-xl font-bold lg:block">{t("pos")}</h1>
+          <h1 className="hidden text-xl font-bold lg:block">
+            NATS - {t("pos")}
+          </h1>
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2">
@@ -466,6 +470,8 @@ export function POSView({
           <div className="hidden sm:block">
             <Clock startTime={session.startTime} />
           </div>
+          <ThemeCustomizer />
+          <ModeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
