@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -14,14 +14,10 @@ import { CustomInput } from "@/components/ui/custom-input";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { applyBatchPricing, previewPriceChanges, getCategories } from "../actions";
+  applyBatchPricing,
+  previewPriceChanges,
+  getCategories,
+} from "../actions";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useFormatCurrency } from "@/hooks/use-format-currency";
@@ -29,6 +25,7 @@ import { BatchPricingInput, PricingAction, PricingScope } from "../types";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useAlert } from "@/hooks/use-alert";
 import { useQuery } from "@tanstack/react-query";
+import { DataTable, Column } from "@/components/ui/data-table";
 
 interface PreviewData {
   totalProducts: number;
@@ -54,6 +51,8 @@ export function BatchPricingForm() {
     count?: number;
     error?: string;
   } | null>(null);
+  const [previewPage, setPreviewPage] = useState(1);
+  const previewPageSize = 10;
   const formatCurrency = useFormatCurrency();
   const confirm = useConfirm();
   const alert = useAlert();
@@ -67,10 +66,72 @@ export function BatchPricingForm() {
     queryFn: getCategories,
   });
 
+  const paginatedChanges = useMemo(() => {
+    if (!previewData) return [];
+    const start = (previewPage - 1) * previewPageSize;
+    const end = start + previewPageSize;
+    return previewData.changes.slice(start, end);
+  }, [previewData, previewPage]);
+
+  const columns = useMemo(
+    (): Column<PreviewData["changes"][0]>[] => [
+      {
+        header: "SKU",
+        accessorKey: "sku",
+        className: "font-mono text-xs",
+      },
+      {
+        header: "Product Name",
+        accessorKey: "name",
+      },
+      {
+        header: "Cost",
+        cell: (item) => formatCurrency(item.cost),
+        className: "text-right",
+        headerClassName: "text-right",
+      },
+      {
+        header: "Margin",
+        cell: (item) => `${(item.margin ?? 0).toFixed(2)}%`,
+        className: "text-right",
+        headerClassName: "text-right",
+      },
+      {
+        header: "Current Price",
+        cell: (item) => formatCurrency(item.currentPrice),
+        className: "text-right",
+        headerClassName: "text-right",
+      },
+      {
+        header: "New Price",
+        cell: (item) => (
+          <span className="font-bold">{formatCurrency(item.newPrice)}</span>
+        ),
+        className: "text-right",
+        headerClassName: "text-right",
+      },
+      {
+        header: "Change",
+        cell: (item) => (
+          <span
+            className={item.difference > 0 ? "text-green-600" : "text-red-600"}
+          >
+            {item.difference > 0 ? "+" : ""}
+            {formatCurrency(item.difference)}
+          </span>
+        ),
+        className: "text-right",
+        headerClassName: "text-right",
+      },
+    ],
+    [formatCurrency],
+  );
+
   const handlePreview = async () => {
     if (!value) return;
     setIsLoading(true);
     setResult(null);
+    setPreviewPage(1);
     try {
       const data: BatchPricingInput = {
         scope,
@@ -201,7 +262,7 @@ export function BatchPricingForm() {
               type="number"
               placeholder={
                 action.includes("PERCENTAGE") || action === "COST_MARGIN"
-                  ? "Percentage (e.g. 10)"
+                  ? "Percentage (e.g. 10 or 10.5)"
                   : "Amount (e.g. 5.00)"
               }
               value={value}
@@ -245,53 +306,17 @@ export function BatchPricingForm() {
           </CardHeader>
           <CardContent>
             {previewData.changes.length > 0 ? (
-              <div className="max-h-[400px] overflow-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Product Name</TableHead>
-                      <TableHead className="text-right">Cost</TableHead>
-                      <TableHead className="text-right">Margin</TableHead>
-                      <TableHead className="text-right">
-                        Current Price
-                      </TableHead>
-                      <TableHead className="text-right">New Price</TableHead>
-                      <TableHead className="text-right">Change</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {previewData.changes.map((change) => (
-                      <TableRow key={change.id}>
-                        <TableCell className="font-mono text-xs">
-                          {change.sku}
-                        </TableCell>
-                        <TableCell>{change.name}</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(change.cost)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {change.margin.toFixed(2)}%
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(change.currentPrice)}
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {formatCurrency(change.newPrice)}
-                        </TableCell>
-                        <TableCell
-                          className={`text-right ${change.difference > 0
-                            ? "text-green-600"
-                            : "text-red-600"
-                            }`}
-                        >
-                          {change.difference > 0 ? "+" : ""}
-                          {formatCurrency(change.difference)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="rounded-md border">
+                <DataTable
+                  columns={columns}
+                  data={paginatedChanges}
+                  pagination={{
+                    totalEntries: previewData.totalProducts,
+                    pageSize: previewPageSize,
+                    currentPage: previewPage,
+                    onPageChange: setPreviewPage,
+                  }}
+                />
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">

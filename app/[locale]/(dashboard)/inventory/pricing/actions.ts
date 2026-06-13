@@ -398,6 +398,8 @@ export async function previewPriceChanges(input: BatchPricingInput) {
     where,
     select: {
       id: true,
+      name: true,
+      sku: true,
       price: true,
       cost: true,
     },
@@ -433,10 +435,18 @@ export async function previewPriceChanges(input: BatchPricingInput) {
       newPrice = Math.round(newPrice * 100) / 100;
 
       if (newPrice !== currentPrice) {
+        const difference = newPrice - currentPrice;
+        const margin = newPrice > 0 ? ((newPrice - cost) / newPrice) * 100 : 0;
+
         return {
           id: p.id,
+          sku: p.sku,
+          name: p.name,
           currentPrice,
           newPrice,
+          difference,
+          cost,
+          margin,
         };
       }
       return null;
