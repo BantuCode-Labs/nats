@@ -9,7 +9,15 @@ import {
 } from "../actions";
 import { logout } from "@/app/[locale]/auth/actions";
 import { Button } from "@/components/ui/button";
-import { LogOut, History, Search, RotateCcw, Keyboard, PowerOff, PowerOffIcon } from "lucide-react";
+import {
+  LogOut,
+  History,
+  Search,
+  RotateCcw,
+  Keyboard,
+  PowerOff,
+  PowerOffIcon,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -141,9 +149,9 @@ export function POSView({
     initialData:
       debouncedSearchQuery === "" && !selectedCategory
         ? {
-          pages: [initialData],
-          pageParams: [1],
-        }
+            pages: [initialData],
+            pageParams: [1],
+          }
         : undefined,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
@@ -208,6 +216,57 @@ export function POSView({
     setGlobalDiscount(0);
   };
 
+  const handleSearchKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const trimmedQuery = searchQuery.trim();
+      if (!trimmedQuery) return;
+
+      // Try to find in current products first (already loaded in the grid)
+      let productToAdd = products.find(
+        (p) =>
+          p.sku.toLowerCase() === trimmedQuery.toLowerCase() ||
+          p.name.toLowerCase() === trimmedQuery.toLowerCase(),
+      );
+
+      // If not found in current view, fetch directly from server (important for fast barcode scans)
+      if (!productToAdd) {
+        try {
+          const res = await getPOSProducts(1, 1, trimmedQuery);
+          const data = SuperJSON.deserialize<{
+            items: POSProduct[];
+            total: number;
+            hasMore: boolean;
+          }>(res);
+
+          if (data.items.length > 0) {
+            // Check for exact match in the fetched result
+            const match = data.items.find(
+              (p) =>
+                p.sku.toLowerCase() === trimmedQuery.toLowerCase() ||
+                p.name.toLowerCase() === trimmedQuery.toLowerCase(),
+            );
+            // Use the match, or fallback to the first result if it's a specific search
+            productToAdd = match || data.items[0];
+          }
+        } catch (error) {
+          console.error("Failed to fetch product on Enter:", error);
+        }
+      }
+
+      if (productToAdd) {
+        addToCart(productToAdd);
+        setSearchQuery("");
+        toast({
+          title: t("items_added"),
+          description: productToAdd.name,
+        });
+      }
+    }
+  };
+
   const handleCloseSession = async () => {
     const ok = await confirm({
       title: t("close_session"),
@@ -237,7 +296,7 @@ export function POSView({
         await holdOrder(
           cart,
           cart.reduce((acc, item) => acc + item.price * item.quantity, 0) -
-          globalDiscount, // Approx total
+            globalDiscount, // Approx total
           t("auto_held_history"),
           undefined,
           t("walk_in_customer"),
@@ -382,13 +441,21 @@ export function POSView({
             {t("session")}: {session.sessionNumber}
           </div>
           {session.warehouse && (
-            <Badge variant="outline" className="hidden md:inline-flex text-sm font-normal">
+            <Badge
+              variant="outline"
+              className="hidden md:inline-flex text-sm font-normal"
+            >
               {t("location")}: {session.warehouse.name}
             </Badge>
           )}
 
           {!isCashier && (
-            <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="hidden sm:inline-flex"
+            >
               <Link href="/accounting/dashboard">
                 <LayoutDashboard className="mr-2 h-4 w-4" />
                 {t("dashboard")}
@@ -451,6 +518,7 @@ export function POSView({
               className="h-11 pl-10 text-base shadow-sm transition-all focus-visible:ring-2"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
             />
           </div>
           <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
@@ -511,7 +579,10 @@ export function POSView({
         <div className="lg:hidden absolute bottom-4 left-4 right-4 z-10">
           <Sheet>
             <SheetTrigger asChild>
-              <Button className="w-full h-14 rounded-full shadow-lg text-lg flex justify-between px-6" size="lg">
+              <Button
+                className="w-full h-14 rounded-full shadow-lg text-lg flex justify-between px-6"
+                size="lg"
+              >
                 <span className="flex items-center gap-2">
                   <ShoppingCart className="h-5 w-5" />
                   {t("cart")}
