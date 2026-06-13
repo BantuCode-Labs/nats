@@ -6,8 +6,9 @@ import { ThemeColorProvider } from "@/components/layout/others/theme-color-provi
 import { Toaster } from "@/components/ui/toaster";
 import { DialogProvider } from "@/components/providers/dialog-provider";
 import { ReactQueryProvider } from "@/components/providers/query-provider";
-import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
+import NextTopLoader from "nextjs-toploader";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -38,10 +39,22 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} className={inter.variable} suppressHydrationWarning>
-      <body suppressHydrationWarning
+      <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <NextIntlClientProvider messages={messages}>
+          <NextTopLoader
+            color="var(--primary)"
+            initialPosition={0.08}
+            crawlSpeed={200}
+            height={3}
+            crawl={true}
+            showSpinner={false}
+            easing="ease"
+            speed={200}
+            shadow="0 0 10px var(--primary),0 0 5px var(--primary)"
+          />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
