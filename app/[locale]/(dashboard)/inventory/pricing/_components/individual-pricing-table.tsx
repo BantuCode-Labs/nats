@@ -19,12 +19,12 @@ import { DiscountManager } from "./discount-manager";
 import { useAlert } from "@/hooks/use-alert";
 import { PricingProductWithDetails } from "../types";
 import { DataTable, Column } from "@/components/ui/data-table";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { SuperJSON } from "@/lib/superjson";
 import {
-  PageListContent,
-  PageListFilter,
-} from "@/components/layout/page/list-layout";
+  useQuery,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
+import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
 
 export function IndividualPricingTable() {
@@ -33,6 +33,7 @@ export function IndividualPricingTable() {
   const { replace } = useRouter();
   const formatCurrency = useFormatCurrency();
   const alert = useAlert();
+  const queryClient = useQueryClient();
 
   const [searchTerm, setSearchTerm] = useState(
     searchParams.get("search") || "",
@@ -75,7 +76,6 @@ export function IndividualPricingTable() {
   });
 
   const products = productsData?.products || [];
-  const totalPages = productsData?.totalPages || 0;
   const totalEntries = productsData?.total || 0;
 
   // Debounced search
@@ -140,10 +140,8 @@ export function IndividualPricingTable() {
         description: "Price updated successfully",
       });
       setEditingId(null);
-      // We rely on TanStack Query invalidation or just refetch
-      // Since updateSinglePrice calls revalidatePath, server actions might handle cache,
-      // but client query cache needs update.
-      // Ideally we invalidate queries here.
+      // Invalidate the query to refetch data
+      queryClient.invalidateQueries({ queryKey: ["pricing-products"] });
     } catch (error) {
       await alert({
         title: "Error",
@@ -156,7 +154,9 @@ export function IndividualPricingTable() {
   };
 
   // Selection State
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Selection Handlers
   const handleSelectAll = async (checked: boolean) => {
@@ -167,7 +167,10 @@ export function IndividualPricingTable() {
       }
 
       try {
-        const allIds = await getAllPricingProductIds(searchTerm, categoryFilter);
+        const allIds = await getAllPricingProductIds(
+          searchTerm,
+          categoryFilter,
+        );
         setSelectedProducts(new Set(allIds));
       } catch (error) {
         console.error("Failed to select all products", error);
@@ -193,10 +196,11 @@ export function IndividualPricingTable() {
     // Navigate to the print page (still in products directory as per plan, or move it if needed but user only asked to move feature access)
     // The print page is at /inventory/products/print-labels
     // We can use the same route.
-    window.open(`/inventory/products/print-labels?ids=${ids}`, '_blank');
+    window.open(`/inventory/products/print-labels?ids=${ids}`, "_blank");
   };
 
-  const isAllSelected = totalEntries > 0 && selectedProducts.size === totalEntries;
+  const isAllSelected =
+    totalEntries > 0 && selectedProducts.size === totalEntries;
   const isIndeterminate = selectedProducts.size > 0 && !isAllSelected;
 
   const columns: Column<PricingProductWithDetails>[] = [
@@ -217,7 +221,9 @@ export function IndividualPricingTable() {
           type="checkbox"
           className="translate-y-[2px]"
           checked={selectedProducts.has(product.id as string)}
-          onChange={(e) => handleSelectOne(product.id as string, e.target.checked)}
+          onChange={(e) =>
+            handleSelectOne(product.id as string, e.target.checked)
+          }
         />
       ),
       className: "w-[50px]",

@@ -4,8 +4,10 @@ import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-interface CurrencyInputProps
-  extends Omit<React.ComponentProps<"input">, "onChange" | "value"> {
+interface CurrencyInputProps extends Omit<
+  React.ComponentProps<"input">,
+  "onChange" | "value"
+> {
   value: string | number;
   onChange: (value: number) => void;
 }
@@ -14,6 +16,8 @@ export const CurrencyInput = React.forwardRef<
   HTMLInputElement,
   CurrencyInputProps
 >(({ value, onChange, onFocus, onBlur, ...props }, ref) => {
+  const [localValue, setLocalValue] = React.useState<string>("");
+
   const formatDisplayValue = (val: string | number) => {
     if (val === "" || val === undefined || val === null) return "";
     const strVal = val.toString();
@@ -29,6 +33,22 @@ export const CurrencyInput = React.forwardRef<
     return formattedInteger + decimalPart;
   };
 
+  // Sync localValue with value prop
+  React.useEffect(() => {
+    if (value !== undefined && value !== null && value !== "") {
+      const formatted = formatDisplayValue(value);
+      const currentParsed = parseFloat(localValue.replace(/,/g, ""));
+      const newParsed =
+        typeof value === "string" ? parseFloat(value.replace(/,/g, "")) : value;
+
+      if (currentParsed !== newParsed || localValue === "") {
+        setLocalValue(formatted);
+      }
+    } else if (value === "") {
+      setLocalValue("");
+    }
+  }, [value, localValue]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     // Remove commas to get raw value
@@ -36,17 +56,22 @@ export const CurrencyInput = React.forwardRef<
 
     // Allow digits and one dot.
     if (rawValue === "" || /^\d*\.?\d*$/.test(rawValue)) {
-      onChange(parseFloat(rawValue));
+      setLocalValue(inputValue);
+      const parsed = parseFloat(rawValue);
+      if (!isNaN(parsed)) {
+        onChange(parsed);
+      }
     }
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     onBlur?.(e);
 
-    // On blur, force 2 decimal places if it's a valid number
+    // On blur, format the local value properly with 2 decimal places
     if (value !== "" && value !== undefined && value !== null) {
       const numberVal = parseFloat(value.toString());
       if (!isNaN(numberVal)) {
+        setLocalValue(formatDisplayValue(numberVal.toFixed(2)));
         onChange(numberVal);
       }
     }
@@ -59,7 +84,7 @@ export const CurrencyInput = React.forwardRef<
       type="text"
       inputMode="decimal"
       className={cn("text-right", props.className)}
-      value={formatDisplayValue(value)}
+      value={localValue}
       onChange={handleChange}
       onBlur={handleBlur}
       onFocus={(e) => {
