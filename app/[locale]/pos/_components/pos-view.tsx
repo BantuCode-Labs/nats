@@ -17,6 +17,11 @@ import {
   Keyboard,
   PowerOff,
   PowerOffIcon,
+  User,
+  MapPin,
+  ComputerIcon,
+  Computer,
+  StoreIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -349,11 +354,14 @@ export function POSView({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <header className="flex h-16 items-center justify-between border-b bg-background px-2 sm:px-4">
+      <header className="flex h-12 items-center justify-between border-b bg-secondary px-2 sm:px-4">
         <div className="flex items-center gap-4 flex-1">
-          <h1 className="hidden text-xl font-bold lg:block">
-            NATS - {t("pos")}
-          </h1>
+          <div className="flex flex-row gap-2 items-center">
+            <StoreIcon className="h-5 w-5" />
+            <h1 className="text-xl font-bold lg:block text-foreground">
+              {t("pos")}
+            </h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-1 sm:gap-2">
@@ -436,23 +444,6 @@ export function POSView({
             <span className="hidden sm:inline">{t("history")}</span>
           </Button>
 
-          <div className="hidden md:block text-sm text-muted-foreground">
-            {sessionData?.userName && (
-              <span className="mr-3 font-medium text-foreground">
-                {sessionData.userName}
-              </span>
-            )}
-            {t("session")}: {session.sessionNumber}
-          </div>
-          {session.warehouse && (
-            <Badge
-              variant="outline"
-              className="hidden md:inline-flex text-sm font-normal"
-            >
-              {t("location")}: {session.warehouse.name}
-            </Badge>
-          )}
-
           {!isCashier && (
             <Button
               variant="outline"
@@ -467,9 +458,6 @@ export function POSView({
             </Button>
           )}
 
-          <div className="hidden sm:block">
-            <Clock startTime={session.startTime} />
-          </div>
           <ThemeCustomizer />
           <ModeToggle />
           <DropdownMenu>
@@ -618,6 +606,35 @@ export function POSView({
           </Sheet>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="flex h-10 items-center justify-between border-t bg-secondary px-4 text-xs text-foreground">
+        <div className="flex items-center gap-6">
+          {sessionData?.userName && (
+            <div className="flex items-center gap-1.5">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-medium text-foreground">
+                {sessionData.userName}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <Computer className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-foreground">{session.sessionNumber}</span>
+          </div>
+          {session.warehouse && (
+            <div className="flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-medium text-foreground">
+                {session.warehouse.name}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          <Clock startTime={session.startTime} />
+        </div>
+      </footer>
 
       <POSHistoryDialog
         open={historyOpen}

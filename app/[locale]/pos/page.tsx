@@ -45,7 +45,7 @@ export default async function POSPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] overflow-hidden bg-muted/20">
+    <div className="h-screen overflow-hidden bg-muted/20">
       <POSView
         initialProducts={products}
         categories={categories}
