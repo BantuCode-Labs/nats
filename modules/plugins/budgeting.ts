@@ -12,10 +12,8 @@ export const budgetingPlugin: ModulePlugin = {
           url: "#",
           icon: PieChart,
           items: [
-            { title: "Budgeting.dashboard", url: "/budgeting/dashboard" },
+            { title: "Budgeting.dashboard", url: "/budgeting" },
             { title: "Budgeting.budgets", url: "/budgeting/budgets" },
-            { title: "Budgeting.plans", url: "/budgeting/plans" },
-            { title: "Budgeting.variance", url: "/budgeting/variance" },
           ],
         },
       ],
