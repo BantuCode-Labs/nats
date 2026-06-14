@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dokumentasi NATS — Panduan Penggunaan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        pre { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 1rem 0; }
+        code { font-family: 'Fira Code', monospace; font-size: 0.9em; }
+        .prose h2 { margin-top: 2.5rem; margin-bottom: 1rem; font-weight: 700; font-size: 1.5rem; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; }
+        .prose h3 { margin-top: 2rem; margin-bottom: 0.75rem; font-weight: 600; font-size: 1.25rem; color: #1e293b; }
+        .prose p { margin-bottom: 1rem; line-height: 1.7; color: #475569; }
+        .prose ul { margin-bottom: 1rem; list-style-type: disc; padding-left: 1.5rem; }
+        .prose li { margin-bottom: 0.5rem; color: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <a href="index.html" class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">N</div>
+                        <span class="text-xl font-bold tracking-tight">NATS</span>
+                    </a>
+                </div>
+                <div class="flex items-center gap-8">
+                    <a href="index.html" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">Home</a>
+                    <a href="https://github.com/maziyank/nats" class="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="flex flex-col lg:flex-row gap-12">
+            
+            <!-- Sidebar Navigation -->
+            <aside class="lg:w-64 flex-shrink-0">
+                <div class="sticky top-28">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Mulai Cepat</h4>
+                    <ul class="space-y-2 mb-8">
+                        <li><a href="#instalasi" class="text-sm text-slate-600 hover:text-indigo-600 font-medium transition-colors">Instalasi</a></li>
+                        <li><a href="#konfigurasi" class="text-sm text-slate-600 hover:text-indigo-600 font-medium transition-colors">Konfigurasi</a></li>
+                        <li><a href="#database" class="text-sm text-slate-600 hover:text-indigo-600 font-medium transition-colors">Persiapan Database</a></li>
+                    </ul>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Modul</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#accounting" class="text-sm text-slate-600 hover:text-indigo-600 font-medium transition-colors">Accounting</a></li>
+                        <li><a href="#inventory" class="text-sm text-slate-600 hover:text-indigo-600 font-medium transition-colors">Inventory</a></li>
+                        <li><a href="#sales" class="text-sm text-slate-600 hover:text-indigo-600 font-medium transition-colors">Sales & Purchasing</a></li>
+                        <li><a href="#pos" class="text-sm text-slate-600 hover:text-indigo-600 font-medium transition-colors">Point of Sale</a></li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- Content -->
+            <main class="flex-1 max-w-4xl prose">
+                <h1 class="text-4xl font-extrabold text-slate-900 mb-4">Panduan Penggunaan NATS</h1>
+                <p class="text-xl text-slate-600 mb-8">Selamat datang di dokumentasi resmi NATS ERP. Ikuti panduan ini untuk menginstal dan menjalankan sistem di lingkungan lokal atau produksi Anda.</p>
+
+                <section id="instalasi">
+                    <h2>Instalasi</h2>
+                    <p>NATS memerlukan Node.js versi 20.x atau lebih baru. Pastikan Anda sudah menginstal Git dan PostgreSQL sebelum memulai.</p>
+                    
+                    <h3>Langkah 1: Clone Repository</h3>
+                    <pre><code>git clone https://github.com/maziyank/nats.git
+cd nats</code></pre>
+
+                    <h3>Langkah 2: Install Dependensi</h3>
+                    <pre><code>npm install</code></pre>
+                </section>
+
+                <section id="konfigurasi">
+                    <h2>Konfigurasi</h2>
+                    <p>Salin file <code>.env.example</code> menjadi <code>.env</code> dan sesuaikan nilai-nilainya.</p>
+                    <pre><code>cp .env.example .env</code></pre>
+                    <p>Pastikan variabel <code>DATABASE_URL</code> mengarah ke instance PostgreSQL Anda:</p>
+                    <pre><code>DATABASE_URL="postgresql://user:password@localhost:5432/nats"</code></pre>
+                </section>
+
+                <section id="database">
+                    <h2>Persiapan Database</h2>
+                    <h3>1. Buat Database</h3>
+                    <pre><code>psql -U postgres -c "CREATE DATABASE nats;"</code></pre>
+
+                    <h3>2. Migrasi Schema</h3>
+                    <pre><code>npx prisma generate
+npx prisma migrate dev --name init</code></pre>
+
+                    <h3>3. Seed Data Awal</h3>
+                    <p>Anda dapat memilih antara seeding lengkap untuk pengujian atau seeding minimal untuk mulai dari awal.</p>
+                    <p><strong>Opsi A: Lengkap (Disarankan untuk Demo)</strong></p>
+                    <pre><code>npm run prisma db seed</code></pre>
+                    <p><strong>Opsi B: Minimal (Clean Start)</strong></p>
+                    <pre><code>npm run prisma:seed:minimal</code></pre>
+                </section>
+
+                <section id="accounting">
+                    <h2>Modul Accounting</h2>
+                    <p>Modul akuntansi di NATS memungkinkan Anda mengelola seluruh siklus keuangan perusahaan secara otomatis.</p>
+                    <ul>
+                        <li><strong>Chart of Accounts (COA):</strong> Atur struktur akun keuangan Anda.</li>
+                        <li><strong>Jurnal Umum:</strong> Catat transaksi manual dengan sistem double-entry.</li>
+                        <li><strong>Buku Besar:</strong> Lacak mutasi setiap akun secara detail.</li>
+                        <li><strong>Laporan Keuangan:</strong> Neraca, Laba Rugi, dan Arus Kas tersedia secara instan.</li>
+                    </ul>
+                </section>
+
+                <section id="inventory">
+                    <h2>Modul Inventory</h2>
+                    <p>Kelola persediaan barang Anda dengan fitur manajemen gudang yang canggih.</p>
+                    <ul>
+                        <li><strong>Manajemen Produk:</strong> Tambahkan produk dengan varian dan kategori.</li>
+                        <li><strong>Multi-Warehouse:</strong> Lacak stok di berbagai lokasi gudang.</li>
+                        <li><strong>Mutasi Barang:</strong> Catat perpindahan stok antar gudang atau penyesuaian stok.</li>
+                    </ul>
+                </section>
+
+                <section id="pos">
+                    <h2>Point of Sale (POS)</h2>
+                    <p>Interface kasir yang cepat untuk transaksi retail harian.</p>
+                    <p>Buka menu POS untuk mulai melakukan penjualan. Sistem mendukung shortcut keyboard, pencarian produk cepat, dan integrasi dengan printer thermal untuk cetak struk.</p>
+                </section>
+
+                <div class="mt-16 p-8 bg-indigo-50 rounded-2xl border border-indigo-100">
+                    <h3 class="text-indigo-900 mt-0">Butuh Bantuan Lebih Lanjut?</h3>
+                    <p class="text-indigo-700 mb-0">Jika Anda menemui masalah dalam instalasi atau penggunaan, silakan buka <a href="https://github.com/maziyank/nats/issues" class="font-bold underline">Issue di GitHub</a> atau hubungi tim pengembang.</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-12 mt-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">N</div>
+                    <span class="text-xl font-bold text-white tracking-tight">NATS</span>
+                </div>
+                <div class="text-sm">
+                    &copy; 2026 NATS ERP System.
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

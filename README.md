@@ -2,6 +2,8 @@
 
 NATS is a Next.js-based ERP system designed to handle various business functions ranging from accounting, inventory, sales, purchasing, POS, to payroll.
 
+**[🌐 Lihat Dokumentasi Online](https://maziyank.github.io/nats/)**
+
 ## Key Features
 
 - **Accounting**: Automated general ledger, journals, and financial reports.
