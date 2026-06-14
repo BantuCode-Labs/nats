@@ -79,6 +79,11 @@
         "placeholder_select_product": "Select product...",
         "unit": "Unit"
     },
+    "NotFound": {
+        "title": "Page Not Found",
+        "description": "Sorry, the page you are looking for doesn't exist or has been moved.",
+        "back_to_dashboard": "Back to Dashboard"
+    },
     "Navigation": {
         "operations": "Operations",
         "finance_accounting": "Finance & Accounting",

@@ -79,6 +79,11 @@
         "placeholder_select_product": "Pilih produk...",
         "unit": "Unit"
     },
+    "NotFound": {
+        "title": "Halaman Tidak Ditemukan",
+        "description": "Maaf, halaman yang Anda cari tidak ada atau telah dipindahkan.",
+        "back_to_dashboard": "Kembali ke Dasbor"
+    },
     "Navigation": {
         "operations": "Operasi",
         "finance_accounting": "Keuangan & Akuntansi",
