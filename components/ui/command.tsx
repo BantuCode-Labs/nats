@@ -57,7 +57,9 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        {children}
+        <Command className="**:[[cmdk-root]]:h-auto **:[[cmdk-root]]:max-h-[unset] **:[[cmdk-root]]:border-none **:[[cmdk-root]]:shadow-none">
+          {children}
+        </Command>
       </DialogContent>
     </Dialog>
   )

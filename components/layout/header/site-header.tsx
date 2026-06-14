@@ -16,48 +16,53 @@ import { ModeToggle } from "@/components/layout/others/mode-toggle";
 import { ThemeCustomizer } from "@/components/layout/others/theme-customizer";
 import { useTranslations } from "next-intl";
 import { toTitleCase } from "@/lib/utils";
+import { GlobalSearch } from "./global-search";
 
 // ...
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const segments = pathname.split("/").filter((segment) => segment !== "").slice(1);
+  const segments = pathname
+    .split("/")
+    .filter((segment) => segment !== "")
+    .slice(1);
   const t = useTranslations();
 
-  const breadcrumbs = segments
-    .map((segment, index) => {
-      const href = "/" + segments.slice(0, index + 1).join("/");
-      const isLast = index === segments.length - 1;
-      const isUuid = isLast && segment.length > 20;
-      const tPath = index === 0 ? `Navigation.${segment}` : toTitleCase(`${segments.slice(0, index + 1).join(".")}`);
+  const breadcrumbs = segments.map((segment, index) => {
+    const href = "/" + segments.slice(0, index + 1).join("/");
+    const isLast = index === segments.length - 1;
+    const isUuid = isLast && segment.length > 20;
+    const tPath =
+      index === 0
+        ? `Navigation.${segment}`
+        : toTitleCase(`${segments.slice(0, index + 1).join(".")}`);
 
-      let title = segment;
-      if (!isUuid) {
-        if (t.has(tPath as any)) {
-          title = t(tPath as any);
-        } else {
-          // Fallback nicely formatted text (e.g. document-numbering -> Document Numbering)
-          title = segment.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-        }
+    let title = segment;
+    if (!isUuid) {
+      if (t.has(tPath as any)) {
+        title = t(tPath as any);
+      } else {
+        // Fallback nicely formatted text (e.g. document-numbering -> Document Numbering)
+        title = segment
+          .split("-")
+          .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+          .join(" ");
       }
+    }
 
-      return (
-        <React.Fragment key={href}>
-          <BreadcrumbItem>
-            {isLast ? (
-              <BreadcrumbPage>
-                {title}
-              </BreadcrumbPage>
-            ) : (
-              <BreadcrumbLink href={href}>
-                {title}
-              </BreadcrumbLink>
-            )}
-          </BreadcrumbItem>
-          {!isLast && <BreadcrumbSeparator />}
-        </React.Fragment>
-      );
-    });
+    return (
+      <React.Fragment key={href}>
+        <BreadcrumbItem>
+          {isLast ? (
+            <BreadcrumbPage>{title}</BreadcrumbPage>
+          ) : (
+            <BreadcrumbLink href={href}>{title}</BreadcrumbLink>
+          )}
+        </BreadcrumbItem>
+        {!isLast && <BreadcrumbSeparator />}
+      </React.Fragment>
+    );
+  });
 
   return (
     <header className="sticky top-0 z-10 bg-background flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -70,12 +75,13 @@ export function SiteHeader() {
               breadcrumbs
             ) : (
               <BreadcrumbItem>
-                <BreadcrumbPage>{t('Common.home')}</BreadcrumbPage>
+                <BreadcrumbPage>{t("Common.home")}</BreadcrumbPage>
               </BreadcrumbItem>
             )}
           </BreadcrumbList>
         </Breadcrumb>
         <div className="ml-auto flex items-center gap-2">
+          <GlobalSearch />
           <LanguageSwitcher />
           <ThemeCustomizer />
           <ModeToggle />

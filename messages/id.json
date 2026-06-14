@@ -14,6 +14,7 @@
         "actions": "Aksi",
         "search": "Cari",
         "loading": "Memuat...",
+        "no_results_found": "Tidak ada hasil ditemukan",
         "success": "Berhasil",
         "error": "Galat",
         "confirm": "Konfirmasi",
