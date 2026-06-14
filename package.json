@@ -11,7 +11,8 @@
     "outbox:work": "tsx scripts/outbox-worker.ts",
     "outbox:work:http": "tsx scripts/outbox-worker-http.ts",
     "i18n:validate": "tsx scripts/i18n-validate.ts",
-    "prisma:seed:minimal": "tsx prisma/seed-minimal.ts"
+    "prisma:seed:minimal": "tsx prisma/seed-minimal.ts",
+    "theme:install": "tsx scripts/install-theme.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

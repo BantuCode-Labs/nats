@@ -7,6 +7,8 @@
 @import "./themes/amethys.css";
 @import "./themes/orange.css";
 @import "./themes/green.css";
+@import "./themes/catppuccin.css";
+@import "./themes/cyberpunk.css";
 
 @custom-variant dark (&:is(.dark *));
 

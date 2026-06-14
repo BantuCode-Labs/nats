@@ -27,6 +27,8 @@ export function ThemeCustomizer() {
     { name: "blue", label: "Blue", color: "bg-blue-500" },
     { name: "green", label: "Green", color: "bg-green-500" },
     { name: "orange", label: "Orange", color: "bg-orange-500" },
+    { name: "catppuccin", label: "Catppuccin", color: "bg-blue-200" },
+    { name: "cyberpunk", label: "Cyberpunk", color: "bg-pink-500" },
   ];
 
   return (
@@ -47,7 +49,7 @@ export function ThemeCustomizer() {
               variant={"outline"}
               className={cn(
                 "h-8 w-8 rounded-full p-0",
-                themeColor === color.name && "border-2 border-primary"
+                themeColor === color.name && "border-2 border-primary",
               )}
               onClick={() => setThemeColor(color.name)}
             >
