@@ -12,10 +12,13 @@ export const accountingPlugin: ModulePlugin = {
           url: "#",
           icon: BookOpen,
           items: [
-            { title: "Accounting.dashboard", url: "/accounting/dashboard" },
+            { title: "Accounting.dashboard", url: "/accounting/" },
             { title: "Accounting.journal", url: "/accounting/journal-entries" },
             { title: "Accounting.ledger", url: "/accounting/ledger" },
-            { title: "Accounting.chart_of_accounts", url: "/accounting/accounts" },
+            {
+              title: "Accounting.chart_of_accounts",
+              url: "/accounting/accounts",
+            },
             { title: "Accounting.reports", url: "/accounting/reports" },
           ],
         },
@@ -80,4 +83,3 @@ export const accountingPlugin: ModulePlugin = {
     },
   ],
 };
-
