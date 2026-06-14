@@ -57,11 +57,11 @@ export function DashboardView({ companyProfile }: DashboardViewProps) {
       return res.success
         ? res.data
         : {
-          totalOrders: 0,
-          totalSales: 0,
-          totalReceived: 0,
-          outstandingAmount: 0,
-        };
+            totalOrders: 0,
+            totalSales: 0,
+            totalReceived: 0,
+            outstandingAmount: 0,
+          };
     },
   });
 
@@ -116,9 +116,7 @@ export function DashboardView({ companyProfile }: DashboardViewProps) {
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 py-4">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-xl font-bold tracking-tight">
-          Sales Dashboard
-        </h2>
+        <h2 className="text-xl font-bold tracking-tight">Dashboard</h2>
         <div className="flex items-center space-x-2">
           <Button asChild>
             <Link href="/sales/orders/new">
@@ -138,13 +136,13 @@ export function DashboardView({ companyProfile }: DashboardViewProps) {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Orders
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summary?.totalOrders || 0}</div>
+            <div className="text-2xl font-bold">
+              {summary?.totalOrders || 0}
+            </div>
             <p className="text-xs text-muted-foreground">
               Total sales orders created
             </p>
@@ -152,9 +150,7 @@ export function DashboardView({ companyProfile }: DashboardViewProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Sales
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
             <Rocket className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -168,7 +164,9 @@ export function DashboardView({ companyProfile }: DashboardViewProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Received</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Received
+            </CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -182,9 +180,7 @@ export function DashboardView({ companyProfile }: DashboardViewProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Outstanding
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -213,9 +209,7 @@ export function DashboardView({ companyProfile }: DashboardViewProps) {
         <Card className="col-span-3">
           <CardHeader>
             <CardTitle>Recent Orders</CardTitle>
-            <CardDescription>
-              Latest sales orders
-            </CardDescription>
+            <CardDescription>Latest sales orders</CardDescription>
           </CardHeader>
           <CardContent>
             <RecentSales data={recentSales} />

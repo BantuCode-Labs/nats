@@ -12,7 +12,7 @@ export const salesPlugin: ModulePlugin = {
           url: "#",
           icon: Rocket,
           items: [
-            { title: "Sales.dashboard", url: "/sales/dashboard" },
+            { title: "Sales.dashboard", url: "/sales" },
             { title: "Sales.orders", url: "/sales/orders" },
             { title: "Sales.invoices", url: "/sales/invoices" },
             { title: "Sales.returns", url: "/sales/returns" },
@@ -51,4 +51,3 @@ export const salesPlugin: ModulePlugin = {
     },
   ],
 };
-

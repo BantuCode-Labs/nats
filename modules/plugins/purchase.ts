@@ -12,7 +12,7 @@ export const purchasePlugin: ModulePlugin = {
           url: "#",
           icon: ShoppingCart,
           items: [
-            { title: "Purchase.dashboard", url: "/purchase/dashboard" },
+            { title: "Purchase.dashboard", url: "/purchase" },
             { title: "Purchase.orders", url: "/purchase/orders" },
             { title: "Purchase.invoices", url: "/purchase/invoices" },
             { title: "Purchase.returns", url: "/purchase/returns" },
@@ -51,4 +51,3 @@ export const purchasePlugin: ModulePlugin = {
     },
   ],
 };
-
