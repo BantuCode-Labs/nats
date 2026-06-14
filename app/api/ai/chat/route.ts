@@ -55,6 +55,12 @@ export async function POST(req: NextRequest) {
         },
       });
       currentSessionId = newSession.id;
+    } else {
+      // Update the session's updatedAt timestamp
+      await prisma.aISession.update({
+        where: { id: currentSessionId },
+        data: { updatedAt: new Date() },
+      });
     }
 
     // Save user message
