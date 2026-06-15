@@ -72,6 +72,9 @@ export function ProductForm({
   };
 
   const handleApplySkuMetadata = (metadata: SelectedMetadata) => {
+    if (metadata.sku) {
+      handleInputChange("sku", metadata.sku);
+    }
     if (metadata.name) {
       handleInputChange("name", metadata.name);
     }

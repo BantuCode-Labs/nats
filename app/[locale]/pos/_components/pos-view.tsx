@@ -550,7 +550,7 @@ export function POSView({
               asChild
               className="hidden sm:inline-flex"
             >
-              <Link href="/">
+              <Link href="/pos/sessions">
                 <LayoutDashboard className="mr-2 h-4 w-4" />
                 {t("dashboard")}
               </Link>

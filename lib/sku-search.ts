@@ -1,11 +1,28 @@
 import { getSession } from "@/lib/auth/auth";
 import { getAIConfig } from "@/lib/ai/config";
+import { OpenAIProvider } from "@/lib/ai/providers/openai";
+import { OpenRouterProvider } from "@/lib/ai/providers/openrouter";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export type StatusCallback = (status: string) => void;
+
+// ============================================================================
+// HTML Sanitization
+// ============================================================================
+
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "")
+    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 // ============================================================================
 // Rate Limiting
@@ -70,10 +87,6 @@ function logSearch(entry: SearchLogEntry): void {
     `[SKU Search] User: ${entry.userName} | SKU: ${entry.sku} | Source: ${entry.source} | Success: ${entry.success} | Results: ${entry.resultCount} | Duration: ${entry.durationMs}ms${entry.error ? ` | Error: ${entry.error}` : ""}`,
   );
 }
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface SkuSearchMetadata {
   name: string;
@@ -142,6 +155,12 @@ async function ensureLightpanda(): Promise<boolean> {
       host: "127.0.0.1",
       port: 9222,
     });
+
+    // Run headless in background: suppress all process output and detach
+    if (lightpandaProc.stdout) lightpandaProc.stdout.destroy();
+    if (lightpandaProc.stderr) lightpandaProc.stderr.destroy();
+    lightpandaProc.unref();
+
     lightpandaReady = true;
     return true;
   } catch (error) {
@@ -183,11 +202,13 @@ async function fetchPageWithLightpanda(url: string): Promise<string> {
       dump: true,
     });
 
-    if (typeof result === "string") return result.substring(0, 8000);
-    if (result && typeof result === "object" && "content" in result) {
-      return String((result as any).content).substring(0, 8000);
-    }
-    return "";
+    const raw =
+      typeof result === "string"
+        ? result
+        : result && typeof result === "object" && "content" in result
+          ? String((result as any).content)
+          : "";
+    return sanitizeHtml(raw).substring(0, 4000);
   } catch (error) {
     console.error(`[SKU Search] Lightpanda fetch failed for ${url}:`, error);
     return "";
@@ -205,10 +226,11 @@ async function fetchPageInteractive(url: string): Promise<string> {
     const puppeteer = await import("puppeteer-core");
     const browser = await puppeteer.default.connect({
       browserWSEndpoint: versionData.webSocketDebuggerUrl,
+      defaultViewport: { width: 1280, height: 720 },
     });
 
     const context = await browser.createBrowserContext();
-    const page = await context.newPage();
+    const page = await context.newPage({ background: true });
 
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
 
@@ -217,7 +239,7 @@ async function fetchPageInteractive(url: string): Promise<string> {
 
     const content = await page.evaluate(() => {
       return (
-        document.body?.innerText || document.documentElement?.innerText || ""
+        document.body?.innerHTML || document.documentElement?.innerHTML || ""
       );
     });
 
@@ -225,7 +247,7 @@ async function fetchPageInteractive(url: string): Promise<string> {
     await context.close();
     await browser.disconnect();
 
-    return content.substring(0, 8000);
+    return sanitizeHtml(content).substring(0, 4000);
   } catch (error) {
     console.error(`[SKU Search] Interactive fetch failed for ${url}:`, error);
     return "";
@@ -243,40 +265,57 @@ async function callLLM(
   const config = await getAIConfig();
   if (!config.apiKey) throw new Error("No API key configured");
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.model || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
-      temperature: 0.1,
-      max_tokens: 3000,
-    }),
-    signal: AbortSignal.timeout(20000),
-  });
-
-  if (!response.ok) {
-    throw new Error(`LLM API error: ${response.status}`);
+  let provider;
+  if (config.provider === "openrouter") {
+    provider = new OpenRouterProvider(config.apiKey);
+  } else if (config.provider === "custom" && config.customEndpoint) {
+    provider = new OpenAIProvider(config.apiKey, config.customEndpoint);
+  } else {
+    provider = new OpenAIProvider(config.apiKey);
   }
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  const response = await provider.chatCompletion({
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ],
+    config: {
+      model: config.model,
+      temperature: 0.1,
+      maxTokens: 4000,
+    },
+  });
+
+  if (!response.content) throw new Error("Empty LLM response");
+  return response.content;
 }
 
 function parseJSON<T>(text: string): T | null {
+  const cleaned = text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+
   try {
-    const cleaned = text
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```\s*$/i, "")
-      .trim();
     return JSON.parse(cleaned);
   } catch {
+    // Try extracting a JSON array from surrounding text
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        // Try recovering a truncated array by closing at last complete object
+        const lastBrace = match[0].lastIndexOf("}");
+        if (lastBrace !== -1) {
+          try {
+            return JSON.parse(match[0].substring(0, lastBrace + 1) + "]");
+          } catch {
+            // All attempts failed
+          }
+        }
+      }
+    }
     return null;
   }
 }
@@ -284,23 +323,6 @@ function parseJSON<T>(text: string): T | null {
 // ============================================================================
 // Agentic AI Product Search
 // ============================================================================
-
-const AGENT_PLANNING_PROMPT = `You are an intelligent product search agent. Given a product SKU/barcode, your job is to plan search queries that will find the product information.
-
-Return ONLY a valid JSON object (no markdown, no backticks) with this structure:
-{
-  "queries": [
-    {"query": "search query text", "source": "google|bing|shopping"}
-  ],
-  "reasoning": "brief explanation of your search strategy"
-}
-
-Rules:
-- Generate 2-3 diverse search queries to maximize chances of finding the product
-- Include queries with "product", "sku", "upc", "ean" keywords
-- If the SKU looks like a barcode (UPC/EAN), mention that in the query
-- If the SKU looks like a model number, search for it as a model
-- Use English queries`;
 
 const AGENT_EXTRACTION_PROMPT = `You are a product data extraction agent. You have been given web page content from search results and product pages related to a product SKU/barcode.
 
@@ -318,6 +340,7 @@ Return ONLY a valid JSON array (no markdown, no backticks). Each object should h
   "images": ["array of absolute image URLs (http/https only)"],
   "specifications": {"key": "value pairs of technical specs"},
   "sourceTitle": "the source page title or product name",
+  "sourceUrl": "the URL where this product data was found",
   "confidence": "high|medium|low"
 }
 
@@ -329,69 +352,81 @@ Rules:
 - Keep specifications concise (max 15 entries)
 - Prefer data from authoritative sources (manufacturer sites, major retailers)
 - If the content is not about a product, return an empty array []
-- Include confidence level based on how well the data matches the queried SKU`;
+- Include confidence level based on how well the data matches the queried SKU
+- Include sourceUrl from the page where the data was found
+- Your response MUST start with [ and end with ] — no explanatory text, no markdown fences`;
 
-const AGENT_EVALUATION_PROMPT = `You are evaluating search results for a product SKU/barcode lookup. Given a list of search results with titles and URLs, determine which results are most likely to contain useful product information.
-
-Return ONLY a valid JSON array (no markdown, no backticks) of URLs to investigate further, ordered by relevance:
-["https://url1.com", "https://url2.com"]
-
-Rules:
-- Prioritize manufacturer websites, major retailers (Amazon, Walmart, etc.), and product databases
-- Skip social media, scribd, forums, and video platforms
-- Return at most 3 URLs
-- Skip URLs that are clearly not product-related`;
-
-async function planSearchQueries(sku: string): Promise<string[]> {
-  try {
-    const response = await callLLM(
-      AGENT_PLANNING_PROMPT,
-      `Product SKU/Barcode: ${sku}`,
-    );
-
-    const parsed = parseJSON<{ queries?: { query: string }[] }>(response);
-    if (parsed?.queries && Array.isArray(parsed.queries)) {
-      return parsed.queries
-        .map((q) => q.query)
-        .filter(Boolean)
-        .slice(0, 3);
-    }
-  } catch (error) {
-    console.error("[SKU Search] Agent planning failed:", error);
-  }
-
-  // Fallback queries
-  return [`${sku} product specifications price`, `${sku}`];
-}
-
-async function evaluateSearchResults(
+function evaluateSearchResults(
   results: { title: string; url: string }[],
-): Promise<string[]> {
+): string[] {
   if (results.length === 0) return [];
 
-  try {
-    const resultsText = results
-      .map((r, i) => `${i + 1}. "${r.title}" - ${r.url}`)
-      .join("\n");
+  const BLOCKED_DOMAINS = [
+    "google.com",
+    "bing.com",
+    "yahoo.com",
+    "facebook.com",
+    "twitter.com",
+    "x.com",
+    "instagram.com",
+    "tiktok.com",
+    "linkedin.com",
+    "pinterest.com",
+    "youtube.com",
+    "vimeo.com",
+    "reddit.com",
+    "quora.com",
+    "stackoverflow.com",
+    "scribd.com",
+    "slideshare.net",
+    "medium.com",
+    "wikipedia.org",
+  ];
 
-    const response = await callLLM(
-      AGENT_EVALUATION_PROMPT,
-      `Search results:\n${resultsText}`,
-    );
+  const PRODUCT_DOMAINS = [
+    "amazon.",
+    "ebay.",
+    "walmart.",
+    "target.",
+    "bestbuy.",
+    "costco.",
+    "shopify.",
+    "etsy.",
+    "alibaba.",
+    "aliexpress.",
+    "go-upc.com",
+    "upcitemdb.com",
+    "barcodelookup.com",
+    "openfoodfacts.org",
+  ];
 
-    const urls = parseJSON<string[]>(response);
-    if (Array.isArray(urls) && urls.length > 0) {
-      return urls.filter((u) => typeof u === "string").slice(0, 3);
+  const filtered = results.filter((r) => {
+    try {
+      const hostname = new URL(r.url).hostname.toLowerCase();
+      return !BLOCKED_DOMAINS.some((d) => hostname.includes(d));
+    } catch {
+      return false;
     }
-  } catch (error) {
-    console.error("[SKU Search] Agent evaluation failed:", error);
-  }
+  });
 
-  // Fallback: return first 3 non-search-engine URLs
-  return results
-    .filter((r) => !r.url.includes("google.com") && !r.url.includes("bing.com"))
-    .slice(0, 3)
-    .map((r) => r.url);
+  const scored = filtered.map((r) => {
+    let score = 0;
+    const urlLower = r.url.toLowerCase();
+    const titleLower = r.title.toLowerCase();
+
+    if (PRODUCT_DOMAINS.some((d) => urlLower.includes(d))) score += 10;
+    if (/\.(com|net|org|co)\//i.test(urlLower) && !urlLower.includes("blog"))
+      score += 2;
+    if (/product|item|sku|barcode|upc|ean/i.test(urlLower)) score += 5;
+    if (/buy|shop|price|store/i.test(urlLower)) score += 3;
+    if (/product|item|sku|barcode|upc|ean/i.test(titleLower)) score += 4;
+    if (/buy|shop|price|store/i.test(titleLower)) score += 2;
+
+    return { url: r.url, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map((s) => s.url);
 }
 
 async function extractProductData(
@@ -402,7 +437,7 @@ async function extractProductData(
 
   try {
     const contextParts = pageContents.map(
-      (p) => `Source URL: ${p.url}\nContent:\n${p.content}`,
+      (p) => `Source URL: ${p.url}\nContent:\n${sanitizeHtml(p.content)}`,
     );
 
     const response = await callLLM(
@@ -433,7 +468,7 @@ async function extractProductData(
                 ]),
               )
             : {},
-        sourceUrl: pageContents[0]?.url || "",
+        sourceUrl: String(item.sourceUrl || pageContents[0]?.url || ""),
         sourceTitle: String(item.sourceTitle || item.name || ""),
       }));
   } catch (error) {
@@ -477,10 +512,11 @@ async function searchViaLightpanda(
       const puppeteer = await import("puppeteer-core");
       browser = await puppeteer.default.connect({
         browserWSEndpoint: versionData.webSocketDebuggerUrl,
+        defaultViewport: { width: 1280, height: 720 },
       });
 
       context = await browser.createBrowserContext();
-      page = await context.newPage();
+      page = await context.newPage({ background: true });
 
       // Navigate to Google search
       const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10&hl=en`;
@@ -552,61 +588,47 @@ async function agenticProductSearch(
   sku: string,
   onStatus?: StatusCallback,
 ): Promise<SkuSearchMetadata[]> {
-  // Step 1: Agent plans search queries
-  onStatus?.("Planning search queries...");
-  const queries = await planSearchQueries(sku);
-  console.log(
-    `[SKU Search] Agent planned ${queries.length} queries for: ${sku}`,
-  );
-
-  // Step 2: Execute searches via Lightpanda in parallel
-  onStatus?.(`Searching ${queries.length} queries via browser...`);
-  const searchPromises = queries.map((q) => searchViaLightpanda(q));
-  const searchResultSets = await Promise.all(searchPromises);
-  const allResults = searchResultSets.flat().filter((r) => r.title && r.url);
-
-  // Deduplicate by URL
+  // Step 1: Search via Lightpanda
+  onStatus?.("Searching...");
+  const allResults = await searchViaLightpanda(sku);
   const seen = new Set<string>();
   const uniqueResults = allResults.filter((r) => {
-    if (seen.has(r.url)) return false;
+    if (!r.title || !r.url || seen.has(r.url)) return false;
     seen.add(r.url);
     return true;
   });
 
-  if (uniqueResults.length === 0) return [];
+  if (uniqueResults.length === 0) {
+    onStatus?.("No search results found...");
+    return [];
+  }
 
-  // Step 3: Agent evaluates which results to investigate
-  onStatus?.("Evaluating search results...");
-  const urlsToFetch = await evaluateSearchResults(uniqueResults);
-  console.log(
-    `[SKU Search] Agent selected ${urlsToFetch.length} URLs to investigate`,
-  );
-
+  // Step 2: Filter and rank results by relevance
+  onStatus?.("Ranking search results...");
+  const urlsToFetch = evaluateSearchResults(uniqueResults);
   if (urlsToFetch.length === 0) return [];
 
-  // Step 4: Fetch selected pages with Lightpanda (parallel)
+  // Step 3: Fetch selected pages (parallel)
   onStatus?.(`Fetching ${urlsToFetch.length} product pages...`);
   const fetchPromises = urlsToFetch.map(async (url) => {
     // Try fast fetch first, fall back to interactive
     let content = await fetchPageWithLightpanda(url);
     if (!content || content.length < 200) {
+      onStatus?.(`Fetching from ${url.slice(0, 100)}... ${url}`);
       content = await fetchPageInteractive(url);
     }
     return { url, content };
   });
 
-  const pageContents = (await Promise.all(fetchPromises)).filter(
-    (p) => p.content.length > 100,
-  );
+  const allFetchResults = await Promise.all(fetchPromises);
+  const pageContents = allFetchResults.filter((p) => p.content.length > 100);
 
   if (pageContents.length === 0) return [];
 
-  // Step 5: Agent extracts structured product data
+  // Step 4: Agent extracts structured product data
   onStatus?.("Extracting product data with AI...");
   const products = await extractProductData(pageContents, sku);
-  console.log(
-    `[SKU Search] Agent extracted ${products.length} products from ${pageContents.length} pages`,
-  );
+  onStatus?.(`Found ${products.length} products`);
 
   return products;
 }
@@ -836,10 +858,10 @@ export async function searchProductBySku(
 
     // ---- Phase 2 (FALLBACK): UPCitemdb + Open Food Facts + GoUPC in parallel ----
     onStatus?.("Checking barcode databases...");
-    const [upcResults, offResults, goUpcResults] = await Promise.all([
+    const [upcResults, goUpcResults, offResults] = await Promise.all([
       searchUPCitemdb(trimmedSku),
-      searchOpenFoodFacts(trimmedSku),
       searchGoUPC(trimmedSku),
+      searchOpenFoodFacts(trimmedSku),
     ]);
 
     const apiResults = [...upcResults, ...offResults, ...goUpcResults].filter(
@@ -853,6 +875,7 @@ export async function searchProductBySku(
           : offResults.length > 0
             ? "openfoodfacts"
             : "go-upc";
+      onStatus?.(`Found ${apiResults.length} products from ${source}`);
       logSearch({
         userId: session.userId,
         userName: session.userName,

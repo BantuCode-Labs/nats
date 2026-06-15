@@ -1,22 +1,35 @@
 "use client";
 
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { saveAISettings, AISettingsInput } from "../actions";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 
 const formSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "google", "openrouter"]),
+  provider: z.enum(["openai", "anthropic", "google", "openrouter", "custom"]),
+  customEndpoint: z.string().optional(),
   apiKey: z.string().optional(),
   model: z.string().min(1, "Model is required"),
   temperature: z.number().min(0).max(2),
@@ -44,12 +57,18 @@ export function AISettingsForm({ initialData }: { initialData: any }) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       provider: initialData?.provider || "openai",
+      customEndpoint: initialData?.customEndpoint || "",
       apiKey: initialData?.apiKey || "",
       model: initialData?.model || "gpt-4o-mini",
       temperature: initialData?.temperature ?? 0.7,
       maxTokens: initialData?.maxTokens ?? 1000,
       isActive: initialData?.isActive ?? true,
     },
+  });
+
+  const selectedProvider = useWatch({
+    control,
+    name: "provider",
   });
 
   const onSubmit = async (data: FormData) => {
@@ -60,10 +79,18 @@ export function AISettingsForm({ initialData }: { initialData: any }) {
         toast({ title: t("settings_saved") });
         router.refresh();
       } else {
-        toast({ title: tCommon("error"), description: result.error, variant: "destructive" });
+        toast({
+          title: tCommon("error"),
+          description: result.error,
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      toast({ title: tCommon("error"), description: t("ai_settings_failed"), variant: "destructive" });
+      toast({
+        title: tCommon("error"),
+        description: t("ai_settings_failed"),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -102,7 +129,10 @@ export function AISettingsForm({ initialData }: { initialData: any }) {
               control={control}
               name="provider"
               render={({ field }) => (
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={t("select_provider")} />
                   </SelectTrigger>
@@ -111,12 +141,36 @@ export function AISettingsForm({ initialData }: { initialData: any }) {
                     <SelectItem value="anthropic">Anthropic</SelectItem>
                     <SelectItem value="google">Google Gemini</SelectItem>
                     <SelectItem value="openrouter">OpenRouter</SelectItem>
+                    <SelectItem value="custom">
+                      Custom (OpenAI Compatible)
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               )}
             />
-            {errors.provider && <p className="text-sm text-red-500">{errors.provider.message}</p>}
+            {errors.provider && (
+              <p className="text-sm text-red-500">{errors.provider.message}</p>
+            )}
           </div>
+
+          {selectedProvider === "custom" && (
+            <div className="space-y-2">
+              <Label>{t("custom_endpoint")}</Label>
+              <Input
+                placeholder="https://api.custom-provider.com/v1"
+                {...register("customEndpoint")}
+              />
+              <p className="text-sm text-muted-foreground">
+                {t("custom_endpoint_desc") ||
+                  "Enter the base URL for the custom OpenAI-compatible API"}
+              </p>
+              {errors.customEndpoint && (
+                <p className="text-sm text-red-500">
+                  {errors.customEndpoint.message}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>{t("api_key")}</Label>
@@ -125,22 +179,21 @@ export function AISettingsForm({ initialData }: { initialData: any }) {
               placeholder={t("api_key_placeholder")}
               {...register("apiKey")}
             />
-            <p className="text-sm text-muted-foreground">
-              {t("api_key_desc")}
-            </p>
-            {errors.apiKey && <p className="text-sm text-red-500">{errors.apiKey.message}</p>}
+            <p className="text-sm text-muted-foreground">{t("api_key_desc")}</p>
+            {errors.apiKey && (
+              <p className="text-sm text-red-500">{errors.apiKey.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label>{t("model")}</Label>
-            <Input
-              placeholder="gpt-4o-mini"
-              {...register("model")}
-            />
+            <Input placeholder="gpt-4o-mini" {...register("model")} />
             <p className="text-sm text-muted-foreground">
               e.g., gpt-4o, claude-3-5-sonnet-20240620
             </p>
-            {errors.model && <p className="text-sm text-red-500">{errors.model.message}</p>}
+            {errors.model && (
+              <p className="text-sm text-red-500">{errors.model.message}</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -163,7 +216,11 @@ export function AISettingsForm({ initialData }: { initialData: any }) {
             <p className="text-sm text-muted-foreground">
               {t("temperature_desc")}
             </p>
-            {errors.temperature && <p className="text-sm text-red-500">{errors.temperature.message}</p>}
+            {errors.temperature && (
+              <p className="text-sm text-red-500">
+                {errors.temperature.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -172,7 +229,9 @@ export function AISettingsForm({ initialData }: { initialData: any }) {
               type="number"
               {...register("maxTokens", { valueAsNumber: true })}
             />
-            {errors.maxTokens && <p className="text-sm text-red-500">{errors.maxTokens.message}</p>}
+            {errors.maxTokens && (
+              <p className="text-sm text-red-500">{errors.maxTokens.message}</p>
+            )}
           </div>
         </CardContent>
       </Card>

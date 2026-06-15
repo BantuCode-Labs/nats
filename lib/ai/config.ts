@@ -20,7 +20,8 @@ export async function getAIConfig(userId?: string): Promise<AIConfig> {
 
     if (settings && settings.isActive) {
       return {
-        provider: settings.provider as "openai" | "anthropic" | "google" | "openrouter",
+        provider: settings.provider as "openai" | "anthropic" | "google" | "openrouter" | "custom",
+        customEndpoint: settings.customEndpoint || undefined,
         apiKey: settings.apiKey || process.env.OPENAI_API_KEY || "",
         model: settings.model as AIModel,
         temperature: settings.temperature,

@@ -1079,7 +1079,6 @@
         "role_description_placeholder": "Describe the role...",
         "manage_permissions": "Manage Permissions",
         "deactivate": "Deactivate",
-        "activate": "Activate",
         "permissions_count": "Permissions ({count})",
         "more": "more",
         "permissions_registry": "Permissions Registry",
@@ -1187,7 +1186,9 @@
         "ai_settings_failed": "Failed to save AI configuration",
         "model_required": "Model is required",
         "save_configuration": "Save Configuration",
-        "events": "Events"
+        "events": "Events",
+        "custom_endpoint": "Custom Endpoint",
+        "custom_endpoint_desc": "Custom Endpoint for API requests"
     },
     "System": {
         "files": "Files",

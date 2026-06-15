@@ -1051,7 +1051,6 @@
         "db_url_placeholder": "postgresql://user:pass@host:5432/db?schema=...",
         "no_database_configured": "Tidak ada DB eksplisit dikonfigurasi",
         "cannot_deactivate_default": "Anda tidak dapat menonaktifkan tenant bawaan.",
-        "activate": "Aktifkan",
         "create_tenant": "Buat Tenant",
         "users": "Daftar Pengguna",
         "role": "Peran",
@@ -1187,7 +1186,9 @@
         "ai_settings_failed": "Gagal menyimpan konfigurasi AI",
         "model_required": "Model harus diisi",
         "save_configuration": "Simpan Konfigurasi",
-        "events": "Events"
+        "events": "Events",
+        "custom_endpoint": "Custom Endpoint",
+        "custom_endpoint_desc": "Custom Endpoint untuk API requests"
     },
     "System": {
         "files": "Daftar Berkas",

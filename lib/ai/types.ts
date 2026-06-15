@@ -3,7 +3,8 @@ import { z } from "zod";
 export type AIModel = "gpt-4o" | "gpt-4o-mini" | "claude-3-5-sonnet-20240620" | "gemini-1.5-pro";
 
 export interface AIConfig {
-    provider: "openai" | "anthropic" | "google" | "openrouter";
+    provider: "openai" | "anthropic" | "google" | "openrouter" | "custom";
+    customEndpoint?: string;
     apiKey: string;
     model: AIModel | string;
     temperature?: number;

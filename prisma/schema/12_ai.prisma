@@ -36,13 +36,14 @@ model AIUsage {
 }
 
 model AISettings {
-  id          String   @id @default(cuid())
-  provider    String   @default("openai")
-  apiKey      String?
-  model       String   @default("gpt-4o-mini")
-  temperature Float    @default(0.7)
-  maxTokens   Int      @default(1000)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  provider       String   @default("openai")
+  customEndpoint String?
+  apiKey         String?
+  model          String   @default("gpt-4o-mini")
+  temperature    Float    @default(0.7)
+  maxTokens      Int      @default(1000)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

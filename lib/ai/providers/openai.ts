@@ -1,18 +1,26 @@
-import { AICompletionRequest, AICompletionResponse, AIProvider } from "../types";
+import {
+  AICompletionRequest,
+  AICompletionResponse,
+  AIProvider,
+} from "../types";
 
 export class OpenAIProvider implements AIProvider {
   private apiKey: string;
-  private baseUrl = "https://api.openai.com/v1";
+  private baseUrl: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, baseUrl: string = "https://api.openai.com/v1") {
     this.apiKey = apiKey;
+    this.baseUrl = baseUrl;
   }
 
-  async chatCompletion(request: AICompletionRequest): Promise<AICompletionResponse> {
+  async chatCompletion(
+    request: AICompletionRequest,
+  ): Promise<AICompletionResponse> {
     const config = request.config;
     const model = config?.model || "gpt-4o-mini";
     const temperature = config?.temperature ?? 0.7;
     const apiKey = config?.apiKey || this.apiKey;
+    const baseUrl = config?.customEndpoint || this.baseUrl;
 
     const tools = request.tools?.map((tool) => ({
       type: "function",
@@ -47,7 +55,7 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -58,7 +66,9 @@ export class OpenAIProvider implements AIProvider {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(`OpenAI API Error: ${error.error?.message || response.statusText}`);
+        throw new Error(
+          `OpenAI API Error: ${error.error?.message || response.statusText}`,
+        );
       }
 
       const data = await response.json();
@@ -89,11 +99,14 @@ export class OpenAIProvider implements AIProvider {
     }
   }
 
-  async streamChatCompletion(request: AICompletionRequest): Promise<ReadableStream<Uint8Array>> {
+  async streamChatCompletion(
+    request: AICompletionRequest,
+  ): Promise<ReadableStream<Uint8Array>> {
     const config = request.config;
     const model = config?.model || "gpt-4o-mini";
     const temperature = config?.temperature ?? 0.7;
     const apiKey = config?.apiKey || this.apiKey;
+    const baseUrl = config?.customEndpoint || this.baseUrl;
 
     const tools = request.tools?.map((tool) => ({
       type: "function",
@@ -129,7 +142,7 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      const response = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -140,7 +153,9 @@ export class OpenAIProvider implements AIProvider {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(`OpenAI API Error: ${error.error?.message || response.statusText}`);
+        throw new Error(
+          `OpenAI API Error: ${error.error?.message || response.statusText}`,
+        );
       }
 
       if (!response.body) {

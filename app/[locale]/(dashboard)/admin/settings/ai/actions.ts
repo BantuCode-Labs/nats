@@ -6,7 +6,8 @@ import { authorizedAction } from "@/lib/permissions/protected-action";
 import { z } from "zod";
 
 const aiSettingsSchema = z.object({
-  provider: z.enum(["openai", "anthropic", "google", "openrouter"]),
+  provider: z.enum(["openai", "anthropic", "google", "openrouter", "custom"]),
+  customEndpoint: z.string().optional(),
   apiKey: z.string().optional(),
   model: z.string(),
   temperature: z.number().min(0).max(2),

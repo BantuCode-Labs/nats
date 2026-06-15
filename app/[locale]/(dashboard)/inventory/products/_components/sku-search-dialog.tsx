@@ -30,6 +30,7 @@ interface SkuSearchDialogProps {
 }
 
 export interface SelectedMetadata {
+  sku: string;
   name: string;
   description: string;
   category: string;
@@ -178,6 +179,7 @@ export function SkuSearchDialog({
     if (!result || !fields) return;
 
     const metadata: SelectedMetadata = {
+      sku: skuInput.trim(),
       name: fields.name ? result.name : "",
       description: fields.description ? result.description : "",
       category: fields.category ? result.category : "",
@@ -230,7 +232,7 @@ export function SkuSearchDialog({
         <DialogHeader>
           <DialogTitle>Search Product by SKU</DialogTitle>
           <p className="text-xs text-muted-foreground">
-            Enter a SKU to find product information from Google search results.
+            Enter a SKU/UPC to find product information from Internet.
           </p>
         </DialogHeader>
 
