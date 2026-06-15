@@ -4,12 +4,13 @@ import { JournalService } from "@/modules/accounting/services/journal.service";
 import { CashTransactionType } from "@/prisma/generated/prisma/client";
 import { salesPaymentPostedPayloadSchema } from "@/modules/integration/events";
 import type { Prisma } from "@/prisma/generated/prisma/client";
+import { generateDocumentNumber } from "@/lib/document-numbering";
 
 type Tx = Prisma.TransactionClient;
 
 export async function handleSalesPaymentPostedAccounting(
   tx: Tx,
-  payloadInput: unknown
+  payloadInput: unknown,
 ) {
   const payload = salesPaymentPostedPayloadSchema.parse(payloadInput);
 
@@ -31,26 +32,35 @@ export async function handleSalesPaymentPostedAccounting(
 
   const arAccount = await getRequiredDefaultAccount("ACCOUNTS_RECEIVABLE");
 
-  const journalEntry = await JournalService.createJournalEntry({
-    entryNumber: `PAY-IN-${payment.paymentNumber}`,
-    transactionDate: payment.paymentDate,
-    description: `Payment for Invoice #${payment.salesInvoice.invoiceNumber}`,
-    lines: [
-      {
-        accountId: payment.cashAccount.glAccountId,
-        debitAmount: new Decimal(payload.amount).toNumber(),
-        creditAmount: 0,
-        description: `Payment to ${payment.cashAccount.name}`,
-      },
-      {
-        accountId: arAccount.accountId,
-        debitAmount: 0,
-        creditAmount: new Decimal(payload.amount).toNumber(),
-        description: `Payment for Invoice #${payment.salesInvoice.invoiceNumber}`,
-        contactId: payment.contactId,
-      },
-    ],
-  }, payload.userId, tx);
+  const entryNumber = await generateDocumentNumber(
+    "SALES_PAYMENT_JOURNAL",
+    "Sales Payment Journal",
+    "PAY-IN",
+  );
+  const journalEntry = await JournalService.createJournalEntry(
+    {
+      entryNumber,
+      transactionDate: payment.paymentDate,
+      description: `Payment for Invoice #${payment.salesInvoice.invoiceNumber}`,
+      lines: [
+        {
+          accountId: payment.cashAccount.glAccountId,
+          debitAmount: new Decimal(payload.amount).toNumber(),
+          creditAmount: 0,
+          description: `Payment to ${payment.cashAccount.name}`,
+        },
+        {
+          accountId: arAccount.accountId,
+          debitAmount: 0,
+          creditAmount: new Decimal(payload.amount).toNumber(),
+          description: `Payment for Invoice #${payment.salesInvoice.invoiceNumber}`,
+          contactId: payment.contactId,
+        },
+      ],
+    },
+    payload.userId,
+    tx,
+  );
 
   await JournalService.postJournalEntry(journalEntry.id, tx);
 
@@ -60,7 +70,10 @@ export async function handleSalesPaymentPostedAccounting(
   });
 }
 
-export async function handleSalesPaymentPostedCashBank(tx: Tx, payloadInput: unknown) {
+export async function handleSalesPaymentPostedCashBank(
+  tx: Tx,
+  payloadInput: unknown,
+) {
   const payload = salesPaymentPostedPayloadSchema.parse(payloadInput);
 
   const payment = await tx.salesPayment.findUnique({

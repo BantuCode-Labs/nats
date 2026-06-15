@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authorizedAction } from "@/lib/permissions/protected-action";
 import { getSession } from "@/lib/auth/auth";
 import { revalidatePath } from "next/cache";
+import { generateDocumentNumber } from "@/lib/document-numbering";
 
 export type BeginningBalanceItem = {
   accountId: string;
@@ -17,7 +18,11 @@ export type BeginningBalanceItem = {
 
 export const getBeginningBalances = authorizedAction(
   "ledger.view",
-  async (): Promise<{ success: boolean; data?: BeginningBalanceItem[]; error?: string }> => {
+  async (): Promise<{
+    success: boolean;
+    data?: BeginningBalanceItem[];
+    error?: string;
+  }> => {
     try {
       const accounts = await prisma.account.findMany({
         where: {
@@ -75,7 +80,7 @@ export const getBeginningBalances = authorizedAction(
       console.error("Error fetching beginning balances:", error);
       return { success: false, error: "Failed to fetch beginning balances" };
     }
-  }
+  },
 );
 
 export type BeginningBalanceInput = {
@@ -100,7 +105,7 @@ export const saveBeginningBalances = authorizedAction(
       if (Math.abs(totalDebitInput - totalCreditInput) > 0.01) {
         return {
           success: false,
-          error: `Beginning balances are not balanced. Debits: ${totalDebitInput.toFixed(2)}, Credits: ${totalCreditInput.toFixed(2)}. Difference: ${(totalDebitInput - totalCreditInput).toFixed(2)}`
+          error: `Beginning balances are not balanced. Debits: ${totalDebitInput.toFixed(2)}, Credits: ${totalCreditInput.toFixed(2)}. Difference: ${(totalDebitInput - totalCreditInput).toFixed(2)}`,
         };
       }
 
@@ -175,17 +180,27 @@ export const saveBeginningBalances = authorizedAction(
       // Note: We expect linesToCreate to be balanced if inputs and current ledger are balanced.
       // If not, the transaction will fail (or we should check here).
 
-      const totalDebitAdj = linesToCreate.reduce((sum, l) => sum + l.debitAmount, 0);
-      const totalCreditAdj = linesToCreate.reduce((sum, l) => sum + l.creditAmount, 0);
+      const totalDebitAdj = linesToCreate.reduce(
+        (sum, l) => sum + l.debitAmount,
+        0,
+      );
+      const totalCreditAdj = linesToCreate.reduce(
+        (sum, l) => sum + l.creditAmount,
+        0,
+      );
 
       if (Math.abs(totalDebitAdj - totalCreditAdj) > 0.01) {
         return {
           success: false,
-          error: `System Error: Calculated adjustments are not balanced (${totalDebitAdj.toFixed(2)} vs ${totalCreditAdj.toFixed(2)}). Ensure current ledger is balanced.`
+          error: `System Error: Calculated adjustments are not balanced (${totalDebitAdj.toFixed(2)} vs ${totalCreditAdj.toFixed(2)}). Ensure current ledger is balanced.`,
         };
       }
 
-      const entryNumber = `JE-BB-${Date.now().toString().slice(-6)}`;
+      const entryNumber = await generateDocumentNumber(
+        "BEGINNING_BALANCE_JOURNAL",
+        "Beginning Balance Journal",
+        "JE-BB",
+      );
 
       await prisma.journalEntry.create({
         data: {
@@ -204,10 +219,19 @@ export const saveBeginningBalances = authorizedAction(
       revalidatePath("/accounting/configuration/beginning-balance");
       revalidatePath("/accounting/ledger");
 
-      return { success: true, message: "Beginning balances updated successfully" };
+      return {
+        success: true,
+        message: "Beginning balances updated successfully",
+      };
     } catch (error) {
       console.error("Error saving beginning balances:", error);
-      return { success: false, error: error instanceof Error ? error.message : "Failed to save beginning balances" };
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to save beginning balances",
+      };
     }
-  }
+  },
 );

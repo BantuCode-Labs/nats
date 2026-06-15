@@ -3,10 +3,14 @@ import { JournalService } from "@/modules/accounting/services/journal.service";
 import { TransferStatus, EntryStatus } from "@/prisma/generated/prisma/enums";
 import { cashTransferApprovedPayloadSchema } from "@/modules/integration/events";
 import type { Prisma } from "@/prisma/generated/prisma/client";
+import { generateDocumentNumber } from "@/lib/document-numbering";
 
 type Tx = Prisma.TransactionClient;
 
-export async function handleCashTransferApprovedAccounting(tx: Tx, payloadInput: unknown) {
+export async function handleCashTransferApprovedAccounting(
+  tx: Tx,
+  payloadInput: unknown,
+) {
   const payload = cashTransferApprovedPayloadSchema.parse(payloadInput);
 
   const transfer = await tx.cashTransfer.findUnique({
@@ -25,25 +29,36 @@ export async function handleCashTransferApprovedAccounting(tx: Tx, payloadInput:
   let jeId = existingJeId;
 
   if (!jeId) {
-    const je = await JournalService.createJournalEntry({
-      entryNumber: `TRF-${Date.now()}`,
-      transactionDate: transfer.date,
-      description: transfer.description || `Transfer from ${transfer.fromAccount.name} to ${transfer.toAccount.name}`,
-      lines: [
-        {
-          accountId: transfer.toAccount.glAccountId,
-          debitAmount: new Decimal(transfer.amount).toNumber(),
-          creditAmount: 0,
-          description: `Transfer from ${transfer.fromAccount.name}`,
-        },
-        {
-          accountId: transfer.fromAccount.glAccountId,
-          debitAmount: 0,
-          creditAmount: new Decimal(transfer.amount).toNumber(),
-          description: `Transfer to ${transfer.toAccount.name}`,
-        },
-      ],
-    }, payload.userId, tx);
+    const entryNumber = await generateDocumentNumber(
+      "CASH_TRANSFER",
+      "Cash Transfer",
+      "TRF",
+    );
+    const je = await JournalService.createJournalEntry(
+      {
+        entryNumber,
+        transactionDate: transfer.date,
+        description:
+          transfer.description ||
+          `Transfer from ${transfer.fromAccount.name} to ${transfer.toAccount.name}`,
+        lines: [
+          {
+            accountId: transfer.toAccount.glAccountId,
+            debitAmount: new Decimal(transfer.amount).toNumber(),
+            creditAmount: 0,
+            description: `Transfer from ${transfer.fromAccount.name}`,
+          },
+          {
+            accountId: transfer.fromAccount.glAccountId,
+            debitAmount: 0,
+            creditAmount: new Decimal(transfer.amount).toNumber(),
+            description: `Transfer to ${transfer.toAccount.name}`,
+          },
+        ],
+      },
+      payload.userId,
+      tx,
+    );
     jeId = je.id;
   }
 
@@ -57,7 +72,10 @@ export async function handleCashTransferApprovedAccounting(tx: Tx, payloadInput:
   await JournalService.postJournalEntry(jeId, tx);
 }
 
-export async function handleCashTransferApprovedCashBank(tx: Tx, payloadInput: unknown) {
+export async function handleCashTransferApprovedCashBank(
+  tx: Tx,
+  payloadInput: unknown,
+) {
   const payload = cashTransferApprovedPayloadSchema.parse(payloadInput);
 
   const transfer = await tx.cashTransfer.findUnique({
@@ -82,4 +100,3 @@ export async function handleCashTransferApprovedCashBank(tx: Tx, payloadInput: u
     },
   });
 }
-

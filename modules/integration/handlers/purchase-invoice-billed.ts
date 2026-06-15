@@ -4,10 +4,14 @@ import { JournalService } from "@/modules/accounting/services/journal.service";
 import { purchaseInvoiceBilledPayloadSchema } from "@/modules/integration/events";
 import type { Prisma } from "@/prisma/generated/prisma/client";
 import { CalculationService } from "@/lib/utils/calculation-service";
+import { generateDocumentNumber } from "@/lib/document-numbering";
 
 type Tx = Prisma.TransactionClient;
 
-export async function handlePurchaseInvoiceBilled(tx: Tx, payloadInput: unknown) {
+export async function handlePurchaseInvoiceBilled(
+  tx: Tx,
+  payloadInput: unknown,
+) {
   const payload = purchaseInvoiceBilledPayloadSchema.parse(payloadInput);
 
   const invoice = await tx.purchaseInvoice.findUnique({
@@ -31,9 +35,13 @@ export async function handlePurchaseInvoiceBilled(tx: Tx, payloadInput: unknown)
   }
 
   const apAccount = await getRequiredDefaultAccount("ACCOUNTS_PAYABLE");
-  const grniAccount = await getRequiredDefaultAccount("GOODS_RECEIVED_NOT_INVOICED");
+  const grniAccount = await getRequiredDefaultAccount(
+    "GOODS_RECEIVED_NOT_INVOICED",
+  );
   const taxAccount = await getRequiredDefaultAccount("PURCHASE_TAX_RECEIVABLE");
-  const expenseAccount = await getRequiredDefaultAccount("UNCATEGORIZED_EXPENSE");
+  const expenseAccount = await getRequiredDefaultAccount(
+    "UNCATEGORIZED_EXPENSE",
+  );
 
   const jeLines: {
     accountId: string;
@@ -109,16 +117,25 @@ export async function handlePurchaseInvoiceBilled(tx: Tx, payloadInput: unknown)
     });
   }
 
-  const journalEntry = await JournalService.createJournalEntry({
-    entryNumber: `INV-${invoice.invoiceNumber}`,
-    transactionDate: invoice.invoiceDate,
-    description: `Purchase Invoice #${invoice.invoiceNumber}`,
-    lines: jeLines.map(line => ({
-      ...line,
-      debitAmount: line.debitAmount.toNumber(),
-      creditAmount: line.creditAmount.toNumber(),
-    })),
-  }, payload.userId, tx);
+  const entryNumber = await generateDocumentNumber(
+    "PURCHASE_INVOICE_JOURNAL",
+    "Purchase Invoice Journal",
+    "INV-PURCH",
+  );
+  const journalEntry = await JournalService.createJournalEntry(
+    {
+      entryNumber,
+      transactionDate: invoice.invoiceDate,
+      description: `Purchase Invoice #${invoice.invoiceNumber}`,
+      lines: jeLines.map((line) => ({
+        ...line,
+        debitAmount: line.debitAmount.toNumber(),
+        creditAmount: line.creditAmount.toNumber(),
+      })),
+    },
+    payload.userId,
+    tx,
+  );
 
   await JournalService.postJournalEntry(journalEntry.id, tx);
 
@@ -130,4 +147,3 @@ export async function handlePurchaseInvoiceBilled(tx: Tx, payloadInput: unknown)
     },
   });
 }
-

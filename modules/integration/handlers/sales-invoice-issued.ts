@@ -4,13 +4,11 @@ import { JournalService } from "@/modules/accounting/services/journal.service";
 import { salesInvoiceIssuedPayloadSchema } from "@/modules/integration/events";
 import type { Prisma } from "@/prisma/generated/prisma/client";
 import { CalculationService } from "@/lib/utils/calculation-service";
+import { generateDocumentNumber } from "@/lib/document-numbering";
 
 type Tx = Prisma.TransactionClient;
 
-export async function handleSalesInvoiceIssued(
-  tx: Tx,
-  payloadInput: unknown
-) {
+export async function handleSalesInvoiceIssued(tx: Tx, payloadInput: unknown) {
   const payload = salesInvoiceIssuedPayloadSchema.parse(payloadInput);
 
   const invoice = await tx.salesInvoice.findUnique({
@@ -37,7 +35,9 @@ export async function handleSalesInvoiceIssued(
   const revenueAccount = await getRequiredDefaultAccount("SALES_REVENUE");
   const taxAccount = await getRequiredDefaultAccount("SALES_TAX_PAYABLE");
   const discountAccount = await getRequiredDefaultAccount("SALES_DISCOUNT");
-  const shippingAccount = await getRequiredDefaultAccount("UNCATEGORIZED_INCOME");
+  const shippingAccount = await getRequiredDefaultAccount(
+    "UNCATEGORIZED_INCOME",
+  );
 
   const jeLines: {
     accountId: string;
@@ -104,16 +104,25 @@ export async function handleSalesInvoiceIssued(
     });
   }
 
-  const journalEntry = await JournalService.createJournalEntry({
-    entryNumber: `INV-${invoice.invoiceNumber}`,
-    transactionDate: invoice.invoiceDate,
-    description: `Sales Invoice #${invoice.invoiceNumber}`,
-    lines: jeLines.map(line => ({
-      ...line,
-      debitAmount: line.debitAmount.toNumber(),
-      creditAmount: line.creditAmount.toNumber(),
-    })),
-  }, payload.userId, tx);
+  const entryNumber = await generateDocumentNumber(
+    "SALES_INVOICE_JOURNAL",
+    "Sales Invoice Journal",
+    "INV-SALE",
+  );
+  const journalEntry = await JournalService.createJournalEntry(
+    {
+      entryNumber,
+      transactionDate: invoice.invoiceDate,
+      description: `Sales Invoice #${invoice.invoiceNumber}`,
+      lines: jeLines.map((line) => ({
+        ...line,
+        debitAmount: line.debitAmount.toNumber(),
+        creditAmount: line.creditAmount.toNumber(),
+      })),
+    },
+    payload.userId,
+    tx,
+  );
 
   await JournalService.postJournalEntry(journalEntry.id, tx);
 
