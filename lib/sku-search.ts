@@ -601,7 +601,7 @@ async function searchViaLightpanda(
       const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10&hl=en`;
       await page.goto(searchUrl, {
         waitUntil: "domcontentloaded",
-        timeout: 10000,
+        timeout: 5000,
       });
 
       // Extract search results using DOM selectors
@@ -675,26 +675,45 @@ async function agenticProductSearch(
   onStatus?: StatusCallback,
 ): Promise<SkuSearchMetadata[]> {
   // Step 1: Search via Lightpanda
-  onStatus?.("Searching...");
+  onStatus?.(`Searching Google for "${sku}"...`);
   const allResults = await searchViaLightpanda(sku);
 
   if (allResults.length === 0) {
-    onStatus?.("No search results found...");
+    onStatus?.(`No search results found for "${sku}".`);
     return [];
   }
 
+  onStatus?.(
+    `Found ${allResults.length} result${allResults.length === 1 ? "" : "s"}, ranking by relevance...`,
+  );
+
   // Step 2: Filter and rank results by relevance
-  onStatus?.("Ranking search results...");
   const urlsToFetch = evaluateSearchResults(allResults);
-  if (urlsToFetch.length === 0) return [];
+  if (urlsToFetch.length === 0) {
+    onStatus?.("No relevant product pages in search results.");
+    return [];
+  }
+
+  onStatus?.(
+    `Selected ${urlsToFetch.length} product page${urlsToFetch.length === 1 ? "" : "s"} to load...`,
+  );
 
   // Step 3: Fetch selected pages (parallel)
-  onStatus?.(`Fetching ${urlsToFetch.length} product pages...`);
+  onStatus?.(
+    `Loading ${urlsToFetch.length} product page${urlsToFetch.length === 1 ? "" : "s"} in parallel...`,
+  );
   const fetchPromises = urlsToFetch.map(async (url) => {
     // Try fast fetch first, fall back to interactive
     let content = await fetchPageWithLightpanda(url);
     if (!content || content.length < 200) {
-      onStatus?.(`Fetching from ${url.slice(0, 100)}... ${url}`);
+      const domain = (() => {
+        try {
+          return new URL(url).hostname.replace(/^www\./, "");
+        } catch {
+          return url.slice(0, 40);
+        }
+      })();
+      onStatus?.(`Falling back to interactive load for ${domain}...`);
       content = await fetchPageInteractive(url);
     }
     return { url, content };
@@ -703,12 +722,28 @@ async function agenticProductSearch(
   const allFetchResults = await Promise.all(fetchPromises);
   const pageContents = allFetchResults.filter((p) => p.content.length > 100);
 
-  if (pageContents.length === 0) return [];
+  if (pageContents.length === 0) {
+    onStatus?.("Failed to retrieve content from any product page.");
+    return [];
+  }
+
+  onStatus?.(
+    `Loaded ${pageContents.length} of ${urlsToFetch.length} pages. Asking AI to extract product data...`,
+  );
 
   // Step 4: Agent extracts structured product data
-  onStatus?.("Extracting product data with AI...");
+  onStatus?.(
+    `AI is analyzing ${pageContents.length} page${pageContents.length === 1 ? "" : "s"} for product details...`,
+  );
   const products = await extractProductData(pageContents, sku);
-  onStatus?.(`Found ${products.length} products`);
+
+  if (products.length === 0) {
+    onStatus?.(`AI could not extract product data for "${sku}".`);
+  } else {
+    onStatus?.(
+      `Found ${products.length} product${products.length === 1 ? "" : "s"} matching "${sku}".`,
+    );
+  }
 
   return products;
 }
