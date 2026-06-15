@@ -179,6 +179,13 @@ function cleanupLightpanda(): void {
     lightpandaProc = null;
     lightpandaReady = false;
   }
+  // Invalidate cached browser/context so the next call reconnects
+  try {
+    if (cachedBrowser) cachedBrowser.disconnect();
+  } catch {}
+  cachedBrowser = null;
+  cachedContext = null;
+  connectPromise = null;
 }
 
 // Auto-cleanup on process exit
@@ -191,6 +198,91 @@ if (typeof process !== "undefined") {
 // ============================================================================
 // Lightpanda Page Fetching
 // ============================================================================
+
+// Cached puppeteer module + persistent browser/context across calls
+let puppeteerModule: typeof import("puppeteer-core") | null = null;
+let cachedBrowser: any = null;
+let cachedContext: any = null;
+let connectPromise: Promise<any> | null = null;
+
+async function getPuppeteer(): Promise<typeof import("puppeteer-core")> {
+  if (!puppeteerModule) {
+    puppeteerModule = await import("puppeteer-core");
+  }
+  return puppeteerModule;
+}
+
+async function getConnectedBrowser(): Promise<any> {
+  if (cachedBrowser && cachedBrowser.connected) return cachedBrowser;
+  if (connectPromise) return connectPromise;
+
+  connectPromise = (async () => {
+    const ready = await ensureLightpanda();
+    if (!ready) throw new Error("Lightpanda not ready");
+
+    const versionRes = await fetch("http://127.0.0.1:9222/json/version");
+    const versionData = await versionRes.json();
+
+    const puppeteer = await getPuppeteer();
+    const browser = await puppeteer.default.connect({
+      browserWSEndpoint: versionData.webSocketDebuggerUrl,
+      defaultViewport: { width: 1280, height: 720 },
+    });
+
+    browser.on("disconnected", () => {
+      cachedBrowser = null;
+      cachedContext = null;
+    });
+
+    cachedBrowser = browser;
+    connectPromise = null;
+    return browser;
+  })().catch((err) => {
+    connectPromise = null;
+    throw err;
+  });
+
+  return connectPromise;
+}
+
+async function getBrowserContext(): Promise<any> {
+  const browser = await getConnectedBrowser();
+  if (cachedContext) {
+    try {
+      // Verify context is still usable; some browsers return null on closed contexts
+      const pages = await cachedContext.pages();
+      if (pages) return cachedContext;
+    } catch {
+      cachedContext = null;
+    }
+  }
+  cachedContext = await browser.createBrowserContext();
+  return cachedContext;
+}
+
+// Resource types to block — saves significant time on Google search pages
+const BLOCKED_RESOURCE_TYPES = new Set([
+  "image",
+  "font",
+  "media",
+  "stylesheet", // we only need structure, not styling
+]);
+
+async function attachRequestBlocker(page: any): Promise<void> {
+  await page.setRequestInterception(true);
+  page.on("request", (req: any) => {
+    try {
+      const rt = req.resourceType();
+      if (BLOCKED_RESOURCE_TYPES.has(rt)) {
+        req.abort().catch(() => {});
+      } else {
+        req.continue().catch(() => {});
+      }
+    } catch {
+      req.continue?.().catch(() => {});
+    }
+  });
+}
 
 async function fetchPageWithLightpanda(url: string): Promise<string> {
   try {
@@ -216,26 +308,19 @@ async function fetchPageWithLightpanda(url: string): Promise<string> {
 }
 
 async function fetchPageInteractive(url: string): Promise<string> {
+  let page: any = null;
   try {
-    const ready = await ensureLightpanda();
-    if (!ready) return "";
+    const context = await getBrowserContext();
+    page = await context.newPage({ background: true });
+    await attachRequestBlocker(page);
 
-    const versionRes = await fetch("http://127.0.0.1:9222/json/version");
-    const versionData = await versionRes.json();
-
-    const puppeteer = await import("puppeteer-core");
-    const browser = await puppeteer.default.connect({
-      browserWSEndpoint: versionData.webSocketDebuggerUrl,
-      defaultViewport: { width: 1280, height: 720 },
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 10000,
     });
 
-    const context = await browser.createBrowserContext();
-    const page = await context.newPage({ background: true });
-
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 10000 });
-
-    // Wait a bit for dynamic content
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Reduced wait — interactive fetches need a moment for JS hydration
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const content = await page.evaluate(() => {
       return (
@@ -244,13 +329,17 @@ async function fetchPageInteractive(url: string): Promise<string> {
     });
 
     await page.close();
-    await context.close();
-    await browser.disconnect();
-
+    page = null;
     return sanitizeHtml(content).substring(0, 4000);
   } catch (error) {
     console.error(`[SKU Search] Interactive fetch failed for ${url}:`, error);
     return "";
+  } finally {
+    if (page) {
+      try {
+        await page.close();
+      } catch {}
+    }
   }
 }
 
@@ -489,75 +578,76 @@ interface SearchResult {
 
 async function searchViaLightpanda(
   query: string,
-  retries = 2,
+  retries = 1,
 ): Promise<SearchResult[]> {
   for (let attempt = 0; attempt <= retries; attempt++) {
-    let browser: any = null;
-    let context: any = null;
     let page: any = null;
     try {
       const ready = await ensureLightpanda();
       if (!ready) return [];
 
       if (attempt > 0) {
-        await new Promise((r) => setTimeout(r, 1000 * attempt));
+        await new Promise((r) => setTimeout(r, 500 * attempt));
         console.log(
           `[SKU Search] Retrying Lightpanda search (attempt ${attempt + 1}/${retries + 1})`,
         );
       }
 
-      const versionRes = await fetch("http://127.0.0.1:9222/json/version");
-      const versionData = await versionRes.json();
-
-      const puppeteer = await import("puppeteer-core");
-      browser = await puppeteer.default.connect({
-        browserWSEndpoint: versionData.webSocketDebuggerUrl,
-        defaultViewport: { width: 1280, height: 720 },
-      });
-
-      context = await browser.createBrowserContext();
+      const context = await getBrowserContext();
       page = await context.newPage({ background: true });
+      await attachRequestBlocker(page);
 
       // Navigate to Google search
       const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10&hl=en`;
       await page.goto(searchUrl, {
         waitUntil: "domcontentloaded",
-        timeout: 15000,
+        timeout: 10000,
       });
 
       // Extract search results using DOM selectors
       const results: SearchResult[] = await page.evaluate(() => {
         const items: { title: string; snippet: string; url: string }[] = [];
-        const resultElements = Array.from(
-          document.querySelectorAll("div.g, div[data-hveid]"),
+        // Modern Google SERP uses a[href][data-ved] or a:has(h3). Use scoped queries.
+        const links = Array.from(
+          document.querySelectorAll<HTMLAnchorElement>(
+            "a[href^='http']:has(h3), a[href][data-ved]:has(h3)",
+          ),
         );
 
-        for (const el of resultElements) {
-          const linkEl = el.querySelector("a[href]");
-          const titleEl = el.querySelector("h3");
-          const snippetEl = el.querySelector(
-            ".VwiC3b, .IsZvec, [data-sncf], span.st",
+        for (const linkEl of links) {
+          const titleEl = linkEl.querySelector("h3");
+          if (!titleEl) continue;
+
+          const href = linkEl.href;
+          if (
+            !href ||
+            href.includes("google.com") ||
+            !href.startsWith("http")
+          ) {
+            continue;
+          }
+
+          // Snippet: walk up to the result container, then find snippet text
+          const container =
+            linkEl.closest("div[data-hveid]") ||
+            linkEl.closest("div.g") ||
+            linkEl.parentElement?.parentElement;
+          const snippetEl = container?.querySelector(
+            ".VwiC3b, .IsZvec, [data-sncf], span.st, div[style*='webkit-line-clamp']",
           );
 
-          if (linkEl && titleEl) {
-            const href = (linkEl as HTMLAnchorElement).href;
-            if (
-              href &&
-              !href.includes("google.com") &&
-              !href.startsWith("/") &&
-              href.startsWith("http")
-            ) {
-              items.push({
-                title: titleEl.textContent?.trim() || "",
-                snippet: snippetEl?.textContent?.trim() || "",
-                url: href,
-              });
-            }
-          }
+          items.push({
+            title: titleEl.textContent?.trim() || "",
+            snippet: snippetEl?.textContent?.trim() || "",
+            url: href,
+          });
+          if (items.length >= 8) break;
         }
-        return items.slice(0, 8);
+        return items;
       });
 
+      await page.close();
+      page = null;
       return results;
     } catch (error) {
       const isLast = attempt === retries;
@@ -566,15 +656,11 @@ async function searchViaLightpanda(
       }
       if (isLast) return [];
     } finally {
-      try {
-        if (page) await page.close();
-      } catch {}
-      try {
-        if (context) await context.close();
-      } catch {}
-      try {
-        if (browser) await browser.disconnect();
-      } catch {}
+      if (page) {
+        try {
+          await page.close();
+        } catch {}
+      }
     }
   }
   return [];
