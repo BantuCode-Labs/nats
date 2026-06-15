@@ -41,7 +41,7 @@ export class SalesOrderService {
       });
 
       await enqueueIntegrationEvent(tx, {
-        topic: "sales",
+        topic: "SALES",
         type: "SALES_ORDER_CREATED",
         aggregateType: "sales_order",
         aggregateId: result.id,
@@ -67,7 +67,9 @@ export class SalesOrderService {
     }
 
     if (currentOrder.status !== "DRAFT") {
-      throw new Error("Only Draft orders can be modified. Please Cancel or create a new order.");
+      throw new Error(
+        "Only Draft orders can be modified. Please Cancel or create a new order.",
+      );
     }
 
     const { itemsData, totals } = this.calculateItemsAndTotals(data);
@@ -182,7 +184,11 @@ export class SalesOrderService {
       throw new Error("Order not found");
     }
 
-    if (!["CONFIRMED", "SHIPPED", "PARTIALLY_SHIPPED"].includes(currentOrder.status)) {
+    if (
+      !["CONFIRMED", "SHIPPED", "PARTIALLY_SHIPPED"].includes(
+        currentOrder.status,
+      )
+    ) {
       throw new Error("Cannot close this order");
     }
 
@@ -200,16 +206,17 @@ export class SalesOrderService {
     return await generateDocumentNumber("SALES_ORDER", "Sales Order", "SO-");
   }
 
-  private static calculateItemsAndTotals(
-    data: Pick<SalesOrderInput, "items">,
-  ) {
+  private static calculateItemsAndTotals(data: Pick<SalesOrderInput, "items">) {
     const itemsWithCalculations = data.items.map((item) => {
-      const calculated = CalculationService.calculateLineItem({
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: item.discountRate,
-        tax: 0,
-      }, item.taxRate);
+      const calculated = CalculationService.calculateLineItem(
+        {
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          discount: item.discountRate,
+          tax: 0,
+        },
+        item.taxRate,
+      );
 
       return {
         itemData: {

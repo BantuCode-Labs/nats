@@ -3,10 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { SuperJSON } from "@/lib/superjson";
 import { revalidatePath } from "next/cache";
-import {
-  Prisma,
-  SalesInvoiceStatus,
-} from "@/prisma/generated/prisma/client";
+import { Prisma, SalesInvoiceStatus } from "@/prisma/generated/prisma/client";
 import { authorizedAction } from "@/lib/permissions/protected-action";
 import { SalesInvoiceInput } from "./types";
 import { getSalesOrder } from "../orders/actions";
@@ -157,7 +154,10 @@ export const createSalesInvoice = authorizedAction(
       return { success: true, data: SuperJSON.serialize(result) };
     } catch (error) {
       console.error("Failed to create Invoice:", error);
-      const message = error instanceof Error ? error.message : "Failed to create Sales Invoice";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to create Sales Invoice";
       return { success: false, error: message };
     }
   },
@@ -179,7 +179,10 @@ export const updateSalesInvoice = authorizedAction(
       return { success: true, data: SuperJSON.serialize(result) };
     } catch (error) {
       console.error("Failed to update Invoice:", error);
-      const message = error instanceof Error ? error.message : "Failed to update Sales Invoice";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update Sales Invoice";
       return { success: false, error: message };
     }
   },
@@ -195,71 +198,83 @@ export const deleteSalesInvoice = authorizedAction(
       return { success: true };
     } catch (error) {
       console.error("Failed to delete Invoice:", error);
-      const message = error instanceof Error ? error.message : "Failed to delete Sales Invoice";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to delete Sales Invoice";
       return { success: false, error: message };
     }
   },
 );
 
-export const postSalesInvoice = authorizedAction<PostSalesInvoiceResult, [string]>(
-  "sales.edit",
-  async (id: string) => {
-    try {
-      const session = await getSession();
-      if (!session) throw new Error("Unauthorized");
+export const postSalesInvoice = authorizedAction<
+  PostSalesInvoiceResult,
+  [string]
+>("sales.edit", async (id: string) => {
+  try {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
 
-      const invoice = await prisma.salesInvoice.findUnique({
-        where: { id },
-        include: { items: true },
+    const invoice = await prisma.salesInvoice.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!invoice) throw new Error("Invoice not found");
+    if (invoice.status !== "DRAFT")
+      throw new Error("Only draft invoices can be posted");
+    if (invoice.journalEntryId) throw new Error("Invoice already posted");
+    const payload = {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.invoiceDate.toISOString(),
+      contactId: invoice.contactId,
+      userId: session.userId,
+      totalAmount: invoice.totalAmount.toString(),
+      globalDiscount: invoice.globalDiscount?.toString(),
+      shippingCost: invoice.shippingCost?.toString(),
+      items: invoice.items.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toString(),
+        discount: item.discount?.toString(),
+        tax: item.tax?.toString(),
+        accountId: item.accountId ?? undefined,
+      })),
+    };
+
+    const outbox = await prisma.$transaction(async (tx) => {
+      return enqueueIntegrationEventOnce(tx, {
+        topic: "SALES",
+        type: "SALES_INVOICE_ISSUED",
+        aggregateType: "SalesInvoice",
+        aggregateId: invoice.id,
+        payload,
       });
+    });
 
-      if (!invoice) throw new Error("Invoice not found");
-      if (invoice.status !== "DRAFT") throw new Error("Only draft invoices can be posted");
-      if (invoice.journalEntryId) throw new Error("Invoice already posted");
-      const payload = {
-        invoiceId: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceDate: invoice.invoiceDate.toISOString(),
-        contactId: invoice.contactId,
-        userId: session.userId,
-        totalAmount: invoice.totalAmount.toString(),
-        globalDiscount: invoice.globalDiscount?.toString(),
-        shippingCost: invoice.shippingCost?.toString(),
-        items: invoice.items.map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice.toString(),
-          discount: item.discount?.toString(),
-          tax: item.tax?.toString(),
-          accountId: item.accountId ?? undefined,
-        })),
+    if (outbox.alreadyQueued) {
+      return {
+        success: true,
+        data: {
+          processed: false as const,
+          alreadyQueued: true as const,
+          outboxId: outbox.id,
+        },
       };
-
-      const outbox = await prisma.$transaction(async (tx) => {
-        return enqueueIntegrationEventOnce(tx, {
-          topic: "sales",
-          type: "SALES_INVOICE_ISSUED",
-          aggregateType: "SalesInvoice",
-          aggregateId: invoice.id,
-          payload,
-        });
-      });
-
-      if (outbox.alreadyQueued) {
-        return {
-          success: true,
-          data: { processed: false as const, alreadyQueued: true as const, outboxId: outbox.id },
-        };
-      }
-
-      const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
-
-      revalidatePath("/sales/invoices");
-      revalidatePath(`/sales/invoices/${id}`);
-      return { success: true, data: { outboxId: outbox.id, ...processed } };
-    } catch (error) {
-      console.error("Failed to post Invoice:", error);
-      return { success: false, error: error instanceof Error ? error.message : "Failed to post Sales Invoice" };
     }
-  },
-);
+
+    const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
+
+    revalidatePath("/sales/invoices");
+    revalidatePath(`/sales/invoices/${id}`);
+    return { success: true, data: { outboxId: outbox.id, ...processed } };
+  } catch (error) {
+    console.error("Failed to post Invoice:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to post Sales Invoice",
+    };
+  }
+});

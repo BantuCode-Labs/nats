@@ -3,10 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { SuperJSON } from "@/lib/superjson";
 import { revalidatePath } from "next/cache";
-import {
-  Prisma,
-  SalesInvoiceStatus,
-} from "@/prisma/generated/prisma/client";
+import { Prisma, SalesInvoiceStatus } from "@/prisma/generated/prisma/client";
 import { authorizedAction } from "@/lib/permissions/protected-action";
 import { SalesPaymentInput } from "./types";
 import { getSession } from "@/lib/auth/auth";
@@ -25,7 +22,7 @@ type PostSalesPaymentResult = {
 export async function getSalesPayments(
   page: number = 1,
   limit: number = 10,
-  search?: string
+  search?: string,
 ) {
   const session = await getSession();
   if (!session || !hasPermission(session.permissions, "sales.view")) {
@@ -162,74 +159,79 @@ export const createSalesPayment = authorizedAction(
       console.error("Failed to create Payment:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create Payment",
+        error:
+          error instanceof Error ? error.message : "Failed to create Payment",
       };
     }
-  }
+  },
 );
 
-export const postSalesPayment = authorizedAction<PostSalesPaymentResult, [string]>(
-  "sales.payments",
-  async (id: string) => {
-    try {
-      const session = await getSession();
-      if (!session) throw new Error("Unauthorized");
+export const postSalesPayment = authorizedAction<
+  PostSalesPaymentResult,
+  [string]
+>("sales.payments", async (id: string) => {
+  try {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
 
-      const payment = await prisma.salesPayment.findUnique({
-        where: { id },
-        include: {
-          salesInvoice: true,
-          cashAccount: true,
-        },
+    const payment = await prisma.salesPayment.findUnique({
+      where: { id },
+      include: {
+        salesInvoice: true,
+        cashAccount: true,
+      },
+    });
+
+    if (!payment) throw new Error("Payment not found");
+    if (payment.journalEntryId) throw new Error("Payment already posted");
+    const payload = {
+      paymentId: payment.id,
+      paymentNumber: payment.paymentNumber,
+      paymentDate: payment.paymentDate.toISOString(),
+      amount: payment.amount.toString(),
+      reference: payment.reference ?? undefined,
+      notes: payment.notes ?? undefined,
+      cashAccountId: payment.cashAccountId,
+      contactId: payment.contactId,
+      salesInvoiceId: payment.salesInvoiceId,
+      userId: session.userId,
+    };
+
+    const outbox = await prisma.$transaction(async (tx) => {
+      return enqueueIntegrationEventOnce(tx, {
+        topic: "SALES",
+        type: "SALES_PAYMENT_POSTED",
+        aggregateType: "SalesPayment",
+        aggregateId: payment.id,
+        payload,
       });
+    });
 
-      if (!payment) throw new Error("Payment not found");
-      if (payment.journalEntryId) throw new Error("Payment already posted");
-      const payload = {
-        paymentId: payment.id,
-        paymentNumber: payment.paymentNumber,
-        paymentDate: payment.paymentDate.toISOString(),
-        amount: payment.amount.toString(),
-        reference: payment.reference ?? undefined,
-        notes: payment.notes ?? undefined,
-        cashAccountId: payment.cashAccountId,
-        contactId: payment.contactId,
-        salesInvoiceId: payment.salesInvoiceId,
-        userId: session.userId,
-      };
-
-      const outbox = await prisma.$transaction(async (tx) => {
-        return enqueueIntegrationEventOnce(tx, {
-          topic: "sales",
-          type: "SALES_PAYMENT_POSTED",
-          aggregateType: "SalesPayment",
-          aggregateId: payment.id,
-          payload,
-        });
-      });
-
-      if (outbox.alreadyQueued) {
-        return {
-          success: true,
-          data: { processed: false as const, alreadyQueued: true as const, outboxId: outbox.id },
-        };
-      }
-
-      const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
-
-      revalidatePath("/sales/payments");
-      revalidatePath("/sales/invoices");
-      revalidatePath(`/sales/payments/${id}`);
-      return { success: true, data: { outboxId: outbox.id, ...processed } };
-    } catch (error) {
-      console.error("Failed to post Payment:", error);
+    if (outbox.alreadyQueued) {
       return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to post Payment",
+        success: true,
+        data: {
+          processed: false as const,
+          alreadyQueued: true as const,
+          outboxId: outbox.id,
+        },
       };
     }
+
+    const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
+
+    revalidatePath("/sales/payments");
+    revalidatePath("/sales/invoices");
+    revalidatePath(`/sales/payments/${id}`);
+    return { success: true, data: { outboxId: outbox.id, ...processed } };
+  } catch (error) {
+    console.error("Failed to post Payment:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to post Payment",
+    };
   }
-);
+});
 
 export const deleteSalesPayment = authorizedAction(
   "sales.payments",
@@ -264,7 +266,7 @@ export const deleteSalesPayment = authorizedAction(
         // 2. Update Invoice Status
         const currentTotalPaid = invoice.payments.reduce(
           (sum, p) => sum + Number(p.amount),
-          0
+          0,
         );
         const newTotalPaid = currentTotalPaid - Number(payment.amount);
 
@@ -290,10 +292,11 @@ export const deleteSalesPayment = authorizedAction(
       console.error("Failed to delete Payment:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to delete Payment",
+        error:
+          error instanceof Error ? error.message : "Failed to delete Payment",
       };
     }
-  }
+  },
 );
 
 export const updateSalesPayment = authorizedAction(
@@ -315,7 +318,8 @@ export const updateSalesPayment = authorizedAction(
       });
 
       if (!existingPayment) throw new Error("Payment not found");
-      if (existingPayment.journalEntryId) throw new Error("Cannot edit a posted payment");
+      if (existingPayment.journalEntryId)
+        throw new Error("Cannot edit a posted payment");
 
       // Check if invoice is changing (usually not allowed in UI but good to check)
       if (data.salesInvoiceId !== existingPayment.salesInvoiceId) {
@@ -327,7 +331,7 @@ export const updateSalesPayment = authorizedAction(
       // Calculate new totals
       // Remove old amount from invoice payments calculation
       const otherPaymentsTotal = invoice.payments
-        .filter(p => p.id !== id)
+        .filter((p) => p.id !== id)
         .reduce((sum, p) => sum + Number(p.amount), 0);
 
       const remaining = Number(invoice.totalAmount) - otherPaymentsTotal;
@@ -376,8 +380,9 @@ export const updateSalesPayment = authorizedAction(
       console.error("Failed to update Payment:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to update Payment",
+        error:
+          error instanceof Error ? error.message : "Failed to update Payment",
       };
     }
-  }
+  },
 );
