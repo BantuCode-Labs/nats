@@ -591,21 +591,15 @@ async function agenticProductSearch(
   // Step 1: Search via Lightpanda
   onStatus?.("Searching...");
   const allResults = await searchViaLightpanda(sku);
-  const seen = new Set<string>();
-  const uniqueResults = allResults.filter((r) => {
-    if (!r.title || !r.url || seen.has(r.url)) return false;
-    seen.add(r.url);
-    return true;
-  });
 
-  if (uniqueResults.length === 0) {
+  if (allResults.length === 0) {
     onStatus?.("No search results found...");
     return [];
   }
 
   // Step 2: Filter and rank results by relevance
   onStatus?.("Ranking search results...");
-  const urlsToFetch = evaluateSearchResults(uniqueResults);
+  const urlsToFetch = evaluateSearchResults(allResults);
   if (urlsToFetch.length === 0) return [];
 
   // Step 3: Fetch selected pages (parallel)
