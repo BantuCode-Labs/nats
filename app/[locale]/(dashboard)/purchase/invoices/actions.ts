@@ -151,13 +151,22 @@ export const createPurchaseInvoice = authorizedAction(
         return { success: false, error: parseResult.error.message };
       }
 
-      const result = await PurchaseInvoiceService.create(parseResult.data, session.userId);
+      const result = await PurchaseInvoiceService.create(
+        parseResult.data,
+        session.userId,
+      );
 
       revalidatePath("/purchase/invoices");
       return { success: true, data: SuperJSON.serialize(result) };
     } catch (error) {
       console.error("Failed to create Invoice:", error);
-      return { success: false, error: error instanceof Error ? error.message : "Failed to create Purchase Invoice" };
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to create Purchase Invoice",
+      };
     }
   },
 );
@@ -217,7 +226,7 @@ export const updatePurchaseInvoice = authorizedAction(
         const taxAmount = item.tax || 0;
 
         if (item.taxRateId) {
-          const rateObj = taxRates.find(r => r.id === item.taxRateId);
+          const rateObj = taxRates.find((r) => r.id === item.taxRateId);
           if (rateObj) {
             taxRateSnapshot = Number(rateObj.rate);
           }
@@ -230,7 +239,7 @@ export const updatePurchaseInvoice = authorizedAction(
             discount: item.discount,
             tax: taxAmount,
           },
-          taxRateSnapshot
+          taxRateSnapshot,
         );
 
         return {
@@ -245,15 +254,15 @@ export const updatePurchaseInvoice = authorizedAction(
           productId: item.productId,
           accountId: item.accountId,
           purchaseOrderItemId: item.purchaseOrderItemId,
-          _calculated: calculated
+          _calculated: calculated,
         };
       });
 
       const totals = CalculationService.calculateInvoiceTotals(
-        itemsToCreate.map(i => i._calculated),
+        itemsToCreate.map((i) => i._calculated),
         data.globalDiscount,
         data.shippingCost,
-        data.handlingCost
+        data.handlingCost,
       );
 
       // Remove internal field before creating
@@ -332,66 +341,77 @@ export const deletePurchaseInvoice = authorizedAction(
   },
 );
 
-export const postPurchaseInvoice = authorizedAction<PostPurchaseInvoiceResult, [string]>(
-  "purchase.edit",
-  async (id: string) => {
-    try {
-      const session = await getSession();
-      if (!session) throw new Error("Unauthorized");
+export const postPurchaseInvoice = authorizedAction<
+  PostPurchaseInvoiceResult,
+  [string]
+>("purchase.edit", async (id: string) => {
+  try {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
 
-      const invoice = await prisma.purchaseInvoice.findUnique({
-        where: { id },
-        include: { items: true },
+    const invoice = await prisma.purchaseInvoice.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!invoice) throw new Error("Invoice not found");
+    if (invoice.status !== "DRAFT")
+      throw new Error("Only draft invoices can be posted");
+    if (invoice.journalEntryId) throw new Error("Invoice already posted");
+    const payload = {
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.invoiceDate.toISOString(),
+      contactId: invoice.contactId,
+      userId: session.userId,
+      totalAmount: invoice.totalAmount.toString(),
+      globalDiscount: invoice.globalDiscount?.toString(),
+      shippingCost: invoice.shippingCost?.toString(),
+      handlingCost: invoice.handlingCost?.toString(),
+      items: invoice.items.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice.toString(),
+        discount: item.discount?.toString(),
+        tax: item.tax?.toString(),
+        accountId: item.accountId ?? undefined,
+      })),
+    };
+
+    const outbox = await prisma.$transaction(async (tx) => {
+      return enqueueIntegrationEventOnce(tx, {
+        topic: "PURCHASE",
+        type: "PURCHASE_INVOICE_BILLED",
+        aggregateType: "PurchaseInvoice",
+        aggregateId: invoice.id,
+        payload,
       });
+    });
 
-      if (!invoice) throw new Error("Invoice not found");
-      if (invoice.status !== "DRAFT") throw new Error("Only draft invoices can be posted");
-      if (invoice.journalEntryId) throw new Error("Invoice already posted");
-      const payload = {
-        invoiceId: invoice.id,
-        invoiceNumber: invoice.invoiceNumber,
-        invoiceDate: invoice.invoiceDate.toISOString(),
-        contactId: invoice.contactId,
-        userId: session.userId,
-        totalAmount: invoice.totalAmount.toString(),
-        globalDiscount: invoice.globalDiscount?.toString(),
-        shippingCost: invoice.shippingCost?.toString(),
-        handlingCost: invoice.handlingCost?.toString(),
-        items: invoice.items.map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice.toString(),
-          discount: item.discount?.toString(),
-          tax: item.tax?.toString(),
-          accountId: item.accountId ?? undefined,
-        })),
+    if (outbox.alreadyQueued) {
+      return {
+        success: true,
+        data: {
+          processed: false as const,
+          alreadyQueued: true as const,
+          outboxId: outbox.id,
+        },
       };
-
-      const outbox = await prisma.$transaction(async (tx) => {
-        return enqueueIntegrationEventOnce(tx, {
-          topic: "purchase",
-          type: "PURCHASE_INVOICE_BILLED",
-          aggregateType: "PurchaseInvoice",
-          aggregateId: invoice.id,
-          payload,
-        });
-      });
-
-      if (outbox.alreadyQueued) {
-        return {
-          success: true,
-          data: { processed: false as const, alreadyQueued: true as const, outboxId: outbox.id },
-        };
-      }
-
-      const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
-
-      revalidatePath("/purchase/invoices");
-      revalidatePath(`/purchase/invoices/${id}`);
-      return { success: true, data: { outboxId: outbox.id, ...processed } };
-    } catch (error) {
-      console.error("Failed to post Invoice:", error);
-      return { success: false, error: error instanceof Error ? error.message : "Failed to post Purchase Invoice" };
     }
-  },
-);
+
+    const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
+
+    revalidatePath("/purchase/invoices");
+    revalidatePath(`/purchase/invoices/${id}`);
+    return { success: true, data: { outboxId: outbox.id, ...processed } };
+  } catch (error) {
+    console.error("Failed to post Invoice:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to post Purchase Invoice",
+    };
+  }
+});

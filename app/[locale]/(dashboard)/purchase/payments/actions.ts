@@ -26,7 +26,7 @@ type PostPurchasePaymentResult = {
 export async function getPurchasePayments(
   page: number = 1,
   limit: number = 10,
-  search?: string
+  search?: string,
 ) {
   const session = await getSession();
   if (!session || !hasPermission(session.permissions, "purchase.view")) {
@@ -151,7 +151,10 @@ export const createPurchasePayment = authorizedAction(
         return { success: false, error: parseResult.error.message };
       }
 
-      const result = await PurchasePaymentService.create(parseResult.data, session.userId);
+      const result = await PurchasePaymentService.create(
+        parseResult.data,
+        session.userId,
+      );
 
       revalidatePath("/purchase/payments");
       revalidatePath("/purchase/invoices");
@@ -160,74 +163,79 @@ export const createPurchasePayment = authorizedAction(
       console.error("Failed to create Payment:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create Payment",
+        error:
+          error instanceof Error ? error.message : "Failed to create Payment",
       };
     }
-  }
+  },
 );
 
-export const postPurchasePayment = authorizedAction<PostPurchasePaymentResult, [string]>(
-  "purchase.create",
-  async (id: string) => {
-    try {
-      const session = await getSession();
-      if (!session) throw new Error("Unauthorized");
+export const postPurchasePayment = authorizedAction<
+  PostPurchasePaymentResult,
+  [string]
+>("purchase.create", async (id: string) => {
+  try {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
 
-      const payment = await prisma.purchasePayment.findUnique({
-        where: { id },
-        include: {
-          purchaseInvoice: true,
-          cashAccount: true,
-        },
+    const payment = await prisma.purchasePayment.findUnique({
+      where: { id },
+      include: {
+        purchaseInvoice: true,
+        cashAccount: true,
+      },
+    });
+
+    if (!payment) throw new Error("Payment not found");
+    if (payment.journalEntryId) throw new Error("Payment already posted");
+    const payload = {
+      paymentId: payment.id,
+      paymentNumber: payment.paymentNumber,
+      paymentDate: payment.paymentDate.toISOString(),
+      amount: payment.amount.toString(),
+      reference: payment.reference ?? undefined,
+      notes: payment.notes ?? undefined,
+      cashAccountId: payment.cashAccountId,
+      contactId: payment.contactId,
+      purchaseInvoiceId: payment.purchaseInvoiceId,
+      userId: session.userId,
+    };
+
+    const outbox = await prisma.$transaction(async (tx) => {
+      return enqueueIntegrationEventOnce(tx, {
+        topic: "PURCHASE",
+        type: "PURCHASE_PAYMENT_POSTED",
+        aggregateType: "PurchasePayment",
+        aggregateId: payment.id,
+        payload,
       });
+    });
 
-      if (!payment) throw new Error("Payment not found");
-      if (payment.journalEntryId) throw new Error("Payment already posted");
-      const payload = {
-        paymentId: payment.id,
-        paymentNumber: payment.paymentNumber,
-        paymentDate: payment.paymentDate.toISOString(),
-        amount: payment.amount.toString(),
-        reference: payment.reference ?? undefined,
-        notes: payment.notes ?? undefined,
-        cashAccountId: payment.cashAccountId,
-        contactId: payment.contactId,
-        purchaseInvoiceId: payment.purchaseInvoiceId,
-        userId: session.userId,
-      };
-
-      const outbox = await prisma.$transaction(async (tx) => {
-        return enqueueIntegrationEventOnce(tx, {
-          topic: "purchase",
-          type: "PURCHASE_PAYMENT_POSTED",
-          aggregateType: "PurchasePayment",
-          aggregateId: payment.id,
-          payload,
-        });
-      });
-
-      if (outbox.alreadyQueued) {
-        return {
-          success: true,
-          data: { processed: false as const, alreadyQueued: true as const, outboxId: outbox.id },
-        };
-      }
-
-      const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
-
-      revalidatePath("/purchase/payments");
-      revalidatePath("/purchase/invoices");
-      revalidatePath(`/purchase/payments/${id}`);
-      return { success: true, data: { outboxId: outbox.id, ...processed } };
-    } catch (error) {
-      console.error("Failed to post Payment:", error);
+    if (outbox.alreadyQueued) {
       return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to post Payment",
+        success: true,
+        data: {
+          processed: false as const,
+          alreadyQueued: true as const,
+          outboxId: outbox.id,
+        },
       };
     }
+
+    const processed = await maybeProcessIntegrationOutboxEvent(outbox.id);
+
+    revalidatePath("/purchase/payments");
+    revalidatePath("/purchase/invoices");
+    revalidatePath(`/purchase/payments/${id}`);
+    return { success: true, data: { outboxId: outbox.id, ...processed } };
+  } catch (error) {
+    console.error("Failed to post Payment:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to post Payment",
+    };
   }
-);
+});
 
 export const deletePurchasePayment = authorizedAction(
   "purchase.delete",
@@ -265,7 +273,7 @@ export const deletePurchasePayment = authorizedAction(
         // we subtract the current payment amount.
         const currentTotalPaid = invoice.payments.reduce(
           (sum, p) => sum + Number(p.amount),
-          0
+          0,
         );
         const newTotalPaid = currentTotalPaid - Number(payment.amount);
 
@@ -295,8 +303,9 @@ export const deletePurchasePayment = authorizedAction(
       console.error("Failed to delete Payment:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to delete Payment",
+        error:
+          error instanceof Error ? error.message : "Failed to delete Payment",
       };
     }
-  }
+  },
 );
