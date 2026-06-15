@@ -64,6 +64,15 @@ export async function getPOSProducts(
     });
   }
 
+  // Resolve the active POS session's warehouse so stock reflects only that location.
+  const activePosSession = await prisma.pOSSession.findFirst({
+    where: {
+      status: "OPEN",
+      cashierId: session.userId,
+    },
+    select: { warehouseId: true },
+  });
+
   const where: any = {
     isActive: true,
   };
@@ -81,12 +90,17 @@ export async function getPOSProducts(
 
   const now = new Date();
 
+  const inventoryWhere = activePosSession?.warehouseId
+    ? { warehouseId: activePosSession.warehouseId }
+    : undefined;
+
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
       include: {
         category: true,
         inventory: {
+          where: inventoryWhere,
           include: {
             warehouse: true,
           },
