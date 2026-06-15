@@ -2,7 +2,14 @@
 export const dynamic = "force-dynamic";
 
 import { Button } from "@/components/ui/button";
-import { Plus, MoreHorizontal, Trash2, Eye, BookOpen, Pencil } from "lucide-react";
+import {
+  Plus,
+  MoreHorizontal,
+  Trash2,
+  Eye,
+  BookOpen,
+  Pencil,
+} from "lucide-react";
 import Link from "next/link";
 import {
   getSalesPayments,
@@ -58,8 +65,8 @@ export default function SalesPaymentsPage() {
         payments: Array.isArray(result.payments)
           ? []
           : (SuperJSON.deserialize<SalesPaymentWithDetails[]>(
-            result.payments as SuperJSONResult,
-          ) as SalesPaymentWithDetails[]),
+              result.payments as SuperJSONResult,
+            ) as SalesPaymentWithDetails[]),
         total: result.total,
         totalPages: result.totalPages,
       };
@@ -183,13 +190,14 @@ export default function SalesPaymentsPage() {
     {
       header: tCommon("date"),
       accessorKey: "paymentDate",
-      cell: (item) => formatDate(item.paymentDate),
+      cell: (item) => formatDate(item.paymentDate, { includeTime: true }),
     },
     {
       header: tCommon("customer"),
       cell: (item) =>
         item.contact ? (
-          <Link target="_blank"
+          <Link
+            target="_blank"
             href={`/general/contacts/${item.contact.id}`}
             className="text-primary hover:underline"
           >

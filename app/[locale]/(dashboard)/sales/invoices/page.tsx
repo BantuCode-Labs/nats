@@ -59,8 +59,8 @@ export default function SalesInvoicesPage() {
         invoices: Array.isArray(result.invoices)
           ? []
           : (SuperJSON.deserialize<SalesInvoiceWithDetails[]>(
-            result.invoices as SuperJSONResult,
-          ) as SalesInvoiceWithDetails[]),
+              result.invoices as SuperJSONResult,
+            ) as SalesInvoiceWithDetails[]),
         total: result.total,
         totalPages: result.totalPages,
       };
@@ -128,7 +128,8 @@ export default function SalesInvoicesPage() {
       header: tCommon("customer"),
       cell: (item) =>
         item.contact ? (
-          <Link target="_blank"
+          <Link
+            target="_blank"
             href={`/general/contacts/${item.contact.id}`}
             className="text-primary hover:underline"
           >
@@ -151,7 +152,7 @@ export default function SalesInvoicesPage() {
     {
       header: tCommon("date"),
       accessorKey: "invoiceDate",
-      cell: (item) => formatDate(item.invoiceDate),
+      cell: (item) => formatDate(item.invoiceDate, { includeTime: true }),
     },
     {
       header: t("due_date"),
@@ -221,7 +222,10 @@ export default function SalesInvoicesPage() {
               <>
                 <Protect permission="sales.edit">
                   <DropdownMenuItem asChild>
-                    <Link target="_blank" href={`/sales/invoices/${invoice.id}/edit`}>
+                    <Link
+                      target="_blank"
+                      href={`/sales/invoices/${invoice.id}/edit`}
+                    >
                       <Pencil className="mr-2 h-4 w-4" /> {tCommon("edit")}
                     </Link>
                   </DropdownMenuItem>

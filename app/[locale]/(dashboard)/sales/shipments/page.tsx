@@ -52,8 +52,8 @@ export default function SalesShipmentsPage() {
         shipments: Array.isArray(result.shipments)
           ? []
           : (SuperJSON.deserialize<SalesShipmentWithDetails[]>(
-            result.shipments as SuperJSONResult,
-          ) as SalesShipmentWithDetails[]),
+              result.shipments as SuperJSONResult,
+            ) as SalesShipmentWithDetails[]),
         total: result.total,
         totalPages: result.totalPages,
       };
@@ -108,7 +108,8 @@ export default function SalesShipmentsPage() {
       header: tCommon("customer"),
       cell: (item) =>
         item.contact ? (
-          <Link target="_blank"
+          <Link
+            target="_blank"
             href={`/general/contacts/${item.contact.id}`}
             className="text-primary hover:underline"
           >
@@ -121,15 +122,13 @@ export default function SalesShipmentsPage() {
     {
       header: tCommon("date"),
       accessorKey: "shipmentDate",
-      cell: (item) => formatDate(item.shipmentDate),
+      cell: (item) => formatDate(item.shipmentDate, { includeTime: true }),
     },
     {
       header: tCommon("status"),
       accessorKey: "status",
       cell: (item) => (
-        <Badge className={getStatusColor(item.status)}>
-          {item.status}
-        </Badge>
+        <Badge className={getStatusColor(item.status)}>{item.status}</Badge>
       ),
     },
     {
@@ -153,7 +152,10 @@ export default function SalesShipmentsPage() {
             {shipment.status !== "COMPLETED" && (
               <Protect permission="sales.edit">
                 <DropdownMenuItem asChild>
-                  <Link target="_blank" href={`/sales/shipments/${shipment.id}/edit`}>
+                  <Link
+                    target="_blank"
+                    href={`/sales/shipments/${shipment.id}/edit`}
+                  >
                     <Pencil className="mr-2 h-4 w-4" /> {tCommon("edit")}
                   </Link>
                 </DropdownMenuItem>

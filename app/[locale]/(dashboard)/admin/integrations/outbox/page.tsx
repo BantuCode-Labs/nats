@@ -78,7 +78,7 @@ type OutboxEvent = {
   payload: unknown;
 };
 
-type OutboxAuditLog = Prisma.AuditLogGetPayload<{}>;
+type OutboxAuditLog = Prisma.AuditLogGetPayload<object>;
 
 function statusVariant(status: string) {
   if (status === "PROCESSED") return "default";
@@ -115,7 +115,7 @@ export default function IntegrationOutboxPage() {
   // Queries
   const queryKey = useMemo(
     () => ["admin-outbox", page, search, status, topic, type],
-    [page, search, status, topic, type]
+    [page, search, status, topic, type],
   );
 
   const { data, isLoading } = useQuery({
@@ -153,11 +153,12 @@ export default function IntegrationOutboxPage() {
 
   const { data: errorsData, isLoading: isLoadingErrors } = useQuery({
     queryKey: ["admin-outbox-errors", topic, type],
-    queryFn: async () => getIntegrationOutboxTopErrors({
-      topic: topic || undefined,
-      type: type || undefined,
-      limit: 8
-    }),
+    queryFn: async () =>
+      getIntegrationOutboxTopErrors({
+        topic: topic || undefined,
+        type: type || undefined,
+        limit: 8,
+      }),
   });
 
   const invalidate = async () => {
@@ -174,7 +175,11 @@ export default function IntegrationOutboxPage() {
         toast({ title: t("dispatched") });
         await invalidate();
       } else {
-        toast({ title: tCommon("error"), description: result.error, variant: "destructive" });
+        toast({
+          title: tCommon("error"),
+          description: result.error,
+          variant: "destructive",
+        });
       }
     });
   };
@@ -188,8 +193,8 @@ export default function IntegrationOutboxPage() {
           description: t("dispatch_desc", {
             attempted: (result as any).result?.attempted ?? 0,
             processed: (result as any).result?.processed ?? 0,
-            failed: (result as any).result?.failed ?? 0
-          })
+            failed: (result as any).result?.failed ?? 0,
+          }),
         });
         await invalidate();
       } else {
@@ -199,36 +204,56 @@ export default function IntegrationOutboxPage() {
   };
 
   const handleBulkUnlock = async () => {
-    if (await confirm({
-      title: t("unlock_stuck"),
-      description: t("bulk_unlock_stuck_desc"),
-      confirmText: t("unlock"),
-    })) {
+    if (
+      await confirm({
+        title: t("unlock_stuck"),
+        description: t("bulk_unlock_stuck_desc"),
+        confirmText: t("unlock"),
+      })
+    ) {
       startTransition(async () => {
-        const result = await bulkUnlockStuckIntegrationOutboxEvents({ topic: topic || undefined, type: type || undefined });
+        const result = await bulkUnlockStuckIntegrationOutboxEvents({
+          topic: topic || undefined,
+          type: type || undefined,
+        });
         if (result.success) {
-          toast({ title: t("bulk_unlocked"), description: t("updated_count", { count: (result as any).count ?? 0 }) });
+          toast({
+            title: t("bulk_unlocked"),
+            description: t("updated_count", {
+              count: (result as any).count ?? 0,
+            }),
+          });
           await invalidate();
         }
       });
     }
   };
 
-  const handleBulkRequeue = async (fromStatus: "FAILED" | "DEAD", reset: boolean) => {
-    if (await confirm({
-      title: reset ? t("requeue_reset") : t("requeue_keep"),
-      description: t("bulk_requeue_desc"),
-      confirmText: reset ? t("requeue_reset") : t("requeue_keep"),
-    })) {
+  const handleBulkRequeue = async (
+    fromStatus: "FAILED" | "DEAD",
+    reset: boolean,
+  ) => {
+    if (
+      await confirm({
+        title: reset ? t("requeue_reset") : t("requeue_keep"),
+        description: t("bulk_requeue_desc"),
+        confirmText: reset ? t("requeue_reset") : t("requeue_keep"),
+      })
+    ) {
       startTransition(async () => {
         const result = await bulkRequeueIntegrationOutboxEvents({
           fromStatus,
           resetAttempts: reset,
           topic: topic || undefined,
-          type: type || undefined
+          type: type || undefined,
         });
         if (result.success) {
-          toast({ title: t("bulk_requeued"), description: t("updated_count", { count: (result as any).count ?? 0 }) });
+          toast({
+            title: t("bulk_requeued"),
+            description: t("updated_count", {
+              count: (result as any).count ?? 0,
+            }),
+          });
           await invalidate();
         }
       });
@@ -236,20 +261,27 @@ export default function IntegrationOutboxPage() {
   };
 
   const handleBulkMarkDeadByError = async (error: string) => {
-    if (await confirm({
-      title: t("mark_dead"),
-      description: t("bulk_dead_error_desc"),
-      confirmText: t("mark_dead"),
-      variant: "destructive",
-    })) {
+    if (
+      await confirm({
+        title: t("mark_dead"),
+        description: t("bulk_dead_error_desc"),
+        confirmText: t("mark_dead"),
+        variant: "destructive",
+      })
+    ) {
       startTransition(async () => {
         const result = await bulkForceDeadIntegrationOutboxEvents({
           lastErrorExact: error,
           topic: topic || undefined,
-          type: type || undefined
+          type: type || undefined,
         });
         if (result.success) {
-          toast({ title: t("bulk_marked_dead"), description: t("updated_count", { count: (result as any).count ?? 0 }) });
+          toast({
+            title: t("bulk_marked_dead"),
+            description: t("updated_count", {
+              count: (result as any).count ?? 0,
+            }),
+          });
           await invalidate();
         }
       });
@@ -257,13 +289,17 @@ export default function IntegrationOutboxPage() {
   };
 
   const handleRequeueEvent = async (id: string, reset: boolean) => {
-    if (await confirm({
-      title: t("requeue_event"),
-      description: t("requeue_desc"),
-      confirmText: reset ? t("requeue_reset") : t("requeue_keep"),
-    })) {
+    if (
+      await confirm({
+        title: t("requeue_event"),
+        description: t("requeue_desc"),
+        confirmText: reset ? t("requeue_reset") : t("requeue_keep"),
+      })
+    ) {
       startTransition(async () => {
-        const result = await requeueIntegrationOutboxEvent(id, { resetAttempts: reset });
+        const result = await requeueIntegrationOutboxEvent(id, {
+          resetAttempts: reset,
+        });
         if (result.success) {
           toast({ title: tCommon("success") });
           await invalidate();
@@ -273,11 +309,13 @@ export default function IntegrationOutboxPage() {
   };
 
   const handleUnlockEvent = async (id: string) => {
-    if (await confirm({
-      title: t("unlock_event"),
-      description: t("unlock_desc"),
-      confirmText: t("unlock"),
-    })) {
+    if (
+      await confirm({
+        title: t("unlock_event"),
+        description: t("unlock_desc"),
+        confirmText: t("unlock"),
+      })
+    ) {
       startTransition(async () => {
         const result = await unlockIntegrationOutboxEvent(id);
         if (result.success) {
@@ -289,12 +327,14 @@ export default function IntegrationOutboxPage() {
   };
 
   const handleMarkDead = async (id: string) => {
-    if (await confirm({
-      title: t("move_dead_letter"),
-      description: t("move_dead_desc"),
-      confirmText: t("mark_dead"),
-      variant: "destructive",
-    })) {
+    if (
+      await confirm({
+        title: t("move_dead_letter"),
+        description: t("move_dead_desc"),
+        confirmText: t("mark_dead"),
+        variant: "destructive",
+      })
+    ) {
       startTransition(async () => {
         const result = await forceDeadIntegrationOutboxEvent(id);
         if (result.success) {
@@ -308,7 +348,9 @@ export default function IntegrationOutboxPage() {
   const columns: Column<OutboxEvent>[] = [
     {
       header: tCommon("status"),
-      cell: (item) => <Badge variant={statusVariant(item.status)}>{item.status}</Badge>,
+      cell: (item) => (
+        <Badge variant={statusVariant(item.status)}>{item.status}</Badge>
+      ),
       className: "w-[120px]",
     },
     {
@@ -316,7 +358,9 @@ export default function IntegrationOutboxPage() {
       cell: (item) => (
         <div className="min-w-[240px]">
           <div className="font-medium text-xs">{item.type}</div>
-          <div className="text-[10px] text-muted-foreground font-mono">{item.topic}</div>
+          <div className="text-[10px] text-muted-foreground font-mono">
+            {item.topic}
+          </div>
         </div>
       ),
     },
@@ -331,15 +375,15 @@ export default function IntegrationOutboxPage() {
     {
       header: tCommon("attempts"),
       cell: (item) => (
-        <div className="w-[80px] text-right">
-          {item.attempts}
-        </div>
+        <div className="w-[80px] text-right">{item.attempts}</div>
       ),
     },
     {
       header: tCommon("created_at"),
       cell: (item) => (
-        <div className="w-[160px] text-xs font-light">{formatDate(item.createdAt)}</div>
+        <div className="w-[160px] text-xs font-light">
+          {formatDate(item.createdAt, { includeTime: true })}
+        </div>
       ),
     },
     {
@@ -353,25 +397,34 @@ export default function IntegrationOutboxPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setDialog({
-                open: true,
-                title: t("view_details"),
-                content: item,
-                event: item
-              })}>
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({
+                    open: true,
+                    title: t("view_details"),
+                    content: item,
+                    event: item,
+                  })
+                }
+              >
                 <Eye className="mr-2 h-4 w-4" /> {t("view_details")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <Protect permission="integrations.outbox.dispatch">
                 <DropdownMenuItem onClick={() => handleRunNow(item.id)}>
-                  <Play className="mr-2 h-4 w-4 text-green-500" /> {t("run_now")}
+                  <Play className="mr-2 h-4 w-4 text-green-500" />{" "}
+                  {t("run_now")}
                 </DropdownMenuItem>
               </Protect>
               <Protect permission="integrations.outbox.retry">
-                <DropdownMenuItem onClick={() => handleRequeueEvent(item.id, true)}>
+                <DropdownMenuItem
+                  onClick={() => handleRequeueEvent(item.id, true)}
+                >
                   <RotateCcw className="mr-2 h-4 w-4" /> {t("requeue_reset")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleRequeueEvent(item.id, false)}>
+                <DropdownMenuItem
+                  onClick={() => handleRequeueEvent(item.id, false)}
+                >
                   <RotateCcw className="mr-2 h-4 w-4" /> {t("requeue_keep")}
                 </DropdownMenuItem>
                 {item.status === "PROCESSING" && (
@@ -416,18 +469,30 @@ export default function IntegrationOutboxPage() {
                   <LockOpen className="mr-2 h-4 w-4" /> {t("unlock_stuck")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleBulkRequeue("FAILED", true)}>
-                  <RotateCcw className="mr-2 h-4 w-4" /> {t("requeue_failed_reset")}
+                <DropdownMenuItem
+                  onClick={() => handleBulkRequeue("FAILED", true)}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />{" "}
+                  {t("requeue_failed_reset")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleBulkRequeue("FAILED", false)}>
-                  <RotateCcw className="mr-2 h-4 w-4" /> {t("requeue_failed_keep")}
+                <DropdownMenuItem
+                  onClick={() => handleBulkRequeue("FAILED", false)}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />{" "}
+                  {t("requeue_failed_keep")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleBulkRequeue("DEAD", true)}>
-                  <RotateCcw className="mr-2 h-4 w-4" /> {t("requeue_dead_reset")}
+                <DropdownMenuItem
+                  onClick={() => handleBulkRequeue("DEAD", true)}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />{" "}
+                  {t("requeue_dead_reset")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleBulkRequeue("DEAD", false)}>
-                  <RotateCcw className="mr-2 h-4 w-4" /> {t("requeue_dead_keep")}
+                <DropdownMenuItem
+                  onClick={() => handleBulkRequeue("DEAD", false)}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />{" "}
+                  {t("requeue_dead_keep")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -472,11 +537,16 @@ export default function IntegrationOutboxPage() {
           </CardHeader>
           <CardContent className="text-sm">
             {isLoadingErrors ? (
-              <div className="text-muted-foreground">{tCommon("loading")}...</div>
+              <div className="text-muted-foreground">
+                {tCommon("loading")}...
+              </div>
             ) : errorsData?.errors?.length ? (
               <div className="flex flex-col gap-3">
                 {errorsData.errors.map((e, idx) => (
-                  <div key={idx} className="flex items-start justify-between gap-2 border-b pb-2 last:border-0">
+                  <div
+                    key={idx}
+                    className="flex items-start justify-between gap-2 border-b pb-2 last:border-0"
+                  >
                     <div className="flex-1 overflow-hidden">
                       <code className="block truncate bg-muted p-1 text-[10px] font-mono whitespace-pre-wrap break-all max-h-[60px] overflow-y-auto">
                         {e.lastError}
@@ -485,7 +555,6 @@ export default function IntegrationOutboxPage() {
                         <span className="font-bold text-destructive">
                           {e.count} {t("events")}
                         </span>
-
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-1">
@@ -506,7 +575,9 @@ export default function IntegrationOutboxPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-muted-foreground">{t("no_failed_errors")}</div>
+              <div className="text-muted-foreground">
+                {t("no_failed_errors")}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -517,11 +588,16 @@ export default function IntegrationOutboxPage() {
           </CardHeader>
           <CardContent className="text-xs">
             {isLoadingAudit ? (
-              <div className="text-muted-foreground">{tCommon("loading")}...</div>
+              <div className="text-muted-foreground">
+                {tCommon("loading")}...
+              </div>
             ) : auditData?.logs?.length ? (
               <div className="space-y-3">
                 {auditData.logs.map((log) => (
-                  <div key={log.id} className="flex flex-col gap-0.5 border-b pb-1.5 last:border-0">
+                  <div
+                    key={log.id}
+                    className="flex flex-col gap-0.5 border-b pb-1.5 last:border-0"
+                  >
                     <div className="flex items-center justify-between font-medium">
                       <span>{log.action}</span>
                       <span className="text-[10px] font-normal text-muted-foreground font-mono">
