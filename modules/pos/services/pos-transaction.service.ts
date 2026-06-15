@@ -7,11 +7,8 @@ import {
   maybeProcessIntegrationOutboxEvent,
 } from "@/modules/integration/outbox";
 import { CalculationService } from "@/lib/utils/calculation-service";
+import { generateDocumentNumber } from "@/lib/document-numbering";
 
-const POS_ORDER_NUMBER_PREFIX = "SO-POS";
-const POS_INVOICE_NUMBER_PREFIX = "INV-POS";
-const POS_PAYMENT_NUMBER_PREFIX = "PAY-POS";
-const POS_SHIPMENT_NUMBER_PREFIX = "SHP-POS";
 const DEFAULT_WALK_IN_CUSTOMER_NAME = "Walk-in Customer";
 
 interface POSTransactionItem {
@@ -19,12 +16,6 @@ interface POSTransactionItem {
   quantity: number;
   price: number;
   discount: number;
-}
-
-interface POSTransactionResult {
-  invoiceId: string;
-  outboxIds: string[];
-  alreadyQueuedIds: string[];
 }
 
 interface POSTransactionOutboxResult {
@@ -253,7 +244,11 @@ export class POSTransactionService {
       totalAmount: Decimal;
     },
   ) {
-    const orderNumber = `${POS_ORDER_NUMBER_PREFIX}-${Date.now()}`;
+    const orderNumber = await generateDocumentNumber(
+      "SALES_ORDER",
+      "Sales Order",
+      "SO-POS-",
+    );
     return await tx.salesOrder.create({
       data: {
         orderNumber,
@@ -301,7 +296,11 @@ export class POSTransactionService {
       totalAmount: Decimal;
     },
   ) {
-    const invoiceNumber = `${POS_INVOICE_NUMBER_PREFIX}-${Date.now()}`;
+    const invoiceNumber = await generateDocumentNumber(
+      "SALES_INVOICE",
+      "Sales Invoice",
+      "INV-POS-",
+    );
     const invoiceDate = new Date();
     return await tx.salesInvoice.create({
       data: {
@@ -344,7 +343,11 @@ export class POSTransactionService {
       totalAmount: Decimal;
     },
   ) {
-    const paymentNumber = `${POS_PAYMENT_NUMBER_PREFIX}-${Date.now()}`;
+    const paymentNumber = await generateDocumentNumber(
+      "SALES_PAYMENT",
+      "Sales Payment",
+      "PAY-POS-",
+    );
     const cashAccount = await tx.cashAccount.findFirst({
       where: { type: params.paymentMethod === "CASH" ? "CASH" : "BANK" },
     });
@@ -374,7 +377,11 @@ export class POSTransactionService {
       orderItems: { id: string; productId: string; quantity: number }[];
     },
   ) {
-    const shipmentNumber = `${POS_SHIPMENT_NUMBER_PREFIX}-${Date.now()}`;
+    const shipmentNumber = await generateDocumentNumber(
+      "SALES_SHIPMENT",
+      "Sales Shipment",
+      "SHP-POS-",
+    );
     return await tx.salesShipment.create({
       data: {
         shipmentNumber,
