@@ -121,6 +121,17 @@ export class POSTransactionService {
         orderItems: salesOrder.items,
       });
 
+      const orderOutbox = await this.enqueueSalesOrderEvent(tx, {
+        salesOrder,
+        cashierId: session.cashierId,
+      });
+
+      const shipmentOutbox = await this.enqueueShipmentEvent(tx, {
+        shipment,
+        contactId,
+        cashierId: session.cashierId,
+      });
+
       await InventoryService.createInventoryMovement(tx, {
         type: MovementType.OUT,
         reference: shipment.shipmentNumber,
@@ -145,10 +156,17 @@ export class POSTransactionService {
         cashierId: session.cashierId,
       });
 
-      const outboxIds = [invoiceOutbox.id, paymentOutbox.id];
+      const outboxIds = [
+        invoiceOutbox.id,
+        paymentOutbox.id,
+        orderOutbox.id,
+        shipmentOutbox.id,
+      ];
       const alreadyQueuedIds = [
         ...(invoiceOutbox.alreadyQueued ? [invoiceOutbox.id] : []),
         ...(paymentOutbox.alreadyQueued ? [paymentOutbox.id] : []),
+        ...(orderOutbox.alreadyQueued ? [orderOutbox.id] : []),
+        ...(shipmentOutbox.alreadyQueued ? [shipmentOutbox.id] : []),
       ];
 
       return { invoiceId: salesInvoice.id, outboxIds, alreadyQueuedIds };
@@ -456,6 +474,54 @@ export class POSTransactionService {
         cashAccountId: params.payment.cashAccountId,
         contactId: params.payment.contactId,
         salesInvoiceId: params.payment.salesInvoiceId!,
+        userId: params.cashierId,
+      },
+    });
+  }
+
+  private static async enqueueSalesOrderEvent(
+    tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+    params: {
+      salesOrder: { id: string; orderNumber: string; totalAmount: Decimal };
+      cashierId: string;
+    },
+  ) {
+    return await enqueueIntegrationEventOnce(tx, {
+      topic: "SALES",
+      type: "SALES_ORDER_CREATED",
+      aggregateType: "SalesOrder",
+      aggregateId: params.salesOrder.id,
+      payload: {
+        salesOrderId: params.salesOrder.id,
+        orderNumber: params.salesOrder.orderNumber,
+        totalAmount: params.salesOrder.totalAmount.toString(),
+        userId: params.cashierId,
+      },
+    });
+  }
+
+  private static async enqueueShipmentEvent(
+    tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+    params: {
+      shipment: {
+        id: string;
+        shipmentNumber: string;
+        salesOrderId: string | null;
+      };
+      contactId: string;
+      cashierId: string;
+    },
+  ) {
+    return await enqueueIntegrationEventOnce(tx, {
+      topic: "SALES",
+      type: "SALES_SHIPMENT_CREATED",
+      aggregateType: "SalesShipment",
+      aggregateId: params.shipment.id,
+      payload: {
+        shipmentId: params.shipment.id,
+        shipmentNumber: params.shipment.shipmentNumber,
+        salesOrderId: params.shipment.salesOrderId ?? undefined,
+        contactId: params.contactId,
         userId: params.cashierId,
       },
     });
