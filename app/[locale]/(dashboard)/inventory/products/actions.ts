@@ -215,3 +215,16 @@ export const deleteProduct = authorizedAction(
     }
   },
 );
+
+// SKU Search
+
+import {
+  searchProductBySku,
+  type SkuSearchResult,
+} from "@/lib/sku-search";
+
+export async function searchSku(
+  sku: string,
+): Promise<SkuSearchResult> {
+  return searchProductBySku(sku);
+}
