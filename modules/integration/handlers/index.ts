@@ -12,8 +12,14 @@ import {
   handleCashTransactionCreateRequestedCashBank,
 } from "./cash-transaction-create-requested";
 import { handlePurchaseInvoiceBilled } from "./purchase-invoice-billed";
-import { handlePurchasePaymentPostedAccounting, handlePurchasePaymentPostedCashBank } from "./purchase-payment-posted";
-import { handleSalesPaymentPostedAccounting, handleSalesPaymentPostedCashBank } from "./sales-payment-posted";
+import {
+  handlePurchasePaymentPostedAccounting,
+  handlePurchasePaymentPostedCashBank,
+} from "./purchase-payment-posted";
+import {
+  handleSalesPaymentPostedAccounting,
+  handleSalesPaymentPostedCashBank,
+} from "./sales-payment-posted";
 import { salesOrderCreatedHandler } from "./sales-order-created";
 import { salesInvoiceCreatedHandler } from "./sales-invoice-created";
 import { salesPaymentCreatedHandler } from "./sales-payment-created";
@@ -24,8 +30,15 @@ import { purchaseInvoiceCreatedHandler } from "./purchase-invoice-created";
 import { purchasePaymentCreatedHandler } from "./purchase-payment-created";
 import { purchaseReceiveCreatedHandler } from "./purchase-receive-created";
 import { purchaseReturnCreatedHandler } from "./purchase-return-created";
-import { handleInventoryMovementCreated, handleProductCreated } from "./inventory-handlers";
-import { handlePayrollRunCompleted, handleSalarySlipPublished } from "./payroll.handlers";
+import {
+  handleInventoryMovementCreated,
+  handleProductCreated,
+} from "./inventory-handlers";
+import {
+  handlePayrollRunCompleted,
+  handleSalarySlipPublished,
+} from "./payroll.handlers";
+import { handleJournalEntryPostedAccounting } from "./journal-entry-posted";
 
 export const integrationHandlers = {
   SALES_INVOICE_ISSUED: [
@@ -124,6 +137,12 @@ export const integrationHandlers = {
       handle: handleSalarySlipPublished,
     },
   ],
+  JOURNAL_ENTRY_POSTED: [
+    {
+      consumer: "accounting",
+      handle: handleJournalEntryPostedAccounting,
+    },
+  ],
 } as const;
 
 export type IntegrationHandlerType = keyof typeof integrationHandlers;
@@ -131,4 +150,3 @@ export type IntegrationHandlerType = keyof typeof integrationHandlers;
 export function getIntegrationHandlers(type: string) {
   return integrationHandlers[type as IntegrationHandlerType] ?? null;
 }
-

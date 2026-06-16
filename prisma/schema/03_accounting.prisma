@@ -28,9 +28,20 @@ model Account {
   cashAccount                CashAccount?
   cashTransactionAllocations CashTransactionAllocation[]
 
+  balance AccountBalance?
+
   @@index([code])
   @@index([type])
   @@index([parentId])
+}
+
+/// Aggregate per-account balance, maintained atomically when journal entries are posted.
+/// One row per posting account; the running balance per-line is no longer persisted.
+model AccountBalance {
+  accountId String   @id
+  account   Account  @relation(fields: [accountId], references: [id])
+  balance   Decimal  @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 model JournalEntry {

@@ -1,5 +1,9 @@
 import { prisma } from "./seed/utils";
-import { seedAccounting } from "./seed/accounting";
+import {
+  seedAccounting,
+  seedSampleJournalEntries,
+  reconcileJournalEntries,
+} from "./seed/accounting";
 import { seedCompany } from "./seed/company";
 import { seedUsers, seedBulkUsers } from "./seed/users";
 import { seedInventory, seedBulkInventory } from "./seed/inventory";
@@ -15,8 +19,9 @@ async function main() {
 
   try {
     await seedCompany();
-    await seedAccounting(); // Accounts, Tax Rates
+    await seedAccounting(); // Accounts, AccountBalance, Default Accounts, Tax Rates
     await seedUsers(); // Roles, Users
+    await seedSampleJournalEntries(); // Sample JEs (needs the admin user)
     await seedInventory(); // Warehouses, Units, Categories, Products
     await seedContacts(); // Customers, Vendors
     await seedHR(); // Departments, Employees, Salary Components
@@ -30,6 +35,11 @@ async function main() {
     await seedBulkHR(50);
     await seedBulkProjects(50);
     await seedBulkTransactions(SEED_COUNT);
+
+    // After every other module has produced its journal entries, walk them
+    // in chronological order and fill in `runningBalance` on every line and
+    // the aggregate `AccountBalance` row for every account.
+    await reconcileJournalEntries();
 
     const end = Date.now();
     console.log(`✅ Seeding completed in ${(end - start) / 1000}s`);

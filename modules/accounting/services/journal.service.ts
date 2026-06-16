@@ -289,17 +289,23 @@ export class JournalService {
   }
 
   /**
-   * Post a journal entry
+   * Post a journal entry.
+   *
+   * Only the `JournalEntry.status` is flipped to `posted` and a
+   * `JOURNAL_ENTRY_POSTED` outbox event is enqueued. The per-account
+   * running balance is recomputed asynchronously by the
+   * `JOURNAL_ENTRY_POSTED` consumer in the integration worker, so this
+   * call returns quickly even when many accounts are affected.
    */
   static async postJournalEntry(id: string, tx?: Prisma.TransactionClient) {
     const executePost = async (db: Prisma.TransactionClient) => {
       const existingEntry = await db.journalEntry.findUnique({
         where: { id },
-        include: {
-          lines: {
-            orderBy: { lineNumber: "asc" },
-            include: { account: true },
-          },
+        select: {
+          id: true,
+          status: true,
+          entryNumber: true,
+          userId: true,
         },
       });
 
@@ -311,34 +317,7 @@ export class JournalService {
         return;
       }
 
-      // 1. Validate Balance using Decimal
-      const totalDebit = existingEntry.lines.reduce(
-        (sum: Decimal, line: { debitAmount: Decimal | null }) =>
-          sum.plus(new Decimal(line.debitAmount || 0)),
-        new Decimal(0),
-      );
-      const totalCredit = existingEntry.lines.reduce(
-        (sum: Decimal, line: { creditAmount: Decimal | null }) =>
-          sum.plus(new Decimal(line.creditAmount || 0)),
-        new Decimal(0),
-      );
-
-      if (!totalDebit.equals(totalCredit)) {
-        throw new Error(
-          `Cannot post unbalanced journal entry. Debit: ${totalDebit}, Credit: ${totalCredit}`,
-        );
-      }
-
-      // 2. Lock Accounts (Pessimistic Locking)
-      const uniqueAccountIds = Array.from(
-        new Set(existingEntry.lines.map((line) => line.accountId)),
-      ).sort();
-
-      for (const accountId of uniqueAccountIds) {
-        await db.$executeRaw`SELECT 1 FROM "Account" WHERE id = ${accountId} FOR UPDATE`;
-      }
-
-      // 3. Update Status
+      // 1. Mark entry as posted
       await db.journalEntry.update({
         where: { id },
         data: {
@@ -347,53 +326,8 @@ export class JournalService {
         },
       });
 
-      // 4. Update Running Balances
-      const accountBalances: Record<string, Decimal> = {};
-
-      for (const line of existingEntry.lines) {
-        const { accountId, account } = line;
-
-        if (accountBalances[accountId] === undefined) {
-          const lastEntryLine = await db.journalEntryLine.findFirst({
-            where: {
-              accountId,
-              journalEntry: {
-                status: "posted",
-              },
-              journalEntryId: { not: id },
-            },
-            orderBy: [
-              { journalEntry: { postedAt: "desc" } },
-              { journalEntry: { createdAt: "desc" } },
-            ],
-            select: { runningBalance: true },
-          });
-
-          accountBalances[accountId] = lastEntryLine?.runningBalance
-            ? new Decimal(lastEntryLine.runningBalance)
-            : new Decimal(0);
-        }
-
-        const debit = new Decimal(line.debitAmount || 0);
-        const credit = new Decimal(line.creditAmount || 0);
-
-        if (account.normalBalance === "credit") {
-          accountBalances[accountId] = accountBalances[accountId]
-            .minus(debit)
-            .plus(credit);
-        } else {
-          accountBalances[accountId] = accountBalances[accountId]
-            .plus(debit)
-            .minus(credit);
-        }
-
-        await db.journalEntryLine.update({
-          where: { id: line.id },
-          data: { runningBalance: accountBalances[accountId] },
-        });
-      }
-
-      // 5. Emit Outbox Event
+      // 2. Emit Outbox event for async consumers (running balance
+      //    calculation, projections, exports, etc.).
       await enqueueIntegrationEvent(db, {
         topic: "ACCOUNTING",
         type: "JOURNAL_ENTRY_POSTED",
