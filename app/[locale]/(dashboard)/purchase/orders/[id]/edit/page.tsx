@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { getContacts } from "@/app/[locale]/(dashboard)/general/contacts/actions";
 import { ContactType } from "@/prisma/generated/prisma/enums";
 import { getProducts } from "@/app/[locale]/(dashboard)/inventory/products/actions";
+import { getTaxRates } from "@/app/[locale]/(dashboard)/accounting/configuration/taxes/actions";
 
 export default async function Page({
   params,
@@ -13,10 +14,11 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [order, vendors, products] = await Promise.all([
+  const [order, vendors, products, taxRates] = await Promise.all([
     getPurchaseOrder(id),
     getContacts({ type: ContactType.VENDOR }),
     getProducts(),
+    getTaxRates(),
   ]);
 
   if (!order) {
@@ -28,6 +30,7 @@ export default async function Page({
       order={order}
       vendors={vendors.data}
       products={products.products}
+      taxRates={taxRates}
     />
   );
 }

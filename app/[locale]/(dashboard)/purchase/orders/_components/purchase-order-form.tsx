@@ -76,8 +76,12 @@ import { SuperJSONResult } from "superjson";
 import { SuperJSON } from "@/lib/superjson";
 import { PurchaseOrderWithDetails } from "../types";
 import { ProductWithDetails } from "@/app/[locale]/(dashboard)/inventory/types";
+import { TaxRate } from "@/prisma/generated/prisma/client";
 import { useFormatDate, useFormatCurrency } from "@/hooks";
-import { AttachmentDialog, Attachment } from "@/components/ui/attachment-dialog";
+import {
+  AttachmentDialog,
+  Attachment,
+} from "@/components/ui/attachment-dialog";
 import { uploadFile } from "@/app/[locale]/(dashboard)/general/files/actions";
 import { Paperclip, PrinterIcon } from "lucide-react";
 import { ReportPreviewDialog } from "@/app/[locale]/(dashboard)/reporting/_components/report-preview-dialog";
@@ -93,6 +97,7 @@ interface PurchaseOrderFormProps {
   products: Awaited<ReturnType<typeof getProducts>>["products"];
   departments?: Department[];
   projects?: Project[];
+  taxRates?: TaxRate[];
   readonly?: boolean;
 }
 
@@ -102,6 +107,7 @@ export function PurchaseOrderForm({
   products: serializedProducts,
   departments = [],
   projects = [],
+  taxRates = [],
   readonly = false,
 }: PurchaseOrderFormProps) {
   const order = serializedOrder
@@ -129,7 +135,7 @@ export function PurchaseOrderForm({
       id: a.id,
       name: a.name,
       url: a.url,
-    })) || []
+    })) || [],
   );
   const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] = useState(false);
   const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
@@ -361,14 +367,13 @@ export function PurchaseOrderForm({
           formData.departmentId,
           formData.projectId,
           formData.orderDate,
-          totalAmount
+          totalAmount,
         );
         if (res.success && res.data.warning) {
           setBudgetWarning(res.data.warning);
         } else {
           setBudgetWarning(null);
         }
-
       } else {
         setBudgetWarning(null);
       }
@@ -376,7 +381,12 @@ export function PurchaseOrderForm({
 
     const timer = setTimeout(checkBudget, 500);
     return () => clearTimeout(timer);
-  }, [totalAmount, formData.departmentId, formData.projectId, formData.orderDate]);
+  }, [
+    totalAmount,
+    formData.departmentId,
+    formData.projectId,
+    formData.orderDate,
+  ]);
 
   return (
     <div className="flex-1 space-y-4 px-4 pt-0">
@@ -647,11 +657,21 @@ export function PurchaseOrderForm({
 
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Department</label>
+                        <label className="text-sm font-medium">
+                          Department
+                        </label>
                         <SearchableSelect
                           value={formData.departmentId || ""}
-                          onValueChange={(val) => setFormData(prev => ({ ...prev, departmentId: val || null }))}
-                          options={departments.map(d => ({ value: d.id, label: d.name }))}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              departmentId: val || null,
+                            }))
+                          }
+                          options={departments.map((d) => ({
+                            value: d.id,
+                            label: d.name,
+                          }))}
                           placeholder="Default Budget"
                           disabled={isReadOnly}
                         />
@@ -660,8 +680,16 @@ export function PurchaseOrderForm({
                         <label className="text-sm font-medium">Project</label>
                         <SearchableSelect
                           value={formData.projectId || ""}
-                          onValueChange={(val) => setFormData(prev => ({ ...prev, projectId: val || null }))}
-                          options={projects.map(p => ({ value: p.id, label: p.name }))}
+                          onValueChange={(val) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              projectId: val || null,
+                            }))
+                          }
+                          options={projects.map((p) => ({
+                            value: p.id,
+                            label: p.name,
+                          }))}
                           placeholder="Default Budget"
                           disabled={isReadOnly}
                         />
@@ -730,6 +758,7 @@ export function PurchaseOrderForm({
                         <TableHead className="w-[120px]">Order Qty</TableHead>
                         <TableHead className="w-[80px]">Unit</TableHead>
                         <TableHead className="w-[150px]">Price</TableHead>
+                        <TableHead className="w-[140px]">Tax Rate</TableHead>
                         <TableHead className="w-[150px]">Total</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow>
@@ -803,6 +832,22 @@ export function PurchaseOrderForm({
                                 }
                                 disabled={isReadOnly}
                               />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                                {(() => {
+                                  const product = products?.find(
+                                    (p: { id: string }) =>
+                                      p.id === item.productId,
+                                  );
+                                  const rate = taxRates.find(
+                                    (r) => r.id === product?.taxRateId,
+                                  );
+                                  return rate
+                                    ? `${rate.name} (${Number(rate.rate)}%)`
+                                    : "-";
+                                })()}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm">
