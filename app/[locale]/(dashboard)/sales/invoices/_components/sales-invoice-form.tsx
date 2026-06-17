@@ -802,44 +802,29 @@ export function SalesInvoiceForm({
                               />
                             </TableCell>
                             <TableCell>
-                              <select
-                                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={item.taxRateId || ""}
-                                onChange={(e) =>
-                                  handleItemChange(
-                                    index,
-                                    "taxRateId",
-                                    e.target.value === ""
-                                      ? undefined
-                                      : e.target.value,
-                                  )
-                                }
-                                disabled={readonly}
-                              >
-                                <option value="">Manual</option>
-                                {taxRates.map((rate) => (
-                                  <option key={rate.id} value={rate.id}>
-                                    {rate.name} ({Number(rate.rate)}%)
-                                  </option>
-                                ))}
-                              </select>
-                              {!item.taxRateId && (
-                                <CustomInput
-                                  type="number"
-                                  min="0"
-                                  value={item.tax}
-                                  onChange={(e) =>
-                                    handleItemChange(
-                                      index,
-                                      "tax",
-                                      Number(e.target.value),
-                                    )
-                                  }
-                                  disabled={readonly}
-                                  className="mt-1"
-                                  placeholder={tCommon("amount")}
+                              <div className="flex flex-col">
+                                <input
+                                  type="hidden"
+                                  value={item.taxRateId || ""}
                                 />
-                              )}
+                                {!item.taxRateId && (
+                                  <CustomInput
+                                    type="number"
+                                    min="0"
+                                    value={item.tax}
+                                    onChange={(e) =>
+                                      handleItemChange(
+                                        index,
+                                        "tax",
+                                        Number(e.target.value),
+                                      )
+                                    }
+                                    disabled={readonly}
+                                    className="mt-1"
+                                    placeholder={tCommon("amount")}
+                                  />
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm">

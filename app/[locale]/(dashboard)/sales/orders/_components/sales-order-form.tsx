@@ -76,6 +76,7 @@ import { useAlert } from "@/hooks/use-alert";
 import { SuperJSONResult } from "superjson";
 import { SuperJSON } from "@/lib/superjson";
 import { ProductWithDetails } from "@/app/[locale]/(dashboard)/inventory/types";
+import { TaxRate } from "@/prisma/generated/prisma/client";
 import { useFormatDate, useFormatCurrency } from "@/hooks";
 import {
   AttachmentDialog,
@@ -104,6 +105,7 @@ interface SalesOrderFormProps {
   products: Awaited<ReturnType<typeof getProducts>>["products"];
   departments?: Department[];
   projects?: Project[];
+  taxRates?: TaxRate[];
   readonly?: boolean;
 }
 
@@ -113,6 +115,7 @@ export function SalesOrderForm({
   products: serializedProducts,
   departments = [],
   projects = [],
+  taxRates = [],
   readonly = false,
 }: SalesOrderFormProps) {
   const order = serializedOrder
@@ -774,6 +777,9 @@ export function SalesOrderForm({
                         <TableHead className="w-[150px]">
                           {tCommon("price")}
                         </TableHead>
+                        <TableHead className="w-[140px]">
+                          {tCommon("tax_rate")}
+                        </TableHead>
                         <TableHead className="w-[150px]">
                           {tCommon("total")}
                         </TableHead>
@@ -851,6 +857,22 @@ export function SalesOrderForm({
                                 }
                                 disabled={isReadOnly}
                               />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                                {(() => {
+                                  const product = products?.find(
+                                    (p: { id: string }) =>
+                                      p.id === item.productId,
+                                  );
+                                  const rate = taxRates.find(
+                                    (r) => r.id === product?.taxRateId,
+                                  );
+                                  return rate
+                                    ? `${rate.name} (${Number(rate.rate)}%)`
+                                    : "-";
+                                })()}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm">
