@@ -12,6 +12,7 @@ export const hrPlugin: ModulePlugin = {
                     url: "#",
                     icon: Users,
                     items: [
+                        { title: "HR.overview", url: "/hr" },
                         { title: "HR.employees", url: "/hr/employees" },
                         { title: "HR.payroll", url: "/hr/payroll" },
                     ],

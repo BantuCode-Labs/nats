@@ -265,6 +265,7 @@
         "system": "System"
     },
     "Sales": {
+        "overview": "Overview",
         "orders": "Orders",
         "invoices": "Invoices",
         "payments": "Payments",
@@ -383,6 +384,7 @@
         "order_date": "Order Date"
     },
     "Purchase": {
+        "overview": "Overview",
         "orders": "Orders",
         "invoices": "Invoices",
         "payments": "Payments",
@@ -493,6 +495,7 @@
         "status_cancelled": "Cancelled"
     },
     "Inventory": {
+        "overview": "Overview",
         "products": "Products",
         "warehouses": "Warehouses",
         "stock": "Stock",
@@ -917,6 +920,7 @@
         "draft": "Draft"
     },
     "HR": {
+        "overview": "Overview",
         "employees": "Employees",
         "new_employee": "New Employee",
         "add_employee": "Add Employee",
@@ -1226,6 +1230,7 @@
         "assistants": "Assistants"
     },
     "Production": {
+        "overview": "Overview",
         "boms": "Bill of Materials",
         "orders": "Production Orders",
         "issues": "Material Issues",

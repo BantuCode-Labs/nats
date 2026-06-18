@@ -12,6 +12,7 @@ export const productionPlugin: ModulePlugin = {
                     url: "#",
                     icon: Factory,
                     items: [
+                        { title: "Production.overview", url: "/production" },
                         { title: "Production.boms", url: "/production/boms" },
                         { title: "Production.orders", url: "/production/orders" },
                         { title: "Production.issues", url: "/production/issues" },

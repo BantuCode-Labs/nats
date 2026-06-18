@@ -1,5 +1,5 @@
-import SalesDashboardPage from "./dashboard/page";
+import SalesLandingPage from "./_components/sales-landing";
 
 export default function SalesPage() {
-  return <SalesDashboardPage />;
+  return <SalesLandingPage />;
 }

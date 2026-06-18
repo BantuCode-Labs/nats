@@ -265,6 +265,7 @@
         "system": "Sistem"
     },
     "Sales": {
+        "overview": "Ringkasan",
         "orders": "Daftar Pesanan",
         "invoices": "Faktur Penjualan",
         "payments": "Terima Pembayaran",
@@ -383,6 +384,7 @@
         "order_date": "Tanggal Pesanan"
     },
     "Purchase": {
+        "overview": "Ringkasan",
         "orders": "Daftar Pesanan",
         "invoices": "Faktur Pembelian",
         "payments": "Pembayaran Tagihan",
@@ -493,6 +495,7 @@
         "status_cancelled": "Dibatalkan"
     },
     "Inventory": {
+        "overview": "Ringkasan",
         "products": "Daftar Produk",
         "warehouses": "Lokasi/Gudang",
         "stock": "Stok",
@@ -917,6 +920,7 @@
         "draft": "Draf"
     },
     "HR": {
+        "overview": "Ringkasan",
         "employees": "Karyawan",
         "new_employee": "Karyawan Baru",
         "add_employee": "Tambah Karyawan",
@@ -1387,6 +1391,7 @@
         "come_again": "Silakan datang kembali."
     },
     "Production": {
+        "overview": "Ringkasan",
         "boms": "Daftar Material (BOM)",
         "orders": "Perintah Produksi",
         "issues": "Pengeluaran Bahan",

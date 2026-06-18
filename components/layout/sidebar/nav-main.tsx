@@ -58,7 +58,10 @@ export function NavMain({
             >
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
-                  <SidebarMenuButton tooltip={t(item.title)} className="cursor-pointer">
+                  <SidebarMenuButton
+                    tooltip={t(item.title)}
+                    className="cursor-pointer"
+                  >
                     {item.icon && <item.icon />}
                     <span>{t(item.title)}</span>
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />

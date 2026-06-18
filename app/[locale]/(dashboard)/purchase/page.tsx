@@ -1,5 +1,5 @@
-import PurchaseDashboardPage from "./dashboard/page";
+import PurchaseLandingPage from "./_components/purchase-landing";
 
 export default function PurchasePage() {
-  return <PurchaseDashboardPage />;
+  return <PurchaseLandingPage />;
 }

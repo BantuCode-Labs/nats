@@ -12,7 +12,8 @@ export const cashBankPlugin: ModulePlugin = {
           url: "#",
           icon: Landmark,
           items: [
-            { title: "CashBank.dashboard", url: "/cash-bank" },
+            { title: "CashBank.overview", url: "/cash-bank" },
+            { title: "CashBank.dashboard", url: "/cash-bank/dashboard" },
             { title: "CashBank.transactions", url: "/cash-bank/transaction" },
             { title: "CashBank.transfers", url: "/cash-bank/transfer" },
           ],
