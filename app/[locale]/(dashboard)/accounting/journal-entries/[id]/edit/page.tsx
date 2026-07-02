@@ -64,8 +64,8 @@ export default function EditJournalEntryPage({
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
-      const res = await getProjects();
-      return res || [];
+      const res = await getProjects({ pageSize: 1000 });
+      return res?.projects ?? [];
     },
   });
 
@@ -153,7 +153,7 @@ export default function EditJournalEntryPage({
       accounts={accounts}
       contacts={contacts}
       departments={departments}
-      projects={projects.projects}
+      projects={projects}
       onSubmit={handleSubmit}
       isSubmitting={updateMutation.isPending}
       onCancel={() => router.push("/accounting/journal-entries")}

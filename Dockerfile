@@ -22,6 +22,9 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED 1
 
+# Prisma config requires DATABASE_URL at generate time, but no real DB connection is needed.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+
 # Generate Prisma client
 RUN npx prisma generate
 
