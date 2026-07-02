@@ -8,6 +8,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://nats:nats_password@db:5432/nats?schema=public
       - NODE_ENV=production
+      - STORAGE_DRIVER=local
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
     depends_on:
       db:
         condition: service_healthy

@@ -13,5 +13,5 @@ export default async function NewPurchasePaymentPage() {
   const departments = await getDepartments();
   const projects = await getProjects();
 
-  return <PurchasePaymentForm departments={departments} projects={projects.projects} />;
+  return <PurchasePaymentForm departments={departments} projects={projects} />;
 }

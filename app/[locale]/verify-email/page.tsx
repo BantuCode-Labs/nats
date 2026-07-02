@@ -47,7 +47,7 @@ export default async function VerifyEmailPage({
                         })
                     ]);
 
-                    await createSession(user.id, user.role);
+                    await createSession(user.id, user.name, user.role);
                     isSuccess = true;
                 } else {
                     errorMessage = "Account not found.";

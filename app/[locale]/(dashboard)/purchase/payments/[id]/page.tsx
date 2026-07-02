@@ -36,7 +36,7 @@ export default async function ViewPurchasePaymentPage(props: PageProps) {
       initialData={payment}
       readonly
       departments={departments}
-      projects={projects.projects}
+      projects={projects}
     />
   );
 }

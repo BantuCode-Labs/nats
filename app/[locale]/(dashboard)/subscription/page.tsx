@@ -9,8 +9,8 @@ export default async function SubscriptionPage() {
     const data = await getSubscriptionData();
 
     const usagePercentage =
-        data.monthlyLimit !== "Unlimited"
-            ? Math.min((data.monthlyUsage / (data.monthlyLimit as number)) * 100, 100)
+        typeof data.monthlyLimit === "number"
+            ? Math.min((data.monthlyUsage / data.monthlyLimit) * 100, 100)
             : 0;
 
     return (
@@ -47,7 +47,7 @@ export default async function SubscriptionPage() {
                         <div className="text-2xl font-bold">
                             {data.monthlyUsage} / {data.monthlyLimit}
                         </div>
-                        {data.monthlyLimit !== "Unlimited" ? (
+                        {typeof data.monthlyLimit === "number" ? (
                             <div className="mt-4 flex flex-col gap-2">
                                 <Progress value={usagePercentage} />
                                 <p className="text-muted-foreground text-xs text-right">

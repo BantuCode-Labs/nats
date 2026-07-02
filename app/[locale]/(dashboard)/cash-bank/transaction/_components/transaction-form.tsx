@@ -347,7 +347,7 @@ export function TransactionForm({
               <SearchableSelect
                 value={formData.projectId || ""}
                 onValueChange={(val) => setFormData({ ...formData, projectId: val || undefined })}
-                options={projects.map(p => ({ value: p.id, label: p.name })) || []}
+                options={projects?.map(p => ({ value: p.id, label: p.name })) || []}
                 placeholder={t("select_project")}
                 disabled={readOnly}
               />
