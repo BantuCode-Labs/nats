@@ -232,6 +232,7 @@ export function POSView({
       }
       return [...prev, { ...product, quantity: 1, discount: 0 }];
     });
+    searchInputRef.current?.focus();
   };
 
   const updateQuantity = (productId: string, delta: number) => {
