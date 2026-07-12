@@ -14,6 +14,7 @@ export const inventoryPlugin: ModulePlugin = {
           items: [
             { title: "Inventory.overview", url: "/inventory" },
             { title: "Inventory.products", url: "/inventory/products" },
+            { title: "Inventory.stock_monitoring", url: "/inventory/products/stock-monitoring" },
             { title: "Inventory.pricing", url: "/inventory/pricing" },
             { title: "Inventory.categories", url: "/inventory/categories" },
             { title: "Inventory.warehouses", url: "/inventory/warehouses" },

@@ -568,7 +568,20 @@
         "batch_pricing": "Harga Batch",
         "global_discounts": "Diskon Global",
         "no_permission_manage_pricing": "Anda tidak memiliki izin untuk mengelola harga.",
-        "delete_unit_desc": "Delete Unit Desc"
+        "delete_unit_desc": "Delete Unit Desc",
+        "stock_monitoring": "Monitoring Stok",
+        "stock_opening": "Stok Awal",
+        "stock_in": "Masuk",
+        "stock_out": "Keluar",
+        "stock_closing": "Stok Akhir",
+        "view_detail": "Lihat Detail",
+        "warehouse": "Lokasi/Gudang",
+        "all_warehouses": "Semua Lokasi",
+        "search_product_code": "Cari berdasarkan kode produk atau SKU...",
+        "no_stock_data": "Data stok tidak ditemukan.",
+        "stock_movement_detail": "Detail Pergerakan Stok",
+        "no_stock_movements_found": "Tidak ada pergerakan stok ditemukan.",
+        "current_stock_by_warehouse": "Stok Saat Ini per Lokasi"
     },
     "CashBank": {
         "cash_bank": "Kas & Bank",

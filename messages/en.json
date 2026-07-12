@@ -568,7 +568,20 @@
         "batch_pricing": "Batch Pricing",
         "global_discounts": "Global Discounts",
         "no_permission_manage_pricing": "You do not have permission to manage pricing.",
-        "delete_unit_desc": "Delete Unit Desc"
+        "delete_unit_desc": "Delete Unit Desc",
+        "stock_monitoring": "Stock Monitoring",
+        "stock_opening": "Opening Stock",
+        "stock_in": "In",
+        "stock_out": "Out",
+        "stock_closing": "Closing Stock",
+        "view_detail": "View Detail",
+        "warehouse": "Warehouse",
+        "all_warehouses": "All Warehouses",
+        "search_product_code": "Search by product code or SKU...",
+        "no_stock_data": "No stock data found.",
+        "stock_movement_detail": "Stock Movement Detail",
+        "no_stock_movements_found": "No stock movements found.",
+        "current_stock_by_warehouse": "Current Stock by Warehouse"
     },
     "CashBank": {
         "cash_bank": "Cash & Bank",
