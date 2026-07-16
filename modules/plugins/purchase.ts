@@ -19,6 +19,7 @@ export const purchasePlugin: ModulePlugin = {
             { title: "Purchase.returns", url: "/purchase/returns" },
             { title: "Purchase.payments", url: "/purchase/payments" },
             { title: "Purchase.receives", url: "/purchase/receives" },
+            { title: "Purchase.reports", url: "/purchase/reports" },
           ],
         },
       ],

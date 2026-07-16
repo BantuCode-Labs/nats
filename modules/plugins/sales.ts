@@ -19,6 +19,7 @@ export const salesPlugin: ModulePlugin = {
             { title: "Sales.returns", url: "/sales/returns" },
             { title: "Sales.shipments", url: "/sales/shipments" },
             { title: "Sales.payments", url: "/sales/payments" },
+            { title: "Sales.reports", url: "/sales/reports" },
           ],
         },
       ],

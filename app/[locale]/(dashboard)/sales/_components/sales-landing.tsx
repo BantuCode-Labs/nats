@@ -77,12 +77,20 @@ export default function SalesLandingPage() {
             Manage your complete sales cycle from order to payment
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/sales/dashboard">
-            <BarChart3 className="mr-2 h-4 w-4" />
-            View Dashboard
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/sales/reports">
+              <FileText className="mr-2 h-4 w-4" />
+              Reports
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/sales/dashboard">
+              <BarChart3 className="mr-2 h-4 w-4" />
+              View Dashboard
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Business Flow Overview */}
