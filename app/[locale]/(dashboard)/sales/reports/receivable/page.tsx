@@ -18,8 +18,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslations } from "next-intl";
 
 export default function ReceivableReportPage() {
+  const t = useTranslations("Sales");
+  const tCommon = useTranslations("Common");
   const formatCurrency = useFormatCurrency();
   const [startDate, setStartDate] = useState(
     new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]
@@ -65,21 +68,21 @@ export default function ReceivableReportPage() {
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-lg font-bold">Receivable Report per Customer</h1>
+            <h1 className="text-lg font-bold">{t("reports_receivable_heading")}</h1>
             <p className="text-sm text-muted-foreground">
-              Rekap piutang dagang per kustomer: saldo awal, perubahan, saldo akhir
+              {t("reports_receivable_subheading")}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
-              Print
+              {tCommon("print")}
             </Button>
             <Button onClick={() => refetch()} disabled={loading}>
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                "Run Report"
+                t("reports_run_report")
               )}
             </Button>
           </div>
@@ -87,7 +90,7 @@ export default function ReceivableReportPage() {
 
         <div className="flex flex-wrap items-center gap-4 bg-muted/20 p-4 rounded-lg border">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">From:</span>
+            <span className="text-sm font-medium">{t("reports_from")}</span>
             <CustomInput
               type="date"
               value={startDate}
@@ -96,7 +99,7 @@ export default function ReceivableReportPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">To:</span>
+            <span className="text-sm font-medium">{t("reports_to")}</span>
             <CustomInput
               type="date"
               value={endDate}
@@ -111,12 +114,12 @@ export default function ReceivableReportPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead className="text-right">Opening Balance</TableHead>
-                  <TableHead className="text-right">Invoice (Additions)</TableHead>
-                  <TableHead className="text-right">Returns</TableHead>
-                  <TableHead className="text-right">Payments</TableHead>
-                  <TableHead className="text-right">Closing Balance</TableHead>
+                  <TableHead>{t("reports_col_customer")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_opening_balance")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_invoice_additions")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_returns")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_payments")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_closing_balance")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -126,7 +129,7 @@ export default function ReceivableReportPage() {
                       colSpan={6}
                       className="text-center h-24 text-muted-foreground"
                     >
-                      No data found for this period.
+                      {t("reports_no_data")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -159,7 +162,7 @@ export default function ReceivableReportPage() {
                 ))}
                 {report.length > 0 && totals && (
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>Total</TableCell>
+                    <TableCell>{tCommon("total")}</TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(totals.openingBalance)}
                     </TableCell>

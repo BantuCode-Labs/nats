@@ -18,8 +18,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTranslations } from "next-intl";
 
 export default function VendorRecapPage() {
+  const t = useTranslations("Purchase");
+  const tCommon = useTranslations("Common");
   const formatCurrency = useFormatCurrency();
   const [startDate, setStartDate] = useState(
     new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]
@@ -65,21 +68,21 @@ export default function VendorRecapPage() {
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-lg font-bold">Purchase Recap per Vendor</h1>
+            <h1 className="text-lg font-bold">{t("reports_vendor_recap_heading")}</h1>
             <p className="text-sm text-muted-foreground">
-              Rekap pembelian per vendor dalam periode tertentu
+              {t("reports_vendor_recap_subheading")}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
-              Print
+              {tCommon("print")}
             </Button>
             <Button onClick={() => refetch()} disabled={loading}>
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                "Run Report"
+                t("reports_run_report")
               )}
             </Button>
           </div>
@@ -87,7 +90,7 @@ export default function VendorRecapPage() {
 
         <div className="flex flex-wrap items-center gap-4 bg-muted/20 p-4 rounded-lg border">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">From:</span>
+            <span className="text-sm font-medium">{t("reports_from")}</span>
             <CustomInput
               type="date"
               value={startDate}
@@ -96,7 +99,7 @@ export default function VendorRecapPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">To:</span>
+            <span className="text-sm font-medium">{t("reports_to")}</span>
             <CustomInput
               type="date"
               value={endDate}
@@ -111,13 +114,13 @@ export default function VendorRecapPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead className="text-center">Invoices</TableHead>
-                  <TableHead className="text-right">Invoice Amount</TableHead>
-                  <TableHead className="text-right">Returns</TableHead>
-                  <TableHead className="text-right">Payments</TableHead>
-                  <TableHead className="text-right">Net Purchases</TableHead>
-                  <TableHead className="text-right">Outstanding</TableHead>
+                  <TableHead>{t("reports_col_vendor")}</TableHead>
+                  <TableHead className="text-center">{t("reports_col_invoices")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_invoice_amount")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_returns")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_payments")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_net_purchases")}</TableHead>
+                  <TableHead className="text-right">{t("reports_col_outstanding")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -127,7 +130,7 @@ export default function VendorRecapPage() {
                       colSpan={7}
                       className="text-center h-24 text-muted-foreground"
                     >
-                      No data found for this period.
+                      {t("reports_no_data")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -163,7 +166,7 @@ export default function VendorRecapPage() {
                 ))}
                 {report.length > 0 && totals && (
                   <TableRow className="bg-muted/50 font-bold">
-                    <TableCell>Total</TableCell>
+                    <TableCell>{tCommon("total")}</TableCell>
                     <TableCell className="text-center">
                       {report.reduce((s, i) => s + i.invoiceCount, 0)}
                     </TableCell>

@@ -13,33 +13,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
 
 const salesReports = [
   {
-    title: "Sales Recap per Customer",
-    description:
-      "Rekap penjualan per kustomer dalam periode tertentu. Menampilkan total invoice, retur, pembayaran, penjualan bersih, dan piutang tertunda.",
+    titleKey: "reports_customer_recap_title",
+    descKey: "reports_customer_recap_desc",
     href: "/sales/reports/customer-recap",
     icon: Users,
   },
   {
-    title: "Receivable Report per Customer",
-    description:
-      "Rekap piutang dagang per kustomer: posisi saldo awal, perubahan (invoice, retur, pembayaran), dan saldo akhir pada periode tertentu.",
+    titleKey: "reports_receivable_title",
+    descKey: "reports_receivable_desc",
     href: "/sales/reports/receivable",
     icon: BookOpen,
   },
 ];
 
 export default function SalesReportsPage() {
+  const t = useTranslations("Sales");
+  const tNav = useTranslations("Navigation");
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex items-center gap-2 mb-2">
         <Link href="/sales" className="text-sm text-muted-foreground hover:text-foreground">
-          Sales
+          {tNav("sales")}
         </Link>
         <span className="text-sm text-muted-foreground">/</span>
-        <h1 className="text-lg font-bold">Reports</h1>
+        <h1 className="text-lg font-bold">{t("reports_title")}</h1>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {salesReports.map((report) => (
@@ -47,16 +49,16 @@ export default function SalesReportsPage() {
             <Card className="from-primary/5 bg-linear-to-t hover:bg-muted/50 transition-colors cursor-pointer h-full">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xl font-medium">
-                  {report.title}
+                  {t(report.titleKey)}
                 </CardTitle>
                 <report.icon className="h-6 w-6 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <CardDescription className="text-base mt-2">
-                  {report.description}
+                  {t(report.descKey)}
                 </CardDescription>
                 <div className="flex items-center text-sm text-primary mt-4 font-medium">
-                  View Report <ArrowRight className="ml-2 h-4 w-4" />
+                  {t("reports_view_report")} <ArrowRight className="ml-2 h-4 w-4" />
                 </div>
               </CardContent>
             </Card>
