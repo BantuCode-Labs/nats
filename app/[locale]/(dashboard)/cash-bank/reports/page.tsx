@@ -1,7 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { Wallet, LineChart, ArrowRight } from "lucide-react";
+import {
+  Wallet,
+  LineChart,
+  ArrowRight,
+  ArrowLeftRight,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  CalendarDays,
+  Building2,
+  FolderKanban,
+  Activity,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -23,6 +35,54 @@ const cashBankReports = [
     descKey: "reports_period_balance_desc",
     href: "/cash-bank/reports/period-balance",
     icon: LineChart,
+  },
+  {
+    titleKey: "reports_cash_flow_title",
+    descKey: "reports_cash_flow_desc",
+    href: "/cash-bank/reports/cash-flow",
+    icon: Activity,
+  },
+  {
+    titleKey: "reports_daily_movement_title",
+    descKey: "reports_daily_movement_desc",
+    href: "/cash-bank/reports/daily-movement",
+    icon: CalendarDays,
+  },
+  {
+    titleKey: "reports_expense_by_account_title",
+    descKey: "reports_expense_by_account_desc",
+    href: "/cash-bank/reports/expense-by-account",
+    icon: TrendingDown,
+  },
+  {
+    titleKey: "reports_income_by_account_title",
+    descKey: "reports_income_by_account_desc",
+    href: "/cash-bank/reports/income-by-account",
+    icon: TrendingUp,
+  },
+  {
+    titleKey: "reports_transfers_title",
+    descKey: "reports_transfers_desc",
+    href: "/cash-bank/reports/transfers",
+    icon: ArrowLeftRight,
+  },
+  {
+    titleKey: "reports_cash_by_contact_title",
+    descKey: "reports_cash_by_contact_desc",
+    href: "/cash-bank/reports/cash-by-contact",
+    icon: Users,
+  },
+  {
+    titleKey: "reports_by_department_title",
+    descKey: "reports_by_department_desc",
+    href: "/cash-bank/reports/by-department",
+    icon: Building2,
+  },
+  {
+    titleKey: "reports_by_project_title",
+    descKey: "reports_by_project_desc",
+    href: "/cash-bank/reports/by-project",
+    icon: FolderKanban,
   },
 ];
 
@@ -57,7 +117,8 @@ export default function CashBankReportsPage() {
                   {t(report.descKey)}
                 </CardDescription>
                 <div className="flex items-center text-sm text-primary mt-4 font-medium">
-                  {t("reports_view_report")} <ArrowRight className="ml-2 h-4 w-4" />
+                  {t("reports_view_report")}{" "}
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </div>
               </CardContent>
             </Card>

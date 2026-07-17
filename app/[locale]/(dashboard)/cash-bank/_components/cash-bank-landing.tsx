@@ -39,7 +39,7 @@ const cashBankModules = [
   {
     title: "Reports",
     description:
-      "Analyze cash and bank positions. Cash balance per period and account balance trends across monthly periods.",
+      "Analyze cash positions: balances, cash flow, expenses, income, transfers, contacts, departments, and projects.",
     icon: BarChart3,
     href: "/cash-bank/reports",
     color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
