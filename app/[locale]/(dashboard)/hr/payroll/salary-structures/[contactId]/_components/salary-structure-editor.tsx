@@ -126,10 +126,11 @@ export function SalaryStructureEditor({ contactId, initialStructure }: SalaryStr
                 toast({ title: "Error", description: "All items must have a selected component", variant: "destructive" });
                 return;
             }
-            if (!item.amount || item.amount < 0) {
+            // Amount can be 0 when formula is provided
+            if ((item.amount === undefined || item.amount === null || Number(item.amount) < 0) && !item.formula) {
                 toast({
                     title: "Error",
-                    description: `Amount for ${item.component?.name || "item"} is invalid`,
+                    description: `Amount or formula for ${item.component?.name || "item"} is required`,
                     variant: "destructive",
                 });
                 return;
@@ -306,7 +307,8 @@ export function SalaryStructureEditor({ contactId, initialStructure }: SalaryStr
                             <TableRow>
                                 <TableHead>Component</TableHead>
                                 <TableHead className="w-[120px]">Type</TableHead>
-                                <TableHead className="w-[200px]">Amount</TableHead>
+                                <TableHead className="w-[160px]">Amount</TableHead>
+                                <TableHead className="w-[180px]">Formula</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -332,7 +334,7 @@ export function SalaryStructureEditor({ contactId, initialStructure }: SalaryStr
 
                             {/* Separator row for Earnings section */}
                             <TableRow className="bg-green-50/50 dark:bg-green-900/10 hover:bg-green-50/50">
-                                <TableCell colSpan={3} className="py-2">
+                                <TableCell colSpan={4} className="py-2">
                                     <span className="text-xs font-semibold uppercase tracking-wider text-green-700 dark:text-green-400">
                                         Earnings
                                     </span>
@@ -384,6 +386,15 @@ export function SalaryStructureEditor({ contactId, initialStructure }: SalaryStr
                                             />
                                         </TableCell>
                                         <TableCell>
+                                            <Input
+                                                type="text"
+                                                value={item.formula || ""}
+                                                onChange={(e) => handleItemChange(idx, "formula", e.target.value || undefined)}
+                                                placeholder="e.g. BASE * 0.1"
+                                                className="h-8 font-mono text-xs"
+                                            />
+                                        </TableCell>
+                                        <TableCell>
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRemoveItem(idx)}>
                                                 <Trash2 className="h-3 w-3 text-red-500" />
                                             </Button>
@@ -394,7 +405,7 @@ export function SalaryStructureEditor({ contactId, initialStructure }: SalaryStr
 
                             {/* Separator row for Deductions section */}
                             <TableRow className="bg-red-50/50 dark:bg-red-900/10 hover:bg-red-50/50">
-                                <TableCell colSpan={3} className="py-2">
+                                <TableCell colSpan={4} className="py-2">
                                     <span className="text-xs font-semibold uppercase tracking-wider text-red-700 dark:text-red-400">
                                         Deductions
                                     </span>
@@ -446,6 +457,15 @@ export function SalaryStructureEditor({ contactId, initialStructure }: SalaryStr
                                             />
                                         </TableCell>
                                         <TableCell>
+                                            <Input
+                                                type="text"
+                                                value={item.formula || ""}
+                                                onChange={(e) => handleItemChange(idx, "formula", e.target.value || undefined)}
+                                                placeholder="e.g. GROSS * 0.02"
+                                                className="h-8 font-mono text-xs"
+                                            />
+                                        </TableCell>
+                                        <TableCell>
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRemoveItem(idx)}>
                                                 <Trash2 className="h-3 w-3 text-red-500" />
                                             </Button>
@@ -458,17 +478,17 @@ export function SalaryStructureEditor({ contactId, initialStructure }: SalaryStr
                             <TableRow>
                                 <TableCell colSpan={2} className="font-semibold">Total Earnings</TableCell>
                                 <TableCell className="text-right font-semibold">{totalEarnings.toLocaleString()}</TableCell>
-                                <TableCell></TableCell>
+                                <TableCell colSpan={2}></TableCell>
                             </TableRow>
                             <TableRow>
                                 <TableCell colSpan={2} className="font-semibold text-red-600 dark:text-red-400">Total Deductions</TableCell>
                                 <TableCell className="text-right font-semibold text-red-600 dark:text-red-400">-{totalDeductions.toLocaleString()}</TableCell>
-                                <TableCell></TableCell>
+                                <TableCell colSpan={2}></TableCell>
                             </TableRow>
                             <TableRow className="bg-muted/50">
                                 <TableCell colSpan={2} className="font-bold text-lg">Net Salary</TableCell>
                                 <TableCell className="text-right font-bold text-lg">{netSalary.toLocaleString()}</TableCell>
-                                <TableCell></TableCell>
+                                <TableCell colSpan={2}></TableCell>
                             </TableRow>
                         </TableFooter>
                     </Table>

@@ -17,6 +17,16 @@ vi.mock('@/lib/prisma', () => ({
             create: vi.fn(),
             update: vi.fn(),
             upsert: vi.fn(),
+            findUniqueOrThrow: vi.fn(),
+        },
+        leaveBalance: {
+            create: vi.fn(),
+        },
+        auditLog: {
+            create: vi.fn(),
+        },
+        department: {
+            findUnique: vi.fn(),
         },
         $transaction: vi.fn((callback) => callback(prisma)),
     },
@@ -63,6 +73,12 @@ describe('EmployeeService', () => {
 
             vi.mocked(prisma.contact.create).mockResolvedValue(createdContact as any);
             vi.mocked(prisma.employeeDetail.create).mockResolvedValue(createdDetail as any);
+            vi.mocked(prisma.employeeDetail.findUniqueOrThrow).mockResolvedValue(createdDetail as any);
+            vi.mocked(prisma.leaveBalance.create).mockResolvedValue({} as any);
+            vi.mocked(prisma.contact.findUnique).mockResolvedValue({
+                ...createdContact,
+                employeeDetail: createdDetail,
+            } as any);
 
             const result = await EmployeeService.createEmployee(data as any);
 
@@ -80,20 +96,27 @@ describe('EmployeeService', () => {
                 }),
             }));
 
+            expect(prisma.leaveBalance.create).toHaveBeenCalled();
             expect(result).toEqual({ ...createdContact, employeeDetail: createdDetail });
         });
     });
 
     describe('updateEmployee', () => {
-        it('should update contact and upsert employee detail', async () => {
+        it('should update contact and employee detail', async () => {
             const id = 'c-1';
             const data = {
                 name: 'Updated Name',
                 jobTitle: 'Senior Developer',
             };
 
+            vi.mocked(prisma.contact.findFirst).mockResolvedValue({
+                id,
+                type: ContactType.EMPLOYEE,
+                employeeDetail: { id: 'ed-1', contactId: id },
+            } as any);
             vi.mocked(prisma.contact.update).mockResolvedValue({ id } as any);
-            vi.mocked(prisma.employeeDetail.upsert).mockResolvedValue({} as any);
+            vi.mocked(prisma.employeeDetail.update).mockResolvedValue({} as any);
+            vi.mocked(prisma.auditLog.create).mockResolvedValue({} as any);
             vi.mocked(prisma.contact.findUnique).mockResolvedValue({ id, name: data.name } as any);
 
             await EmployeeService.updateEmployee(id, data as any);
@@ -103,9 +126,9 @@ describe('EmployeeService', () => {
                 data: expect.objectContaining({ name: data.name }),
             }));
 
-            expect(prisma.employeeDetail.upsert).toHaveBeenCalledWith(expect.objectContaining({
+            expect(prisma.employeeDetail.update).toHaveBeenCalledWith(expect.objectContaining({
                 where: { contactId: id },
-                update: expect.objectContaining({ jobTitle: data.jobTitle }),
+                data: expect.objectContaining({ jobTitle: data.jobTitle }),
             }));
         });
     });

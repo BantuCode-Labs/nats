@@ -24,6 +24,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Protect } from "@/components/ui/protect";
 
 export function CreateComponentDialog() {
     const [open, setOpen] = useState(false);
@@ -75,6 +76,7 @@ export function CreateComponentDialog() {
     };
 
     return (
+        <Protect permission="payroll.configure">
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
@@ -139,5 +141,6 @@ export function CreateComponentDialog() {
                 </form>
             </DialogContent>
         </Dialog>
+        </Protect>
     );
 }

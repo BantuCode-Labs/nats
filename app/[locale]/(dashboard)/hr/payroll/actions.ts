@@ -4,40 +4,51 @@ import { revalidatePath } from 'next/cache';
 import { PayrollService } from '@/modules/payroll/services/payroll.service';
 import { CreatePayrollPeriodDTO, CreateSalaryStructureDTO, ActionResponse, CreateSalaryComponentDTO } from '@/modules/payroll/types/payroll.types';
 import { prisma } from '@/lib/prisma';
-import { verifySession } from "@/lib/auth/auth";
+import { verifySession, getSession } from "@/lib/auth/auth";
 import { SalaryComponentService } from '@/modules/payroll/services/salary-component.service';
-import { ContactType } from '@/prisma/generated/prisma/client';
-
+import { ContactType, PayrollPeriodStatus } from '@/prisma/generated/prisma/client';
 import { SuperJSON } from "@/lib/superjson";
+import { authorizedAction } from "@/lib/permissions/protected-action";
+import { hasPermission } from "@/lib/permissions/utils";
+import { StatutoryService } from '@/modules/payroll/services/statutory.service';
+import { StatutoryRuleType } from '@/prisma/generated/prisma/client';
 
-export async function createPayrollPeriod(data: CreatePayrollPeriodDTO): Promise<ActionResponse> {
-    try {
-        const period = await PayrollService.createPayrollPeriod(data);
-        revalidatePath('/hr/payroll');
-        return { success: true, data: SuperJSON.serialize(period) };
-    } catch (error) {
-        return { success: false, error: (error as Error).message };
+export const createPayrollPeriod = authorizedAction(
+    "payroll.create",
+    async (data: CreatePayrollPeriodDTO): Promise<ActionResponse> => {
+        try {
+            const period = await PayrollService.createPayrollPeriod(data);
+            revalidatePath('/hr/payroll');
+            return { success: true, data: SuperJSON.serialize(period) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
     }
-}
+);
 
-
-export async function configureSalaryStructure(data: CreateSalaryStructureDTO): Promise<ActionResponse> {
-    try {
-        const { userId } = await verifySession();
-        const structure = await PayrollService.configureSalaryStructure({
-            ...data,
-            createdById: userId,
-        });
-        revalidatePath('/hr/payroll/salary-structures');
-        revalidatePath(`/hr/payroll/salary-structures/${data.contactId}`);
-        return { success: true, data: SuperJSON.serialize(structure) };
-    } catch (error) {
-        return { success: false, error: (error as Error).message };
+export const configureSalaryStructure = authorizedAction(
+    "payroll.configure",
+    async (data: CreateSalaryStructureDTO): Promise<ActionResponse> => {
+        try {
+            const { userId } = await verifySession();
+            const structure = await PayrollService.configureSalaryStructure({
+                ...data,
+                createdById: userId,
+            });
+            revalidatePath('/hr/payroll/salary-structures');
+            revalidatePath(`/hr/payroll/salary-structures/${data.contactId}`);
+            return { success: true, data: SuperJSON.serialize(structure) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
     }
-}
-
+);
 
 export async function getEmployees(search = ""): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
     try {
         const where: import('@/prisma/generated/prisma/client').Prisma.ContactWhereInput = {
             type: ContactType.EMPLOYEE,
@@ -68,8 +79,11 @@ export async function getEmployees(search = ""): Promise<ActionResponse> {
     }
 }
 
-
 export async function getSalaryStructure(contactId: string): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
     try {
         const structure = await PayrollService.getSalaryStructure(contactId);
         return { success: true, data: SuperJSON.serialize(structure) };
@@ -78,29 +92,45 @@ export async function getSalaryStructure(contactId: string): Promise<ActionRespo
     }
 }
 
-export async function runPayroll(periodId: string): Promise<ActionResponse> {
-    try {
-        const result = await PayrollService.runPayroll(periodId);
-        revalidatePath('/hr/payroll');
-        return { success: true, data: SuperJSON.serialize(result) };
-    } catch (error) {
-        return { success: false, error: (error as Error).message };
+export const runPayroll = authorizedAction(
+    "payroll.create",
+    async (periodId: string): Promise<ActionResponse> => {
+        try {
+            const result = await PayrollService.runPayroll(periodId);
+            revalidatePath('/hr/payroll');
+            revalidatePath(`/hr/payroll/${periodId}`);
+            return { success: true, data: SuperJSON.serialize(result) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
     }
-}
+);
 
-export async function approvePayrollRun(periodId: string, userId: string): Promise<ActionResponse<void>> {
-    try {
-        await PayrollService.approvePayrollRun(periodId, userId);
-        revalidatePath('/hr/payroll');
-        return { success: true, data: undefined };
-    } catch (error) {
-        return { success: false, error: (error as Error).message };
+export const approvePayrollRun = authorizedAction(
+    "payroll.approve",
+    async (periodId: string, userId: string): Promise<ActionResponse> => {
+        try {
+            await PayrollService.approvePayrollRun(periodId, userId);
+            revalidatePath('/hr/payroll');
+            revalidatePath(`/hr/payroll/${periodId}`);
+            return { success: true, data: SuperJSON.serialize(null) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
     }
-}
+);
 
-export async function getPayrollPeriods(page = 1, pageSize = 10): Promise<ActionResponse> {
+export async function getPayrollPeriods(
+    page = 1,
+    pageSize = 10,
+    status?: PayrollPeriodStatus,
+): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
     try {
-        const result = await PayrollService.getPayrollPeriods({ page, pageSize });
+        const result = await PayrollService.getPayrollPeriods({ page, pageSize, status });
         return { success: true, data: SuperJSON.serialize(result) };
     } catch (error) {
         return { success: false, error: (error as Error).message };
@@ -108,6 +138,10 @@ export async function getPayrollPeriods(page = 1, pageSize = 10): Promise<Action
 }
 
 export async function getPayrollPeriod(id: string): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
     try {
         const result = await PayrollService.getPayrollPeriod(id);
         return { success: true, data: SuperJSON.serialize(result) };
@@ -116,9 +150,11 @@ export async function getPayrollPeriod(id: string): Promise<ActionResponse> {
     }
 }
 
-
-
 export async function getSalaryComponents(): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
     try {
         const components = await SalaryComponentService.findAll();
         return { success: true, data: SuperJSON.serialize(components) };
@@ -127,17 +163,24 @@ export async function getSalaryComponents(): Promise<ActionResponse> {
     }
 }
 
-export async function createSalaryComponent(data: CreateSalaryComponentDTO): Promise<ActionResponse> {
-    try {
-        const component = await SalaryComponentService.create(data);
-        revalidatePath('/hr/payroll/components');
-        return { success: true, data: SuperJSON.serialize(component) };
-    } catch (error) {
-        return { success: false, error: (error as Error).message };
+export const createSalaryComponent = authorizedAction(
+    "payroll.configure",
+    async (data: CreateSalaryComponentDTO): Promise<ActionResponse> => {
+        try {
+            const component = await SalaryComponentService.create(data);
+            revalidatePath('/hr/payroll/components');
+            return { success: true, data: SuperJSON.serialize(component) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
     }
-}
+);
 
 export async function getSalaryHistory(contactId: string): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
     try {
         const history = await PayrollService.getSalaryHistory(contactId);
         return { success: true, data: SuperJSON.serialize(history) };
@@ -145,3 +188,114 @@ export async function getSalaryHistory(contactId: string): Promise<ActionRespons
         return { success: false, error: (error as Error).message };
     }
 }
+
+export async function getPayrollReadiness(): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
+    try {
+        const result = await PayrollService.getPayrollReadiness();
+        return { success: true, data: SuperJSON.serialize(result) };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export const markSlipsPaid = authorizedAction(
+    "payroll.pay",
+    async (periodId: string, slipIds?: string[]): Promise<ActionResponse> => {
+        try {
+            const result = await PayrollService.markSlipsPaid(periodId, slipIds);
+            revalidatePath(`/hr/payroll/${periodId}`);
+            return { success: true, data: SuperJSON.serialize(result) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
+    }
+);
+
+export async function getSalarySlip(slipId: string): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
+    try {
+        const slip = await PayrollService.getSalarySlip(slipId);
+        if (!slip) return { success: false, error: "Salary slip not found" };
+        return { success: true, data: SuperJSON.serialize(slip) };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export async function getBankTransferExport(periodId: string): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.pay")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
+    try {
+        const rows = await PayrollService.getBankTransferExport(periodId);
+        return { success: true, data: SuperJSON.serialize(rows) };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export async function getPayrollCostByDepartment(periodId?: string): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.view")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
+    try {
+        const rows = await PayrollService.getPayrollCostByDepartment(periodId);
+        return { success: true, data: SuperJSON.serialize(rows) };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export async function getStatutoryRules(): Promise<ActionResponse> {
+    const session = await getSession();
+    if (!session || !hasPermission(session.permissions, "payroll.configure")) {
+        return { success: false, error: "Forbidden: Insufficient permissions" };
+    }
+    try {
+        const rules = await StatutoryService.listRules();
+        return { success: true, data: SuperJSON.serialize(rules) };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export const seedStatutoryRules = authorizedAction(
+    "payroll.configure",
+    async (): Promise<ActionResponse> => {
+        try {
+            await StatutoryService.seedDefaults();
+            revalidatePath('/hr/payroll/components');
+            return { success: true, data: SuperJSON.serialize({ ok: true }) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
+    }
+);
+
+export const upsertStatutoryRule = authorizedAction(
+    "payroll.configure",
+    async (data: {
+        id?: string;
+        name: string;
+        type: StatutoryRuleType;
+        config: Record<string, unknown>;
+        description?: string;
+        isActive?: boolean;
+    }): Promise<ActionResponse> => {
+        try {
+            const rule = await StatutoryService.upsertRule(data as any);
+            return { success: true, data: SuperJSON.serialize(rule) };
+        } catch (error) {
+            return { success: false, error: (error as Error).message };
+        }
+    }
+);

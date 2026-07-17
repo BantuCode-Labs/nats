@@ -11,7 +11,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CreatePeriodDialog } from "./_components/create-period-dialog";
+import { PayrollPageActions } from "./_components/payroll-page-actions";
 import {
     PageListLayout,
     PageListHeader,
@@ -49,12 +49,7 @@ export default async function PayrollPage({
             <PageListHeader>
                 <PageListTitle title={t("payroll")} />
                 <PageListActions>
-                    <div className="flex items-center gap-2">
-                        <CreatePeriodDialog />
-                        <Link href="/hr/payroll/components">
-                            <Button variant="outline">{t("manage_components")}</Button>
-                        </Link>
-                    </div>
+                    <PayrollPageActions />
                 </PageListActions>
             </PageListHeader>
 

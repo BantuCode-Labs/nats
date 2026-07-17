@@ -30,6 +30,9 @@ model Account {
 
   balance AccountBalance?
 
+  // Payroll
+  salaryComponents SalaryComponent[] @relation("SalaryComponentAccount")
+
   @@index([code])
   @@index([type])
   @@index([parentId])
@@ -142,6 +145,8 @@ enum DefaultAccountPurpose {
   EXCHANGE_GAIN_LOSS
   SALARIES_EXPENSE
   PAYROLL_LIABILITY
+  PAYROLL_TAX_PAYABLE
+  BPJS_PAYABLE
   WIP_INVENTORY
   PRODUCTION_OVERHEAD
 }

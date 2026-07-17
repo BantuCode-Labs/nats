@@ -16,9 +16,16 @@ import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
 import { SalaryComponent } from "@/prisma/generated/prisma/client";
 
+type ComponentWithAccount = SalaryComponent & {
+    account?: { id: string; code: string; name: string } | null;
+};
+
 export default async function SalaryComponentsPage() {
     const response = await getSalaryComponents();
-    const components = response.success && response.data ? SuperJSON.deserialize<SalaryComponent[]>(response.data) : [];
+    const components =
+        response.success && response.data
+            ? SuperJSON.deserialize<ComponentWithAccount[]>(response.data)
+            : [];
 
     return (
         <PageListLayout>
@@ -35,6 +42,7 @@ export default async function SalaryComponentsPage() {
                             <TableHead>Name</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead>Taxable</TableHead>
+                            <TableHead>GL Account</TableHead>
                             <TableHead>Description</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -50,12 +58,17 @@ export default async function SalaryComponentsPage() {
                                 <TableCell>
                                     {component.isTaxable ? <Badge variant="outline">Yes</Badge> : "No"}
                                 </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                    {component.account
+                                        ? `${component.account.code} — ${component.account.name}`
+                                        : "—"}
+                                </TableCell>
                                 <TableCell>{component.description}</TableCell>
                             </TableRow>
                         ))}
                         {!components?.length && (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center">
+                                <TableCell colSpan={5} className="text-center">
                                     No salary components found.
                                 </TableCell>
                             </TableRow>
@@ -64,6 +77,5 @@ export default async function SalaryComponentsPage() {
                 </Table>
             </PageListContent>
         </PageListLayout>
-
     );
 }

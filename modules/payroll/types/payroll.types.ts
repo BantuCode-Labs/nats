@@ -13,6 +13,7 @@ export type CreateSalaryComponentDTO = {
     type: 'EARNING' | 'DEDUCTION';
     isTaxable?: boolean;
     description?: string;
+    accountId?: string;
 };
 
 export type CreateSalaryStructureDTO = {

@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ContactType, EmploymentStatus, Gender, MaritalStatus } from "@/prisma/generated/prisma/browser";
+import {
+    EmploymentStatus,
+    Gender,
+    MaritalStatus,
+    TaxFilingStatus,
+} from "@/prisma/generated/prisma/browser";
 import { Button } from "@/components/ui/button";
 import {
     Form,
@@ -23,8 +28,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { createEmployee, updateEmployee } from "../actions";
+import { createEmployee, updateEmployee, getEmployeeOptions } from "../actions";
+import { getDepartments } from "@/app/[locale]/(dashboard)/general/actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -36,34 +43,37 @@ import {
     PageFormActions,
     PageFormContent,
 } from "@/components/layout/page/form-layout";
+import { SuperJSON } from "@/lib/superjson";
+import { SuperJSONResult } from "superjson";
+import { useTranslations } from "next-intl";
 
 const employeeSchema = z.object({
-    // Contact Info
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Invalid email address").optional().or(z.literal("")),
     phone: z.string().optional(),
     address: z.string().optional(),
     taxId: z.string().optional(),
 
-    // Employee Details
+    employeeNumber: z.string().optional(),
     joinDate: z.date(),
     employmentStatus: z.nativeEnum(EmploymentStatus),
     jobTitle: z.string().min(1, "Job title is required"),
-    department: z.string().min(1, "Department is required"),
+    department: z.string().optional(),
+    departmentId: z.string().optional(),
     managerId: z.string().optional(),
+    isActive: z.boolean().optional(),
 
-    // Personal Info
     dateOfBirth: z.date().optional(),
     gender: z.nativeEnum(Gender).optional(),
     maritalStatus: z.nativeEnum(MaritalStatus).optional(),
     nationalId: z.string().optional(),
     employeeTaxId: z.string().optional(),
+    taxFilingStatus: z.nativeEnum(TaxFilingStatus).optional(),
+    hasNpwp: z.boolean().optional(),
 
-    // Emergency Contact
     emergencyContactName: z.string().optional(),
     emergencyContactPhone: z.string().optional(),
 
-    // Bank Details
     bankName: z.string().optional(),
     bankAccount: z.string().optional(),
     bankHolder: z.string().optional(),
@@ -72,26 +82,48 @@ const employeeSchema = z.object({
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
 interface EmployeeFormProps {
-    initialData?: any; // strict typing would be better but keeping it simple for now
+    initialData?: any;
     isEditing?: boolean;
+    /** When false, form is read-only (view mode). Defaults to true. */
+    canEdit?: boolean;
 }
 
-import { useTranslations } from "next-intl";
+type DepartmentOption = { id: string; name: string; code?: string };
+type ManagerOption = {
+    id: string;
+    name: string;
+    employeeDetail?: { id: string; jobTitle?: string | null; department?: string | null } | null;
+};
 
-export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormProps) {
+export function EmployeeForm({
+    initialData,
+    isEditing = false,
+    canEdit = true,
+}: EmployeeFormProps) {
     const t = useTranslations("HR");
     const tCommon = useTranslations("Common");
     const router = useRouter();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+    const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+    const [managers, setManagers] = useState<ManagerOption[]>([]);
+
+    const detail = initialData?.employeeDetail;
 
     const defaultValues: Partial<EmployeeFormValues> = initialData
         ? {
             ...initialData,
-            ...initialData.employeeDetail,
-            joinDate: initialData.employeeDetail?.joinDate ? new Date(initialData.employeeDetail.joinDate) : new Date(),
-            dateOfBirth: initialData.employeeDetail?.dateOfBirth ? new Date(initialData.employeeDetail.dateOfBirth) : undefined,
-            employeeTaxId: initialData.employeeDetail?.taxId,
+            ...detail,
+            employeeNumber: detail?.employeeNumber || "",
+            departmentId: detail?.departmentId || "",
+            department: detail?.department || "",
+            managerId: detail?.managerId || "",
+            taxFilingStatus: detail?.taxFilingStatus || TaxFilingStatus.TK0,
+            hasNpwp: detail?.hasNpwp ?? true,
+            isActive: initialData.isActive ?? true,
+            joinDate: detail?.joinDate ? new Date(detail.joinDate) : new Date(),
+            dateOfBirth: detail?.dateOfBirth ? new Date(detail.dateOfBirth) : undefined,
+            employeeTaxId: detail?.taxId,
         }
         : {
             name: "",
@@ -99,11 +131,16 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
             phone: "",
             address: "",
             taxId: "",
+            employeeNumber: "",
             joinDate: new Date(),
             employmentStatus: EmploymentStatus.FULL_TIME,
             jobTitle: "",
             department: "",
+            departmentId: "",
             managerId: "",
+            taxFilingStatus: TaxFilingStatus.TK0,
+            hasNpwp: true,
+            isActive: true,
         };
 
     const form = useForm<EmployeeFormValues>({
@@ -111,12 +148,45 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
         defaultValues,
     });
 
+    useEffect(() => {
+        async function loadOptions() {
+            try {
+                const [deptResult, managerResult] = await Promise.all([
+                    getDepartments(),
+                    getEmployeeOptions(),
+                ]);
+                setDepartments(Array.isArray(deptResult) ? deptResult : []);
+                if (managerResult.success && managerResult.data) {
+                    const list = SuperJSON.deserialize<ManagerOption[]>(
+                        managerResult.data as SuperJSONResult
+                    );
+                    setManagers(
+                        list.filter((m) => !initialData?.id || m.id !== initialData.id)
+                    );
+                }
+            } catch {
+                // Options are non-critical; form still works with free-text department
+            }
+        }
+        loadOptions();
+    }, [initialData?.id]);
+
     async function onSubmit(data: EmployeeFormValues) {
+        if (!canEdit) return;
         setIsLoading(true);
         try {
+            const selectedDept = departments.find((d) => d.id === data.departmentId);
+            const payload = {
+                ...data,
+                department: selectedDept?.name || data.department || "General",
+                departmentId: data.departmentId || undefined,
+                managerId: data.managerId || undefined,
+                employeeNumber: data.employeeNumber || undefined,
+            };
+
             const response = isEditing
-                ? await updateEmployee(initialData.id, data)
-                : await createEmployee(data);
+                ? await updateEmployee(initialData.id, payload)
+                : await createEmployee(payload);
 
             if (response.success) {
                 toast({
@@ -126,7 +196,10 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                         : t("employee_created_desc"),
                 });
                 if (!isEditing) {
-                    router.push(`/hr/employees/${response.data.id}`);
+                    const created = SuperJSON.deserialize<{ id: string }>(
+                        response.data as SuperJSONResult
+                    );
+                    router.push(`/hr/employees/${created.id}`);
                 } else {
                     router.refresh();
                 }
@@ -137,7 +210,7 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                     description: response.error,
                 });
             }
-        } catch (error) {
+        } catch {
             toast({
                 variant: "destructive",
                 title: tCommon("error"),
@@ -165,7 +238,6 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                         </PageFormActions>
                     </PageFormHeader>
 
-
                     <Tabs defaultValue="general" className="w-full">
                         <TabsList className="grid w-full grid-cols-4">
                             <TabsTrigger value="general">{t("general_info")}</TabsTrigger>
@@ -176,19 +248,34 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
 
                         <TabsContent value="general">
                             <PageFormContent className="space-y-4">
-                                <FormField
-                                    control={form.control}
-                                    name="name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>{t("full_name")}</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="John Doe" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t("full_name")}</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="John Doe" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="employeeNumber"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t("employee_number")}</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="EMP-001" {...field} value={field.value || ""} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField
                                         control={form.control}
@@ -230,6 +317,28 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                                         </FormItem>
                                     )}
                                 />
+                                {isEditing && (
+                                    <FormField
+                                        control={form.control}
+                                        name="isActive"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center gap-3 space-y-0">
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value ?? true}
+                                                        onCheckedChange={(checked) =>
+                                                            field.onChange(checked === true)
+                                                        }
+                                                    />
+                                                </FormControl>
+                                                <FormLabel className="font-normal">
+                                                    {t("active")}
+                                                </FormLabel>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
                             </PageFormContent>
                         </TabsContent>
 
@@ -252,19 +361,88 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                                         />
                                         <FormField
                                             control={form.control}
-                                            name="department"
+                                            name="departmentId"
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>{t("department")}</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="Engineering" {...field} />
-                                                    </FormControl>
+                                                    <Select
+                                                        onValueChange={(value) => {
+                                                            field.onChange(value === "__none__" ? "" : value);
+                                                            const dept = departments.find((d) => d.id === value);
+                                                            if (dept) {
+                                                                form.setValue("department", dept.name);
+                                                            }
+                                                        }}
+                                                        value={field.value || "__none__"}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder={t("department")} />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="__none__">—</SelectItem>
+                                                            {departments.map((dept) => (
+                                                                <SelectItem key={dept.id} value={dept.id}>
+                                                                    {dept.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
                                     </div>
+                                    {!form.watch("departmentId") && (
+                                        <FormField
+                                            control={form.control}
+                                            name="department"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>{t("department")} (text)</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="Engineering" {...field} value={field.value || ""} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
                                     <div className="grid grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="managerId"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>{t("manager")}</FormLabel>
+                                                    <Select
+                                                        onValueChange={(value) =>
+                                                            field.onChange(value === "__none__" ? "" : value)
+                                                        }
+                                                        value={field.value || "__none__"}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder={t("manager")} />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="__none__">—</SelectItem>
+                                                            {managers.map((m) => (
+                                                                <SelectItem key={m.id} value={m.id}>
+                                                                    {m.name}
+                                                                    {m.employeeDetail?.jobTitle
+                                                                        ? ` — ${m.employeeDetail.jobTitle}`
+                                                                        : ""}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
                                         <FormField
                                             control={form.control}
                                             name="employmentStatus"
@@ -289,24 +467,32 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                                                 </FormItem>
                                             )}
                                         />
-                                        <FormField
-                                            control={form.control}
-                                            name="joinDate"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>{t("join_date")}</FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="date"
-                                                            value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
                                     </div>
+                                    <FormField
+                                        control={form.control}
+                                        name="joinDate"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>{t("join_date")}</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="date"
+                                                        value={
+                                                            field.value
+                                                                ? new Date(field.value).toISOString().split("T")[0]
+                                                                : ""
+                                                        }
+                                                        onChange={(e) =>
+                                                            field.onChange(
+                                                                e.target.value ? new Date(e.target.value) : undefined
+                                                            )
+                                                        }
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -324,8 +510,18 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                                                     <FormControl>
                                                         <Input
                                                             type="date"
-                                                            value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                                                            onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
+                                                            value={
+                                                                field.value
+                                                                    ? new Date(field.value).toISOString().split("T")[0]
+                                                                    : ""
+                                                            }
+                                                            onChange={(e) =>
+                                                                field.onChange(
+                                                                    e.target.value
+                                                                        ? new Date(e.target.value)
+                                                                        : undefined
+                                                                )
+                                                            }
                                                         />
                                                     </FormControl>
                                                     <FormMessage />
@@ -346,7 +542,9 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                                                         </FormControl>
                                                         <SelectContent>
                                                             {Object.values(Gender).map((g) => (
-                                                                <SelectItem key={g} value={g}>{g}</SelectItem>
+                                                                <SelectItem key={g} value={g}>
+                                                                    {g}
+                                                                </SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
@@ -368,7 +566,9 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                                                         </FormControl>
                                                         <SelectContent>
                                                             {Object.values(MaritalStatus).map((s) => (
-                                                                <SelectItem key={s} value={s}>{s}</SelectItem>
+                                                                <SelectItem key={s} value={s}>
+                                                                    {s}
+                                                                </SelectItem>
                                                             ))}
                                                         </SelectContent>
                                                     </Select>
@@ -442,6 +642,55 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                                             )}
                                         />
                                     </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="taxFilingStatus"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>{t("tax_filing_status")}</FormLabel>
+                                                    <Select
+                                                        onValueChange={field.onChange}
+                                                        defaultValue={field.value || TaxFilingStatus.TK0}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder={t("tax_filing_status")} />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {Object.values(TaxFilingStatus).map((s) => (
+                                                                <SelectItem key={s} value={s}>
+                                                                    {s}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="hasNpwp"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-row items-center gap-3 space-y-0 pt-8">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={field.value ?? true}
+                                                            onCheckedChange={(checked) =>
+                                                                field.onChange(checked === true)
+                                                            }
+                                                        />
+                                                    </FormControl>
+                                                    <FormLabel className="font-normal">
+                                                        {t("has_npwp")}
+                                                    </FormLabel>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
                                     <Separator className="my-4" />
                                     <h4 className="text-sm font-medium">{t("bank_details")}</h4>
                                     <div className="grid grid-cols-3 gap-4">
@@ -489,8 +738,6 @@ export function EmployeeForm({ initialData, isEditing = false }: EmployeeFormPro
                             </Card>
                         </TabsContent>
                     </Tabs>
-
-
                 </PageFormLayout>
             </form>
         </Form>

@@ -16,8 +16,15 @@ vi.mock('@/lib/prisma', () => ({
             create: vi.fn(),
             findMany: vi.fn(),
         },
+        salaryComponent: {
+            findFirst: vi.fn(),
+            create: vi.fn(),
+        },
         contact: {
             findMany: vi.fn(),
+        },
+        auditLog: {
+            create: vi.fn(),
         },
         $transaction: vi.fn((callback) => callback(prisma)),
         salarySlip: {
@@ -34,6 +41,12 @@ vi.mock('@/lib/prisma', () => ({
 
 vi.mock('@/modules/integration/outbox', () => ({
     enqueueIntegrationEvent: vi.fn(),
+}));
+
+vi.mock('./statutory.service', () => ({
+    StatutoryService: {
+        calculateForEmployee: vi.fn().mockResolvedValue([]),
+    },
 }));
 
 describe('PayrollService', () => {
@@ -75,20 +88,78 @@ describe('PayrollService', () => {
             const structure = {
                 baseSalary: 5000,
                 items: [
-                    { componentId: 'comp-1', amount: 1000, component: { type: SalaryComponentType.EARNING } },
-                    { componentId: 'comp-2', amount: 200, component: { type: SalaryComponentType.DEDUCTION } },
+                    { componentId: 'comp-1', amount: 1000, formula: null, component: { type: SalaryComponentType.EARNING } },
+                    { componentId: 'comp-2', amount: 200, formula: null, component: { type: SalaryComponentType.DEDUCTION } },
                 ],
             };
-            const employees = [{ id: 'emp-1', salaryStructures: [structure], type: 'EMPLOYEE' }];
+            const employees = [{
+                id: 'emp-1',
+                name: 'Alice',
+                salaryStructures: [structure],
+                type: 'EMPLOYEE',
+                employeeDetail: { taxFilingStatus: 'TK0', hasNpwp: true },
+            }];
             vi.mocked(prisma.contact.findMany).mockResolvedValue(employees as any);
+            vi.mocked(prisma.salaryComponent.findFirst).mockResolvedValue(null as any);
+            vi.mocked(prisma.salaryComponent.create).mockImplementation(async ({ data }: any) => ({
+                id: `auto-${data.name}`,
+                ...data,
+            }));
 
             const createdSlip = { id: 'slip-1', netSalary: 5800 };
             vi.mocked(prisma.salarySlip.create).mockResolvedValue(createdSlip as any);
 
-            const result = await PayrollService.runPayroll(periodId);
+            const result = await PayrollService.runPayroll(periodId, { applyStatutory: false });
 
             expect(prisma.salarySlip.create).toHaveBeenCalled();
             expect(result.totalSlips).toBe(1);
+        });
+
+        it('should evaluate formula on structure items', async () => {
+            const periodId = 'period-1';
+            vi.mocked(prisma.payrollPeriod.findUnique).mockResolvedValue({
+                id: periodId,
+                status: PayrollPeriodStatus.DRAFT,
+            } as any);
+
+            const structure = {
+                baseSalary: 10000,
+                items: [
+                    {
+                        componentId: 'comp-bonus',
+                        amount: 0,
+                        formula: 'BASE * 0.1',
+                        component: { type: SalaryComponentType.EARNING },
+                    },
+                ],
+            };
+            vi.mocked(prisma.contact.findMany).mockResolvedValue([
+                {
+                    id: 'emp-1',
+                    name: 'Bob',
+                    salaryStructures: [structure],
+                    employeeDetail: null,
+                },
+            ] as any);
+            vi.mocked(prisma.salarySlip.create).mockResolvedValue({ id: 'slip-2' } as any);
+
+            await PayrollService.runPayroll(periodId, { applyStatutory: false });
+
+            expect(prisma.salarySlip.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        grossSalary: 11000,
+                        items: {
+                            create: expect.arrayContaining([
+                                expect.objectContaining({
+                                    componentId: 'comp-bonus',
+                                    amount: 1000,
+                                }),
+                            ]),
+                        },
+                    }),
+                })
+            );
         });
     });
 
@@ -104,6 +175,7 @@ describe('PayrollService', () => {
 
             const payrollRun = { id: 'run-1' };
             vi.mocked(prisma.payrollRun.create).mockResolvedValue(payrollRun as any);
+            vi.mocked(prisma.auditLog.create).mockResolvedValue({} as any);
 
             await PayrollService.approvePayrollRun(periodId, userId);
 
@@ -114,7 +186,6 @@ describe('PayrollService', () => {
             expect(enqueueIntegrationEvent).toHaveBeenCalledTimes(2); // 1 for run, 1 for slip
         });
     });
-
 
     describe('getSalaryHistory', () => {
         it('should return salary history for a contact', async () => {
@@ -132,18 +203,24 @@ describe('PayrollService', () => {
                 orderBy: { createdAt: 'desc' },
                 include: {
                     items: {
-                        include: { component: true }
+                        include: { component: true },
                     },
-                    createdBy: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true
-                        }
-                    }
-                }
+                },
             });
             expect(result).toHaveLength(2);
+        });
+    });
+
+    describe('markSlipsPaid', () => {
+        it('should mark published slips as paid', async () => {
+            vi.mocked(prisma.payrollPeriod.findUnique).mockResolvedValue({
+                id: 'period-1',
+                status: PayrollPeriodStatus.COMPLETED,
+            } as any);
+            vi.mocked(prisma.salarySlip.updateMany).mockResolvedValue({ count: 3 } as any);
+
+            const result = await PayrollService.markSlipsPaid('period-1');
+            expect(result.updated).toBe(3);
         });
     });
 });

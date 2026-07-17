@@ -6,6 +6,15 @@ import { getRandomItem } from "./bulk_utils";
 export async function seedHR() {
     console.log("Seeding HR Module...");
 
+    // 0. Statutory defaults (PPh 21, BPJS)
+    try {
+        const { StatutoryService } = await import("../../modules/payroll/services/statutory.service");
+        await StatutoryService.seedDefaults();
+        console.log("Statutory payroll rules seeded.");
+    } catch (e) {
+        console.warn("Could not seed statutory rules:", (e as Error).message);
+    }
+
     // 1. Departments
     const departments = [
         { name: "Engineering", code: "ENG" },
@@ -86,8 +95,8 @@ export async function seedHR() {
         },
     ];
 
-    const employees = [];
-    for (const empData of employeesData) {
+    for (let i = 0; i < employeesData.length; i++) {
+        const empData = employeesData[i];
         let employee = await prisma.contact.findFirst({
             where: { email: empData.email, type: ContactType.EMPLOYEE },
         });
@@ -112,10 +121,13 @@ export async function seedHR() {
             await prisma.employeeDetail.create({
                 data: {
                     contactId: employee.id,
+                    employeeNumber: `EMP-${empData.deptCode}-${String(i + 1).padStart(3, "0")}`,
                     jobTitle: empData.role,
                     department: department?.name || "General",
+                    departmentId: department?.id || null,
                     joinDate: empData.joinDate,
-                    // employmentStatus: "FULL_TIME", // Default
+                    taxFilingStatus: "TK0",
+                    hasNpwp: true,
                 }
             });
         }

@@ -27,23 +27,77 @@ export const handlePayrollRunCompleted = async (
   const expenseAccount = await getRequiredDefaultAccount("SALARIES_EXPENSE");
   const liabilityAccount = await getRequiredDefaultAccount("PAYROLL_LIABILITY");
 
-  const totalAmount = new Decimal(payload.totalAmount);
-  // Note: In a real scenario, total earnings might be higher than net pay due to deductions.
-  // Ideally:
-  // Dr Salaries Expense (Total Earnings)
-  // Cr Taxes Payable (Tax Deductions)
-  // Cr Other Deductions Payable
-  // Cr Salaries Payable (Net Pay)
-  // The payload.totalAmount currently represents Net Pay based on previous service code.
-  // However, the event payload also has access to Run ID, so we can fetch details if needed.
-  // For now, let's look at the PayrollRun model again. It has totalEarnings, totalDeductions, netPay.
-  // We should use those values from the DB record `run` we just fetched for accuracy.
+  // Optional specialized liability accounts
+  let taxPayableAccountId = liabilityAccount.accountId;
+  let bpjsPayableAccountId = liabilityAccount.accountId;
+  try {
+    const taxAcc = await getRequiredDefaultAccount("PAYROLL_TAX_PAYABLE");
+    taxPayableAccountId = taxAcc.accountId;
+  } catch {
+    // fallback to payroll liability
+  }
+  try {
+    const bpjsAcc = await getRequiredDefaultAccount("BPJS_PAYABLE");
+    bpjsPayableAccountId = bpjsAcc.accountId;
+  } catch {
+    // fallback to payroll liability
+  }
 
   const totalEarnings = new Decimal(run.totalEarnings);
-  const totalDeductions = new Decimal(run.totalDeductions);
   const netPay = new Decimal(run.netPay);
 
-  const jeLines = [];
+  // Load slip items for this period to split deductions by component GL / name
+  const slips = await tx.salarySlip.findMany({
+    where: { periodId: run.periodId },
+    include: {
+      items: {
+        include: { component: true },
+      },
+    },
+  });
+
+  const deductionBuckets = new Map<string, { accountId: string; amount: Decimal; label: string }>();
+
+  for (const slip of slips) {
+    for (const item of slip.items) {
+      if (item.type !== "DEDUCTION") continue;
+      const amount = new Decimal(item.amount);
+      if (amount.lte(0)) continue;
+
+      const name = item.component.name.toLowerCase();
+      let accountId = item.component.accountId || liabilityAccount.accountId;
+      let label = item.component.name;
+
+      if (!item.component.accountId) {
+        if (name.includes("pph") || name.includes("tax")) {
+          accountId = taxPayableAccountId;
+          label = "Payroll Tax Payable";
+        } else if (name.includes("bpjs")) {
+          accountId = bpjsPayableAccountId;
+          label = "BPJS Payable";
+        } else {
+          accountId = liabilityAccount.accountId;
+          label = "Other Payroll Deductions";
+        }
+      }
+
+      const key = accountId;
+      const existing = deductionBuckets.get(key) || {
+        accountId,
+        amount: new Decimal(0),
+        label,
+      };
+      existing.amount = existing.amount.plus(amount);
+      deductionBuckets.set(key, existing);
+    }
+  }
+
+  const jeLines: Array<{
+    accountId: string;
+    debitAmount: number;
+    creditAmount: number;
+    description: string;
+  }> = [];
 
   // Dr Salaries Expense (Gross)
   if (totalEarnings.gt(0)) {
@@ -55,7 +109,7 @@ export const handlePayrollRunCompleted = async (
     });
   }
 
-  // Cr Payroll Liability (Net Pay)
+  // Cr Net Pay Payable
   if (netPay.gt(0)) {
     jeLines.push({
       accountId: liabilityAccount.accountId,
@@ -65,13 +119,14 @@ export const handlePayrollRunCompleted = async (
     });
   }
 
-  // Cr Payroll Liability (Deductions) - simplistic for now, ideally separate accounts
-  if (totalDeductions.gt(0)) {
+  // Cr split deduction liabilities
+  for (const bucket of deductionBuckets.values()) {
+    if (bucket.amount.lte(0)) continue;
     jeLines.push({
-      accountId: liabilityAccount.accountId,
+      accountId: bucket.accountId,
       debitAmount: 0,
-      creditAmount: totalDeductions.toNumber(),
-      description: `Payroll Deductions for Period ${run.periodId}`,
+      creditAmount: bucket.amount.toNumber(),
+      description: `${bucket.label} for Period ${run.periodId}`,
     });
   }
 

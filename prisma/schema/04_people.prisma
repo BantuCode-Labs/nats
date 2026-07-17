@@ -40,4 +40,5 @@ model Contact {
   salaryStructures SalaryStructure[]
   salarySlips      SalarySlip[]
   employeeDetail   EmployeeDetail?
+  managedEmployees EmployeeDetail[]  @relation("EmployeeManager")
 }

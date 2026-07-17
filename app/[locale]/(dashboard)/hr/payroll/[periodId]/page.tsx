@@ -1,4 +1,4 @@
-import { getPayrollPeriod } from "../actions";
+import { getPayrollPeriod, getPayrollReadiness } from "../actions";
 import { verifySession } from "@/lib/auth/auth";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Printer, FileText } from "lucide-react";
+import { ArrowLeft, Printer, FileText, AlertTriangle } from "lucide-react";
 import { PayrollActions } from "./_components/payroll-actions";
 import {
     PageListLayout,
@@ -64,12 +64,24 @@ export default async function PeriodDetailPage({
     const t = await getTranslations("HR");
     const tCommon = await getTranslations("Common");
     const { userId } = await verifySession();
-    const response = await getPayrollPeriod(periodId);
+    const [response, readinessResponse] = await Promise.all([
+        getPayrollPeriod(periodId),
+        getPayrollReadiness(),
+    ]);
     const period = response.success && response.data ? SuperJSON.deserialize<PeriodWithDetails>(response.data) : null;
 
     if (!period) {
         notFound();
     }
+
+    const readiness =
+        readinessResponse.success && readinessResponse.data
+            ? SuperJSON.deserialize<{
+                  totalActive: number;
+                  readyCount: number;
+                  missingStructure: { id: string; name: string }[];
+              }>(readinessResponse.data as SuperJSONResult)
+            : null;
 
     let totalEarnings = 0;
     let totalDeductions = 0;
@@ -114,6 +126,37 @@ export default async function PeriodDetailPage({
                     </div>
                 </PageListActions>
             </PageListHeader>
+
+            {period.status !== "COMPLETED" &&
+                readiness &&
+                readiness.missingStructure.length > 0 && (
+                    <Card className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+                        <CardContent className="flex items-start gap-3 py-4">
+                            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                            <div className="space-y-1 text-sm">
+                                <p className="font-medium text-amber-900 dark:text-amber-200">
+                                    {t("missing_structure_warning")}
+                                </p>
+                                <p className="text-amber-800 dark:text-amber-300">
+                                    {readiness.readyCount}/{readiness.totalActive} ready. Missing:{" "}
+                                    {readiness.missingStructure
+                                        .slice(0, 5)
+                                        .map((e) => e.name)
+                                        .join(", ")}
+                                    {readiness.missingStructure.length > 5
+                                        ? ` +${readiness.missingStructure.length - 5}`
+                                        : ""}
+                                </p>
+                                <Link
+                                    href="/hr/payroll/salary-structures"
+                                    className="text-amber-900 underline dark:text-amber-100"
+                                >
+                                    {t("salary_structures")}
+                                </Link>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
@@ -191,7 +234,7 @@ export default async function PeriodDetailPage({
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Link href={`/hr/payroll/salary-structures/${slip.contactId}/print`}>
+                                    <Link href={`/hr/payroll/slips/${slip.id}/print`}>
                                         <Button variant="ghost" size="sm">
                                             <Printer className="mr-2 h-4 w-4" />
                                             {t("print_slip")}

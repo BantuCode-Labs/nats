@@ -1,4 +1,4 @@
-import { ContactType, EmploymentStatus, Gender, MaritalStatus } from '@/prisma/generated/prisma/client';
+import { ContactType, EmploymentStatus, Gender, MaritalStatus, TaxFilingStatus, AttendanceStatus, LeaveType, LeaveRequestStatus } from '@/prisma/generated/prisma/client';
 
 export type ActionResponse<T = any> =
     | { success: true; data: T }
@@ -13,10 +13,14 @@ export interface CreateEmployeeDTO {
     taxId?: string; // Contact tax ID
 
     // Employee Details
+    employeeNumber?: string;
     joinDate: Date;
+    terminationDate?: Date;
     employmentStatus: EmploymentStatus;
     jobTitle: string;
-    department: string;
+    /** @deprecated Prefer departmentId */
+    department?: string;
+    departmentId?: string;
     managerId?: string;
 
     // Personal Info
@@ -25,6 +29,8 @@ export interface CreateEmployeeDTO {
     maritalStatus?: MaritalStatus;
     nationalId?: string;
     employeeTaxId?: string; // EmployeeDetail tax ID
+    taxFilingStatus?: TaxFilingStatus;
+    hasNpwp?: boolean;
 
     // Emergency Contact
     emergencyContactName?: string;
@@ -39,3 +45,31 @@ export interface CreateEmployeeDTO {
 export interface UpdateEmployeeDTO extends Partial<CreateEmployeeDTO> {
     isActive?: boolean;
 }
+
+export interface CreateAttendanceDTO {
+    employeeDetailId: string;
+    date: Date;
+    status: AttendanceStatus;
+    checkIn?: Date;
+    checkOut?: Date;
+    overtimeHours?: number;
+    notes?: string;
+}
+
+export interface CreateLeaveRequestDTO {
+    employeeDetailId: string;
+    leaveType: LeaveType;
+    startDate: Date;
+    endDate: Date;
+    days: number;
+    reason?: string;
+}
+
+export interface ReviewLeaveRequestDTO {
+    requestId: string;
+    status: Extract<LeaveRequestStatus, 'APPROVED' | 'REJECTED' | 'CANCELLED'>;
+    approvedById?: string;
+}
+
+// Re-export unused import guard
+export type { ContactType };

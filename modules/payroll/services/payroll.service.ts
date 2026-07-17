@@ -1,28 +1,35 @@
 import { prisma } from '@/lib/prisma';
 import { CreatePayrollPeriodDTO, CreateSalaryStructureDTO } from '../types/payroll.types';
-import { PayrollPeriodStatus, SalaryComponentType } from '@/prisma/generated/prisma/client';
+import { ContactType, PayrollPeriodStatus, SalaryComponentType, SalarySlipStatus } from '@/prisma/generated/prisma/client';
 import { enqueueIntegrationEvent } from '@/modules/integration/outbox';
 import { Decimal } from 'decimal.js';
+import { evaluateFormula } from '../utils/formula';
+import { StatutoryService } from './statutory.service';
 
 export class PayrollService {
     static async getPayrollPeriods({
         page = 1,
         pageSize = 10,
+        status,
     }: {
         page?: number;
         pageSize?: number;
+        status?: PayrollPeriodStatus;
     }) {
         const skip = (page - 1) * pageSize;
+        const where = status ? { status } : {};
         const [items, total] = await Promise.all([
             prisma.payrollPeriod.findMany({
+                where,
                 orderBy: { startDate: 'desc' },
                 skip,
                 take: pageSize,
                 include: {
                     payrollRuns: true,
+                    _count: { select: { salarySlips: true } },
                 },
             }),
-            prisma.payrollPeriod.count(),
+            prisma.payrollPeriod.count({ where }),
         ]);
 
         return {
@@ -41,15 +48,19 @@ export class PayrollService {
                 payrollRuns: true,
                 salarySlips: {
                     include: {
-                        contact: true,
+                        contact: {
+                            include: { employeeDetail: true },
+                        },
                         items: {
                             include: { component: true },
                         },
                     },
+                    orderBy: { contact: { name: 'asc' } },
                 },
             },
         });
     }
+
     static async createPayrollPeriod(data: CreatePayrollPeriodDTO) {
         return prisma.payrollPeriod.create({
             data: {
@@ -66,34 +77,51 @@ export class PayrollService {
             where: { contactId, isActive: true },
             include: {
                 items: {
-                    include: { component: true }
-                }
-            }
+                    include: { component: true },
+                },
+            },
         });
     }
 
     static async configureSalaryStructure(data: CreateSalaryStructureDTO) {
-        // Deactivate existing structure for the employee if any
-        await prisma.salaryStructure.updateMany({
-            where: { contactId: data.contactId, isActive: true },
-            data: { isActive: false },
-        });
+        return prisma.$transaction(async (tx) => {
+            await tx.salaryStructure.updateMany({
+                where: { contactId: data.contactId, isActive: true },
+                data: { isActive: false },
+            });
 
-        return prisma.salaryStructure.create({
-            data: {
-                name: data.name,
-                contactId: data.contactId,
-                baseSalary: data.baseSalary,
-                createdById: data.createdById,
-                items: {
-                    create: data.items.map((item) => ({
-                        componentId: item.componentId,
-                        amount: item.amount,
-                        formula: item.formula,
-                    })),
+            const structure = await tx.salaryStructure.create({
+                data: {
+                    name: data.name,
+                    contactId: data.contactId,
+                    baseSalary: data.baseSalary,
+                    createdById: data.createdById,
+                    items: {
+                        create: data.items.map((item) => ({
+                            componentId: item.componentId,
+                            amount: item.amount,
+                            formula: item.formula,
+                        })),
+                    },
                 },
-            },
-            include: { items: true },
+                include: { items: true },
+            });
+
+            await tx.auditLog.create({
+                data: {
+                    userId: data.createdById || 'system',
+                    action: 'SALARY_STRUCTURE_CONFIGURED',
+                    entityType: 'SALARY_STRUCTURE',
+                    entityId: structure.id,
+                    metadata: {
+                        contactId: data.contactId,
+                        baseSalary: data.baseSalary,
+                        itemCount: data.items.length,
+                    },
+                },
+            });
+
+            return structure;
         });
     }
 
@@ -103,30 +131,57 @@ export class PayrollService {
             orderBy: { createdAt: 'desc' },
             include: {
                 items: {
-                    include: { component: true }
-                }
-            }
+                    include: { component: true },
+                },
+            },
         });
     }
 
-    static async runPayroll(periodId: string) {
+    /** Employees who would be skipped by payroll run */
+    static async getPayrollReadiness() {
+        const activeEmployees = await prisma.contact.findMany({
+            where: { type: ContactType.EMPLOYEE, isActive: true },
+            include: {
+                salaryStructures: {
+                    where: { isActive: true },
+                    take: 1,
+                },
+                employeeDetail: true,
+            },
+            orderBy: { name: 'asc' },
+        });
+
+        const ready = activeEmployees.filter((e) => e.salaryStructures.length > 0);
+        const missingStructure = activeEmployees.filter((e) => e.salaryStructures.length === 0);
+
+        return {
+            totalActive: activeEmployees.length,
+            readyCount: ready.length,
+            missingStructure,
+        };
+    }
+
+    static async runPayroll(periodId: string, options?: { applyStatutory?: boolean }) {
+        const applyStatutory = options?.applyStatutory ?? true;
         const period = await prisma.payrollPeriod.findUnique({
             where: { id: periodId },
         });
 
         if (!period) throw new Error('Payroll period not found');
-        if (period.status === PayrollPeriodStatus.COMPLETED) throw new Error('Payroll period already completed');
+        if (period.status === PayrollPeriodStatus.COMPLETED) {
+            throw new Error('Payroll period already completed');
+        }
 
-        // Fetch all active employees with salary structure
         const employees = await prisma.contact.findMany({
             where: {
-                type: 'EMPLOYEE',
+                type: ContactType.EMPLOYEE,
                 isActive: true,
                 salaryStructures: {
                     some: { isActive: true },
                 },
             },
             include: {
+                employeeDetail: true,
                 salaryStructures: {
                     where: { isActive: true },
                     include: {
@@ -138,25 +193,51 @@ export class PayrollService {
             },
         });
 
-        const slips = [];
+        // Ensure statutory component stubs exist for auto-deductions
+        const statutoryComponentMap = applyStatutory
+            ? await this.ensureStatutoryComponents()
+            : new Map<string, string>();
 
-        // Transaction to ensure atomicity
+        const slips = [];
+        const skipped: string[] = [];
+
         await prisma.$transaction(async (tx) => {
-            // Delete existing draft slips for this period
             await tx.salarySlip.deleteMany({
-                where: { periodId, status: 'DRAFT' },
+                where: { periodId, status: SalarySlipStatus.DRAFT },
             });
 
             for (const emp of employees) {
                 const structure = emp.salaryStructures[0];
-                if (!structure) continue;
+                if (!structure) {
+                    skipped.push(emp.name);
+                    continue;
+                }
 
-                let grossSalary = new Decimal(structure.baseSalary);
+                const baseSalary = new Decimal(structure.baseSalary);
+                let grossSalary = baseSalary;
                 let totalDeductions = new Decimal(0);
-                const slipItems = [];
+                const slipItems: Array<{
+                    componentId: string;
+                    amount: number;
+                    type: SalaryComponentType;
+                }> = [];
 
+                // First pass: fixed amounts + earnings formulas with BASE
                 for (const item of structure.items) {
-                    const amount = new Decimal(item.amount);
+                    let amount = new Decimal(item.amount);
+                    if (item.formula) {
+                        try {
+                            const evaluated = evaluateFormula(item.formula, {
+                                BASE: baseSalary.toNumber(),
+                                AMOUNT: Number(item.amount),
+                                GROSS: grossSalary.toNumber(),
+                            });
+                            amount = new Decimal(evaluated);
+                        } catch {
+                            // fall back to fixed amount
+                        }
+                    }
+
                     slipItems.push({
                         componentId: item.componentId,
                         amount: amount.toNumber(),
@@ -170,6 +251,32 @@ export class PayrollService {
                     }
                 }
 
+                // Statutory deductions (PPh21, BPJS employee share)
+                if (applyStatutory) {
+                    const statutory = await StatutoryService.calculateForEmployee({
+                        monthlyGross: grossSalary.toNumber(),
+                        taxFilingStatus: emp.employeeDetail?.taxFilingStatus || 'TK0',
+                        hasNpwp: emp.employeeDetail?.hasNpwp ?? true,
+                    });
+
+                    for (const ded of statutory) {
+                        if (ded.employeeAmount <= 0) continue;
+                        const componentId = statutoryComponentMap.get(ded.type);
+                        if (!componentId) continue;
+
+                        // Avoid double-counting if structure already has same component
+                        const already = slipItems.find((i) => i.componentId === componentId);
+                        if (already) continue;
+
+                        slipItems.push({
+                            componentId,
+                            amount: ded.employeeAmount,
+                            type: SalaryComponentType.DEDUCTION,
+                        });
+                        totalDeductions = totalDeductions.plus(ded.employeeAmount);
+                    }
+                }
+
                 const netSalary = grossSalary.minus(totalDeductions);
 
                 const slip = await tx.salarySlip.create({
@@ -179,7 +286,7 @@ export class PayrollService {
                         grossSalary: grossSalary.toNumber(),
                         totalDeductions: totalDeductions.toNumber(),
                         netSalary: netSalary.toNumber(),
-                        status: 'DRAFT',
+                        status: SalarySlipStatus.DRAFT,
                         items: {
                             create: slipItems,
                         },
@@ -188,7 +295,6 @@ export class PayrollService {
                 slips.push(slip);
             }
 
-            // Update Period Status
             await tx.payrollPeriod.update({
                 where: { id: periodId },
                 data: { status: PayrollPeriodStatus.PROCESSING },
@@ -198,39 +304,76 @@ export class PayrollService {
         return {
             periodId,
             totalSlips: slips.length,
+            skipped,
+            missingStructureCount: skipped.length,
         };
     }
 
-    static async approvePayrollRun(periodId: string, userId: string) { // Updated signature
+    private static async ensureStatutoryComponents() {
+        const map = new Map<string, string>();
+        const defs: Array<{ type: string; name: string }> = [
+            { type: 'PPH21', name: 'PPh 21' },
+            { type: 'BPJS_KESEHATAN', name: 'BPJS Kesehatan (Employee)' },
+            { type: 'BPJS_TK_JHT', name: 'BPJS TK JHT (Employee)' },
+            { type: 'BPJS_TK_JP', name: 'BPJS TK JP (Employee)' },
+        ];
+
+        for (const def of defs) {
+            let component = await prisma.salaryComponent.findFirst({
+                where: { name: def.name },
+            });
+            if (!component) {
+                component = await prisma.salaryComponent.create({
+                    data: {
+                        name: def.name,
+                        type: SalaryComponentType.DEDUCTION,
+                        isTaxable: false,
+                        description: `Auto-generated statutory component for ${def.type}`,
+                    },
+                });
+            }
+            map.set(def.type, component.id);
+        }
+        return map;
+    }
+
+    static async approvePayrollRun(periodId: string, userId: string) {
         const period = await prisma.payrollPeriod.findUnique({
             where: { id: periodId },
         });
 
         if (!period) throw new Error('Payroll period not found');
-        if (period.status !== PayrollPeriodStatus.PROCESSING) throw new Error('Payroll period not in processing state');
+        if (period.status !== PayrollPeriodStatus.PROCESSING) {
+            throw new Error('Payroll period not in processing state');
+        }
 
         await prisma.$transaction(async (tx) => {
-            // 1. Update Period Status
             await tx.payrollPeriod.update({
                 where: { id: periodId },
                 data: { status: PayrollPeriodStatus.COMPLETED },
             });
 
-            // 2. Publish all Salary Slips
             await tx.salarySlip.updateMany({
-                where: { periodId: period.id },
-                data: { status: 'PUBLISHED' },
+                where: { periodId: period.id, status: SalarySlipStatus.DRAFT },
+                data: { status: SalarySlipStatus.PUBLISHED },
             });
 
-            // 3. Create Payroll Run Record
-            // Calculate totals
             const slips = await tx.salarySlip.findMany({
                 where: { periodId },
             });
 
-            const totalEarnings = slips.reduce((sum, slip) => sum.plus(new Decimal(slip.grossSalary)), new Decimal(0));
-            const totalDeductions = slips.reduce((sum, slip) => sum.plus(new Decimal(slip.totalDeductions)), new Decimal(0));
-            const netPay = slips.reduce((sum, slip) => sum.plus(new Decimal(slip.netSalary)), new Decimal(0));
+            const totalEarnings = slips.reduce(
+                (sum, slip) => sum.plus(new Decimal(slip.grossSalary)),
+                new Decimal(0)
+            );
+            const totalDeductions = slips.reduce(
+                (sum, slip) => sum.plus(new Decimal(slip.totalDeductions)),
+                new Decimal(0)
+            );
+            const netPay = slips.reduce(
+                (sum, slip) => sum.plus(new Decimal(slip.netSalary)),
+                new Decimal(0)
+            );
 
             const payrollRun = await tx.payrollRun.create({
                 data: {
@@ -243,7 +386,6 @@ export class PayrollService {
                 },
             });
 
-            // Emit PAYROLL_RUN_COMPLETED
             await enqueueIntegrationEvent(tx, {
                 topic: 'PAYROLL',
                 type: 'PAYROLL_RUN_COMPLETED',
@@ -257,7 +399,6 @@ export class PayrollService {
                 },
             });
 
-            // Emit SALARY_SLIP_PUBLISHED for each slip
             for (const slip of slips) {
                 await enqueueIntegrationEvent(tx, {
                     topic: 'PAYROLL',
@@ -272,6 +413,112 @@ export class PayrollService {
                     },
                 });
             }
+
+            await tx.auditLog.create({
+                data: {
+                    userId,
+                    action: 'PAYROLL_RUN_APPROVED',
+                    entityType: 'PAYROLL_PERIOD',
+                    entityId: periodId,
+                    metadata: {
+                        payrollRunId: payrollRun.id,
+                        slipCount: slips.length,
+                        netPay: netPay.toNumber(),
+                    },
+                },
+            });
         });
+    }
+
+    static async markSlipsPaid(periodId: string, slipIds?: string[]) {
+        const period = await prisma.payrollPeriod.findUnique({ where: { id: periodId } });
+        if (!period) throw new Error('Payroll period not found');
+        if (period.status !== PayrollPeriodStatus.COMPLETED) {
+            throw new Error('Only completed payroll periods can mark slips as paid');
+        }
+
+        const where = {
+            periodId,
+            status: SalarySlipStatus.PUBLISHED,
+            ...(slipIds?.length ? { id: { in: slipIds } } : {}),
+        };
+
+        const result = await prisma.salarySlip.updateMany({
+            where,
+            data: {
+                status: SalarySlipStatus.PAID,
+                paidAt: new Date(),
+            },
+        });
+
+        return { updated: result.count };
+    }
+
+    static async getSalarySlip(slipId: string) {
+        return prisma.salarySlip.findUnique({
+            where: { id: slipId },
+            include: {
+                period: true,
+                contact: {
+                    include: { employeeDetail: true },
+                },
+                items: {
+                    include: { component: true },
+                },
+            },
+        });
+    }
+
+    static async getBankTransferExport(periodId: string) {
+        const slips = await prisma.salarySlip.findMany({
+            where: {
+                periodId,
+                status: { in: [SalarySlipStatus.PUBLISHED, SalarySlipStatus.PAID] },
+            },
+            include: {
+                contact: {
+                    include: { employeeDetail: true },
+                },
+            },
+            orderBy: { contact: { name: 'asc' } },
+        });
+
+        return slips.map((slip) => ({
+            employeeName: slip.contact.name,
+            employeeNumber: slip.contact.employeeDetail?.employeeNumber || '',
+            bankName: slip.contact.employeeDetail?.bankName || '',
+            bankAccount: slip.contact.employeeDetail?.bankAccount || '',
+            bankHolder: slip.contact.employeeDetail?.bankHolder || slip.contact.name,
+            netSalary: Number(slip.netSalary),
+            slipId: slip.id,
+            status: slip.status,
+        }));
+    }
+
+    static async getPayrollCostByDepartment(periodId?: string) {
+        const slips = await prisma.salarySlip.findMany({
+            where: periodId
+                ? { periodId }
+                : { status: { in: [SalarySlipStatus.PUBLISHED, SalarySlipStatus.PAID] } },
+            include: {
+                contact: {
+                    include: { employeeDetail: true },
+                },
+            },
+        });
+
+        const map = new Map<string, { department: string; headcount: number; gross: number; net: number; deductions: number }>();
+
+        for (const slip of slips) {
+            const dept = slip.contact.employeeDetail?.department || 'Unassigned';
+            const current = map.get(dept) || { department: dept, headcount: 0, gross: 0, net: 0, deductions: 0 };
+            current.headcount += 1;
+            current.gross += Number(slip.grossSalary);
+            current.net += Number(slip.netSalary);
+            current.deductions += Number(slip.totalDeductions);
+            map.set(dept, current);
+        }
+
+        return Array.from(map.values()).sort((a, b) => b.gross - a.gross);
     }
 }

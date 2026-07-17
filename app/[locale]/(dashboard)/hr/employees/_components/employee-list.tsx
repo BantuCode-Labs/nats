@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -9,6 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Protect } from "@/components/ui/protect";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import {
     PageListLayout,
     PageListHeader,
@@ -21,12 +30,17 @@ import { Column, DataTable } from "@/components/ui/data-table";
 import { getEmployees } from "../actions";
 import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
-import { Contact, EmployeeDetail } from "@/prisma/generated/prisma/client";
+import { Contact, EmployeeDetail, Department } from "@/prisma/generated/prisma/client";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const DEFAULT_PAGE_SIZE = 10;
 
 type Employee = Contact & {
-    employeeDetail: EmployeeDetail | null;
+    employeeDetail:
+        | (EmployeeDetail & {
+              departmentRef?: Department | null;
+          })
+        | null;
 };
 
 interface EmployeeListResponse {
@@ -43,11 +57,32 @@ export function EmployeeList() {
 
     const page = Number(searchParams.get("page")) || 1;
     const search = searchParams.get("search") || "";
+    const isActiveParam = searchParams.get("isActive");
+
+    const [searchInput, setSearchInput] = useState(search);
+    const debouncedSearch = useDebounce(searchInput, 500);
+
+    const isActiveFilter =
+        isActiveParam === "true" ? true : isActiveParam === "false" ? false : undefined;
+
+    useEffect(() => {
+        const currentSearch = searchParams.get("search") || "";
+        if (debouncedSearch === currentSearch) return;
+
+        const params = new URLSearchParams(searchParams.toString());
+        if (debouncedSearch) {
+            params.set("search", debouncedSearch);
+        } else {
+            params.delete("search");
+        }
+        params.delete("page");
+        router.push(`?${params.toString()}`);
+    }, [debouncedSearch, router, searchParams]);
 
     const { data, isLoading } = useQuery({
-        queryKey: ["employees", page, search],
+        queryKey: ["employees", page, search, isActiveFilter],
         queryFn: async () => {
-            const result = await getEmployees(page, DEFAULT_PAGE_SIZE, search);
+            const result = await getEmployees(page, DEFAULT_PAGE_SIZE, search, undefined, isActiveFilter);
             if (!result.success) {
                 throw new Error(result.error);
             }
@@ -59,18 +94,22 @@ export function EmployeeList() {
         refetchOnMount: true,
     });
 
-    const handleSearch = (value: string) => {
+    const handleActiveFilter = (value: string) => {
         const params = new URLSearchParams(searchParams.toString());
-        if (value) {
-            params.set("search", value);
+        if (value === "all") {
+            params.delete("isActive");
         } else {
-            params.delete("search");
+            params.set("isActive", value);
         }
         params.delete("page");
         router.push(`?${params.toString()}`);
     };
 
     const columns: Column<Employee>[] = [
+        {
+            header: t("employee_number"),
+            cell: (item) => item.employeeDetail?.employeeNumber || "—",
+        },
         {
             header: t("name"),
             cell: (item) => (
@@ -84,11 +123,14 @@ export function EmployeeList() {
         },
         {
             header: t("department"),
-            cell: (item) => item.employeeDetail?.department || "-",
+            cell: (item) =>
+                item.employeeDetail?.departmentRef?.name ||
+                item.employeeDetail?.department ||
+                "—",
         },
         {
             header: t("job_title"),
-            cell: (item) => item.employeeDetail?.jobTitle || "-",
+            cell: (item) => item.employeeDetail?.jobTitle || "—",
         },
         {
             header: tCommon("status"),
@@ -101,7 +143,7 @@ export function EmployeeList() {
         {
             header: t("email"),
             accessorKey: "email",
-            cell: (item) => item.email || "-",
+            cell: (item) => item.email || "—",
         },
         {
             header: tCommon("actions"),
@@ -133,10 +175,23 @@ export function EmployeeList() {
             <PageListFilter>
                 <Input
                     placeholder={t("search_employees")}
-                    defaultValue={search}
-                    onChange={(e) => handleSearch(e.target.value)}
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
                     className="w-[250px] me-2"
                 />
+                <Select
+                    value={isActiveParam ?? "all"}
+                    onValueChange={handleActiveFilter}
+                >
+                    <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder={tCommon("status")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">{t("all")}</SelectItem>
+                        <SelectItem value="true">{t("active")}</SelectItem>
+                        <SelectItem value="false">{t("inactive")}</SelectItem>
+                    </SelectContent>
+                </Select>
             </PageListFilter>
             <PageListContent>
                 {isLoading ? (

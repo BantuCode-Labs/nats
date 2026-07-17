@@ -1,10 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Users,
   Wallet,
   ArrowRight,
+  CalendarCheck,
+  CalendarOff,
+  BarChart3,
+  Layers,
 } from "lucide-react";
 import {
   Card,
@@ -13,47 +18,161 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useTranslations } from "next-intl";
+import { getHrDashboardStats } from "../employees/actions";
+import { SuperJSON } from "@/lib/superjson";
+import { SuperJSONResult } from "superjson";
+import { usePermission } from "@/lib/permissions/use-permission";
 
-const hrModules = [
-  {
-    title: "Employees",
-    description:
-      "Manage your workforce. Maintain employee records including personal details, contact information, departments, and employment history.",
-    icon: Users,
-    href: "/hr/employees",
-    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-    step: 1,
-  },
-  {
-    title: "Payroll",
-    description:
-      "Process compensation. Set up salary structures, run payroll periods, calculate earnings and deductions, and generate pay slips.",
-    icon: Wallet,
-    href: "/hr/payroll",
-    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-    step: 2,
-  },
-];
+type DashboardStats = {
+  totalEmployees: number;
+  activeEmployees: number;
+  inactiveEmployees: number;
+  pendingLeaves: number;
+  openPeriods: number;
+  byDepartment: { department: string; count: number }[];
+};
 
 export default function HrLandingPage() {
+  const t = useTranslations("HR");
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const canViewEmployees = usePermission("hr.employees.view");
+  const canViewPayroll = usePermission("payroll.view");
+  const canViewAttendance = usePermission("hr.attendance.view");
+  const canViewLeave = usePermission("hr.leave.view");
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const result = await getHrDashboardStats();
+        if (result.success && result.data) {
+          setStats(
+            SuperJSON.deserialize<DashboardStats>(
+              result.data as SuperJSONResult
+            )
+          );
+        }
+      } catch {
+        // Stats are optional on landing
+      }
+    }
+    if (canViewEmployees) {
+      load();
+    }
+  }, [canViewEmployees]);
+
+  const hrModules = [
+    {
+      title: t("employees"),
+      description: t("employees_desc"),
+      icon: Users,
+      href: "/hr/employees",
+      color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+      step: 1,
+      visible: canViewEmployees,
+    },
+    {
+      title: t("salary_structures"),
+      description: t("salary_structures_desc"),
+      icon: Layers,
+      href: "/hr/payroll/salary-structures",
+      color: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+      step: 2,
+      visible: canViewPayroll,
+    },
+    {
+      title: t("payroll"),
+      description: t("payroll_desc"),
+      icon: Wallet,
+      href: "/hr/payroll",
+      color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      step: 3,
+      visible: canViewPayroll,
+    },
+    {
+      title: t("attendance"),
+      description: t("attendance_desc"),
+      icon: CalendarCheck,
+      href: "/hr/attendance",
+      color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+      step: 4,
+      visible: canViewAttendance,
+    },
+    {
+      title: t("leaves"),
+      description: t("leaves_desc"),
+      icon: CalendarOff,
+      href: "/hr/leaves",
+      color: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+      step: 5,
+      visible: canViewLeave,
+    },
+    {
+      title: t("reports"),
+      description: t("reports_desc"),
+      icon: BarChart3,
+      href: "/hr/reports",
+      color: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+      step: 6,
+      visible: canViewEmployees || canViewPayroll,
+    },
+  ].filter((m) => m.visible);
+
   return (
     <div className="flex flex-1 flex-col gap-6 px-4 py-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Human Resources</h1>
-          <p className="text-muted-foreground">
-            Manage employees and payroll processing
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("dashboard")}</h1>
+          <p className="text-muted-foreground">{t("dashboard_subtitle")}</p>
         </div>
       </div>
 
+      {stats && (
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{t("headcount")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.activeEmployees}</div>
+              <p className="text-xs text-muted-foreground">
+                {stats.totalEmployees} {t("employees").toLowerCase()} · {stats.inactiveEmployees}{" "}
+                {t("inactive").toLowerCase()}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{t("pending_leaves")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.pendingLeaves}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{t("payroll")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.openPeriods}</div>
+              <p className="text-xs text-muted-foreground">{t("open_periods")}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">{t("departments")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.byDepartment.length}</div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>HR Process Flow</CardTitle>
-          <CardDescription>
-            Start by adding employees to the system, then configure salary
-            structures and run payroll periods.
-          </CardDescription>
+          <CardTitle>{t("process_flow")}</CardTitle>
+          <CardDescription>{t("process_flow_desc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -74,7 +193,7 @@ export default function HrLandingPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {hrModules.map((mod) => (
           <Link key={mod.href} href={mod.href} className="group">
             <Card className="h-full transition-shadow hover:shadow-md">
@@ -84,7 +203,7 @@ export default function HrLandingPage() {
                     <mod.icon className="h-5 w-5" />
                   </div>
                   <span className="text-xs font-medium text-muted-foreground">
-                    Step {mod.step}
+                    {t("step")} {mod.step}
                   </span>
                 </div>
                 <CardTitle className="mt-2 group-hover:underline">

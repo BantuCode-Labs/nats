@@ -23,6 +23,7 @@ import {
     PageListFilter,
 } from "@/components/layout/page/list-layout";
 import { Settings, Search, Loader2, History } from "lucide-react";
+import { Protect } from "@/components/ui/protect";
 import { CustomInput } from "@/components/ui/custom-input";
 import {
     Dialog,
@@ -113,20 +114,24 @@ export default function SalaryStructuresPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <Link href={`/hr/payroll/salary-structures/${employee.id}`}>
-                                                    <Button variant="ghost" size="sm">
-                                                        <Settings className="mr-2 h-4 w-4" />
-                                                        Configure
+                                                <Protect permission="payroll.configure">
+                                                    <Link href={`/hr/payroll/salary-structures/${employee.id}`}>
+                                                        <Button variant="ghost" size="sm">
+                                                            <Settings className="mr-2 h-4 w-4" />
+                                                            Configure
+                                                        </Button>
+                                                    </Link>
+                                                </Protect>
+                                                <Protect permission="payroll.view">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setHistoryContactId(employee.id)}
+                                                    >
+                                                        <History className="mr-2 h-4 w-4" />
+                                                        History
                                                     </Button>
-                                                </Link>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => setHistoryContactId(employee.id)}
-                                                >
-                                                    <History className="mr-2 h-4 w-4" />
-                                                    History
-                                                </Button>
+                                                </Protect>
                                             </div>
                                         </TableCell>
                                     </TableRow>

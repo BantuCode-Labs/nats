@@ -21,17 +21,59 @@ enum MaritalStatus {
   WIDOWED
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  MATERNITY
+  PATERNITY
+  OTHER
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TaxFilingStatus {
+  TK0
+  TK1
+  TK2
+  TK3
+  K0
+  K1
+  K2
+  K3
+}
+
 model EmployeeDetail {
   id        String  @id @default(cuid())
   contactId String  @unique
   contact   Contact @relation(fields: [contactId], references: [id])
 
   // Employment Details
+  employeeNumber   String?           @unique
   joinDate         DateTime
-  employmentStatus EmploymentStatus @default(FULL_TIME)
+  terminationDate  DateTime?
+  employmentStatus EmploymentStatus  @default(FULL_TIME)
   jobTitle         String
+  /// Legacy free-text department (kept for compatibility / display fallback)
   department       String
+  departmentId     String?
+  departmentRef    Department?       @relation(fields: [departmentId], references: [id])
   managerId        String?
+  manager          Contact?          @relation("EmployeeManager", fields: [managerId], references: [id])
 
   // Personal Info
   dateOfBirth   DateTime?
@@ -39,6 +81,10 @@ model EmployeeDetail {
   maritalStatus MaritalStatus?
   nationalId    String?
   taxId         String?
+
+  // Indonesian tax profile (PPh 21)
+  taxFilingStatus TaxFilingStatus @default(TK0)
+  hasNpwp         Boolean         @default(true)
 
   // Emergency Contact
   emergencyContactName  String?
@@ -51,4 +97,64 @@ model EmployeeDetail {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  attendanceRecords AttendanceRecord[]
+  leaveRequests     LeaveRequest[]     @relation("LeaveEmployee")
+  leaveBalances     LeaveBalance[]
+  approvedLeaves    LeaveRequest[]     @relation("LeaveApprover")
+
+  @@index([departmentId])
+  @@index([managerId])
+  @@index([employeeNumber])
+}
+
+model AttendanceRecord {
+  id               String           @id @default(cuid())
+  employeeDetailId String
+  employeeDetail   EmployeeDetail   @relation(fields: [employeeDetailId], references: [id], onDelete: Cascade)
+  date             DateTime
+  status           AttendanceStatus @default(PRESENT)
+  checkIn          DateTime?
+  checkOut         DateTime?
+  overtimeHours    Decimal          @default(0)
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([employeeDetailId, date])
+  @@index([date])
+}
+
+model LeaveBalance {
+  id               String         @id @default(cuid())
+  employeeDetailId String
+  employeeDetail   EmployeeDetail @relation(fields: [employeeDetailId], references: [id], onDelete: Cascade)
+  leaveType        LeaveType
+  year             Int
+  entitled         Decimal        @default(12)
+  used             Decimal        @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([employeeDetailId, leaveType, year])
+}
+
+model LeaveRequest {
+  id               String             @id @default(cuid())
+  employeeDetailId String
+  employeeDetail   EmployeeDetail     @relation("LeaveEmployee", fields: [employeeDetailId], references: [id], onDelete: Cascade)
+  leaveType        LeaveType
+  startDate        DateTime
+  endDate          DateTime
+  days             Decimal
+  reason           String?
+  status           LeaveRequestStatus @default(PENDING)
+  approvedById     String?
+  approvedBy       EmployeeDetail?    @relation("LeaveApprover", fields: [approvedById], references: [id])
+  approvedAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([employeeDetailId, status])
+  @@index([startDate, endDate])
 }

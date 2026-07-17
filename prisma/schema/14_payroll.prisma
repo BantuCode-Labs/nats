@@ -19,6 +19,16 @@ enum SalarySlipStatus {
   CANCELLED
 }
 
+enum StatutoryRuleType {
+  PPH21
+  BPJS_KESEHATAN
+  BPJS_TK_JHT
+  BPJS_TK_JP
+  BPJS_TK_JKK
+  BPJS_TK_JKM
+  CUSTOM
+}
+
 model PayrollPeriod {
   id        String              @id @default(cuid())
   name      String
@@ -39,6 +49,9 @@ model SalaryComponent {
   isTaxable   Boolean             @default(true)
   description String?
   isActive    Boolean             @default(true)
+  /// Optional GL account for this component (liability for deductions, expense for earnings)
+  accountId   String?
+  account     Account?            @relation("SalaryComponentAccount", fields: [accountId], references: [id])
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
@@ -68,7 +81,7 @@ model SalaryStructureItem {
   componentId String
   component   SalaryComponent @relation(fields: [componentId], references: [id])
   amount      Decimal         @default(0) // Fixed amount or base for formula
-  formula     String? // Optional: formula for calculation
+  formula     String? // Optional: formula for calculation (supports BASE, GROSS, variables)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }
@@ -81,7 +94,7 @@ model PayrollRun {
   totalEarnings   Decimal             @default(0)
   totalDeductions Decimal             @default(0)
   netPay          Decimal             @default(0)
-  status          PayrollPeriodStatus @default(PROCESSING) // Reusing status enum for simplicity or define new one
+  status          PayrollPeriodStatus @default(PROCESSING)
 
   journalEntryId String?       @unique
   journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
@@ -100,6 +113,7 @@ model SalarySlip {
   totalDeductions Decimal          @default(0)
   netSalary       Decimal          @default(0)
   status          SalarySlipStatus @default(DRAFT)
+  paidAt          DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -109,11 +123,26 @@ model SalarySlip {
 model SalarySlipItem {
   id          String              @id @default(cuid())
   slipId      String
-  slip        SalarySlip          @relation(fields: [slipId], references: [id])
+  slip        SalarySlip          @relation(fields: [slipId], references: [id], onDelete: Cascade)
   componentId String
   component   SalaryComponent     @relation(fields: [componentId], references: [id])
   amount      Decimal
   type        SalaryComponentType
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+}
+
+/// Configurable statutory payroll rules (PPh 21, BPJS, etc.)
+model StatutoryRule {
+  id          String             @id @default(cuid())
+  name        String
+  type        StatutoryRuleType
+  isActive    Boolean            @default(true)
+  /// JSON config: rates, caps, employer/employee share, PTKP amounts, etc.
+  config      Json
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([type, isActive])
 }

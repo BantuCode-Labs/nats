@@ -72,18 +72,48 @@ export async function seedUsers() {
         },
     });
 
+    const hrPermissions = [
+        "hr.employees.view",
+        "hr.employees.create",
+        "hr.employees.edit",
+        "hr.attendance.view",
+        "hr.attendance.manage",
+        "hr.leave.view",
+        "hr.leave.manage",
+        "payroll.view",
+        "payroll.create",
+        "payroll.approve",
+        "payroll.configure",
+        "payroll.pay",
+    ];
+
     const managerRole = await prisma.role.upsert({
         where: { name: "Manager" },
-        update: {},
+        update: {
+            permissions: [
+                ...hrPermissions,
+                "budgeting.view",
+                "budgeting.approve",
+            ],
+        },
         create: {
             name: "Manager",
             description: "Department Manager",
             permissions: [
-                "hr.view",
-                "hr.create",
+                ...hrPermissions,
                 "budgeting.view",
-                "budgeting.approve"
+                "budgeting.approve",
             ],
+        },
+    });
+
+    const hrRole = await prisma.role.upsert({
+        where: { name: "HR" },
+        update: { permissions: hrPermissions },
+        create: {
+            name: "HR",
+            description: "Human Resources Officer",
+            permissions: hrPermissions,
         },
     });
 
