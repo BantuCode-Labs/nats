@@ -36,6 +36,15 @@ const cashBankModules = [
     color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     step: undefined,
   },
+  {
+    title: "Reports",
+    description:
+      "Analyze cash and bank positions. Cash balance per period and account balance trends across monthly periods.",
+    icon: BarChart3,
+    href: "/cash-bank/reports",
+    color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    step: undefined,
+  },
 ];
 
 export default function CashBankLandingPage() {

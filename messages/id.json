@@ -708,6 +708,8 @@
         "select_account_type": "Pilih tipe akun",
         "cash": "Kas",
         "bank": "Bank",
+        "ewallet": "E-Dompet",
+        "petty_cash": "Kas Kecil",
         "transaction_updated": "Transaksi berhasil diperbarui",
         "transaction_created": "Transaksi berhasil dibuat",
         "transfer_updated": "Transfer berhasil diperbarui",
