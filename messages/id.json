@@ -477,7 +477,23 @@
     "reports_col_sales_amount": "Nilai Penjualan",
     "reports_col_return_rate": "Tingkat Retur",
     "reports_col_top_reason": "Alasan Utama",
-    "reports_col_qty_returned": "Qty Diretur"
+    "reports_col_qty_returned": "Qty Diretur",
+    "reports_sales_by_department_title": "Penjualan per Departemen",
+    "reports_sales_by_department_desc": "Kinerja penjualan per departemen: faktur, retur, pembayaran, dan outstanding",
+    "reports_sales_by_department_heading": "Penjualan per Departemen",
+    "reports_sales_by_department_subheading": "Rekap penjualan tingkat departemen untuk periode terpilih",
+    "reports_pos_sales_title": "Penjualan POS",
+    "reports_pos_sales_desc": "Kinerja point of sale per sesi: kasir, penjualan, pembayaran, dan selisih kas",
+    "reports_pos_sales_heading": "Laporan Penjualan POS",
+    "reports_pos_sales_subheading": "Analitik POS tingkat sesi termasuk penjualan, pembayaran, dan selisih kas",
+    "reports_col_department_code": "Kode",
+    "reports_col_session": "Sesi",
+    "reports_col_cashier": "Kasir",
+    "reports_col_warehouse": "Gudang",
+    "reports_col_session_start": "Mulai",
+    "reports_col_cash_payments": "Pembayaran Tunai",
+    "reports_col_non_cash_payments": "Pembayaran Non-Tunai",
+    "reports_col_cash_difference": "Selisih Kas"
   },
   "Purchase": {
     "overview": "Ringkasan",
@@ -660,7 +676,12 @@
     "reports_col_tax_amount": "Jumlah Pajak",
     "reports_col_return_amount": "Nilai Retur",
     "reports_col_return_rate": "Tingkat Retur",
-    "reports_col_top_reason": "Alasan Utama"
+    "reports_col_top_reason": "Alasan Utama",
+    "reports_purchase_by_department_title": "Pembelian per Departemen",
+    "reports_purchase_by_department_desc": "Pengeluaran pembelian per departemen: faktur, retur, pembayaran, dan outstanding",
+    "reports_purchase_by_department_heading": "Pembelian per Departemen",
+    "reports_purchase_by_department_subheading": "Rekap pembelian tingkat departemen untuk periode terpilih",
+    "reports_col_department_code": "Kode"
   },
   "Inventory": {
     "overview": "Ringkasan",

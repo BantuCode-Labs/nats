@@ -8,6 +8,7 @@ import {
   Package,
   Receipt,
   Undo2,
+  Building2,
   ArrowRight,
 } from "lucide-react";
 import {
@@ -43,6 +44,12 @@ const purchaseReports = [
     descKey: "reports_purchase_by_product_desc",
     href: "/purchase/reports/purchase-by-product",
     icon: Package,
+  },
+  {
+    titleKey: "reports_purchase_by_department_title",
+    descKey: "reports_purchase_by_department_desc",
+    href: "/purchase/reports/purchase-by-department",
+    icon: Building2,
   },
   {
     titleKey: "reports_tax_summary_title",

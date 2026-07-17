@@ -1,0 +1,217 @@
+"use client";
+export const dynamic = "force-dynamic";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getPurchaseByDepartmentReport } from "./actions";
+import { Button } from "@/components/ui/button";
+import { CustomInput } from "@/components/ui/custom-input";
+import { Loader2, PrinterIcon } from "lucide-react";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useTranslations } from "next-intl";
+
+export default function PurchaseByDepartmentPage() {
+  const t = useTranslations("Purchase");
+  const tCommon = useTranslations("Common");
+  const formatCurrency = useFormatCurrency();
+  const [startDate, setStartDate] = useState(
+    new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]
+  );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const {
+    data: report,
+    isLoading: loading,
+    refetch,
+  } = useQuery({
+    queryKey: ["purchase-by-department", startDate, endDate],
+    queryFn: async () => {
+      return await getPurchaseByDepartmentReport(
+        new Date(startDate),
+        new Date(endDate)
+      );
+    },
+  });
+
+  const totals = report?.reduce(
+    (acc, item) => {
+      acc.invoiceCount += item.invoiceCount;
+      acc.totalInvoiceAmount += item.totalInvoiceAmount;
+      acc.returnCount += item.returnCount;
+      acc.totalReturnAmount += item.totalReturnAmount;
+      acc.totalPaymentAmount += item.totalPaymentAmount;
+      acc.netPurchases += item.netPurchases;
+      acc.outstanding += item.outstanding;
+      return acc;
+    },
+    {
+      invoiceCount: 0,
+      totalInvoiceAmount: 0,
+      returnCount: 0,
+      totalReturnAmount: 0,
+      totalPaymentAmount: 0,
+      netPurchases: 0,
+      outstanding: 0,
+    }
+  );
+
+  return (
+    <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-lg font-bold">
+              {t("reports_purchase_by_department_heading")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("reports_purchase_by_department_subheading")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => window.print()}>
+              <PrinterIcon className="mr-2 h-4 w-4" />
+              {tCommon("print")}
+            </Button>
+            <Button onClick={() => refetch()} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                t("reports_run_report")
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 bg-muted/20 p-4 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t("reports_from")}</span>
+            <CustomInput
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-auto"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t("reports_to")}</span>
+            <CustomInput
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-auto"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : !report || report.length === 0 ? (
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            {t("reports_no_data")}
+          </div>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("reports_col_department_code")}</TableHead>
+                  <TableHead>{t("department")}</TableHead>
+                  <TableHead className="text-center">
+                    {t("reports_col_invoices")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_invoice_amount")}
+                  </TableHead>
+                  <TableHead className="text-center">
+                    {t("reports_col_returns")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_return_amount")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_payments")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_net_purchases")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_outstanding")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.map((item) => (
+                  <TableRow key={item.departmentId ?? "unassigned"}>
+                    <TableCell className="font-medium text-muted-foreground">
+                      {item.departmentCode ?? "—"}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {item.departmentName}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.invoiceCount}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.totalInvoiceAmount)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.returnCount}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.totalReturnAmount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.totalPaymentAmount)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(item.netPurchases)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.outstanding)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-bold border-t-2">
+                  <TableCell colSpan={2}>{tCommon("total")}</TableCell>
+                  <TableCell className="text-center">
+                    {totals!.invoiceCount}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals!.totalInvoiceAmount)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {totals!.returnCount}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals!.totalReturnAmount)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals!.totalPaymentAmount)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals!.netPurchases)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals!.outstanding)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -9,6 +9,8 @@ import {
   TrendingUp,
   Receipt,
   Undo2,
+  Building2,
+  MonitorSmartphone,
   ArrowRight,
 } from "lucide-react";
 import {
@@ -44,6 +46,18 @@ const salesReports = [
     descKey: "reports_sales_by_product_desc",
     href: "/sales/reports/sales-by-product",
     icon: Package,
+  },
+  {
+    titleKey: "reports_sales_by_department_title",
+    descKey: "reports_sales_by_department_desc",
+    href: "/sales/reports/sales-by-department",
+    icon: Building2,
+  },
+  {
+    titleKey: "reports_pos_sales_title",
+    descKey: "reports_pos_sales_desc",
+    href: "/sales/reports/pos-sales",
+    icon: MonitorSmartphone,
   },
   {
     titleKey: "reports_profitability_title",

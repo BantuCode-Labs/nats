@@ -477,7 +477,23 @@
     "reports_col_sales_amount": "Sales Amount",
     "reports_col_return_rate": "Return Rate",
     "reports_col_top_reason": "Top Reason",
-    "reports_col_qty_returned": "Qty Returned"
+    "reports_col_qty_returned": "Qty Returned",
+    "reports_sales_by_department_title": "Sales by Department",
+    "reports_sales_by_department_desc": "Sales performance grouped by department: invoices, returns, payments, and outstanding",
+    "reports_sales_by_department_heading": "Sales by Department",
+    "reports_sales_by_department_subheading": "Department-level sales recap for a selected period",
+    "reports_pos_sales_title": "POS Sales",
+    "reports_pos_sales_desc": "Point of sale performance by session: cashier, sales, payments, and cash variance",
+    "reports_pos_sales_heading": "POS Sales Report",
+    "reports_pos_sales_subheading": "Session-level POS analytics including sales, payments, and cash difference",
+    "reports_col_department_code": "Code",
+    "reports_col_session": "Session",
+    "reports_col_cashier": "Cashier",
+    "reports_col_warehouse": "Warehouse",
+    "reports_col_session_start": "Started",
+    "reports_col_cash_payments": "Cash Payments",
+    "reports_col_non_cash_payments": "Non-Cash Payments",
+    "reports_col_cash_difference": "Cash Diff."
   },
   "Purchase": {
     "overview": "Overview",
@@ -660,7 +676,12 @@
     "reports_col_tax_amount": "Tax Amount",
     "reports_col_return_amount": "Return Amount",
     "reports_col_return_rate": "Return Rate",
-    "reports_col_top_reason": "Top Reason"
+    "reports_col_top_reason": "Top Reason",
+    "reports_purchase_by_department_title": "Purchase by Department",
+    "reports_purchase_by_department_desc": "Procurement spend grouped by department: invoices, returns, payments, and outstanding",
+    "reports_purchase_by_department_heading": "Purchase by Department",
+    "reports_purchase_by_department_subheading": "Department-level purchase recap for a selected period",
+    "reports_col_department_code": "Code"
   },
   "Inventory": {
     "overview": "Overview",
