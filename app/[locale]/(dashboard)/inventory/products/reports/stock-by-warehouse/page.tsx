@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import {
   getStockByWarehouseReport,
   getReportFilterOptions,
@@ -28,7 +27,6 @@ import { useTranslations } from "next-intl";
 export default function StockByWarehouseReportPage() {
   const t = useTranslations("Inventory");
   const tCommon = useTranslations("Common");
-  const tNav = useTranslations("Navigation");
   const formatCurrency = useFormatCurrency();
 
   const [categoryId, setCategoryId] = useState("ALL");
@@ -73,30 +71,15 @@ export default function StockByWarehouseReportPage() {
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Link
-            href="/inventory"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            {tNav("inventory")}
-          </Link>
-          <span className="text-sm text-muted-foreground">/</span>
-          <Link
-            href="/inventory/products/reports"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            {t("reports_title")}
-          </Link>
-          <span className="text-sm text-muted-foreground">/</span>
-          <h1 className="text-lg font-bold">
-            {t("reports_stock_by_warehouse_heading")}
-          </h1>
-        </div>
-
         <div className="flex justify-between items-center">
-          <p className="text-sm text-muted-foreground">
-            {t("reports_stock_by_warehouse_subheading")}
-          </p>
+          <div className="mb-2">
+            <h1 className="text-lg font-bold">
+              {t("reports_stock_by_warehouse_heading")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("reports_stock_by_warehouse_subheading")}
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />

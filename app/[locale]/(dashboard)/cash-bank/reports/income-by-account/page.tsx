@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import {
   getAllocationByAccountReport,
   type AllocationByAccountResult,
@@ -25,7 +24,6 @@ import { useTranslations } from "next-intl";
 export default function IncomeByAccountReportPage() {
   const t = useTranslations("CashBank");
   const tCommon = useTranslations("Common");
-  const tNav = useTranslations("Navigation");
   const formatCurrency = useFormatCurrency();
 
   const [startDate, setStartDate] = useState(
@@ -52,21 +50,7 @@ export default function IncomeByAccountReportPage() {
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Link
-            href="/cash-bank"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            {tNav("cash_bank")}
-          </Link>
-          <span className="text-sm text-muted-foreground">/</span>
-          <Link
-            href="/cash-bank/reports"
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            {t("reports_title")}
-          </Link>
-          <span className="text-sm text-muted-foreground">/</span>
+        <div className="mb-2">
           <h1 className="text-lg font-bold">
             {t("reports_income_by_account_heading")}
           </h1>

@@ -233,8 +233,11 @@ export function StockMonitoringView() {
   return (
     <PageListLayout>
       <PageListHeader>
-        <div className="flex items-center gap-3">
+        <div className="mb-2">
           <PageListTitle title={t("stock_monitoring")} />
+          <p className="text-sm text-muted-foreground">
+            {t("reports_stock_monitoring_subheading")}
+          </p>
         </div>
       </PageListHeader>
 

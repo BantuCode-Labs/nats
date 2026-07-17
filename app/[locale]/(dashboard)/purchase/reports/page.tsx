@@ -67,15 +67,10 @@ const purchaseReports = [
 
 export default function PurchaseReportsPage() {
   const t = useTranslations("Purchase");
-  const tNav = useTranslations("Navigation");
 
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
-      <div className="flex items-center gap-2 mb-2">
-        <Link href="/purchase" className="text-sm text-muted-foreground hover:text-foreground">
-          {tNav("purchase")}
-        </Link>
-        <span className="text-sm text-muted-foreground">/</span>
+      <div className="mb-2">
         <h1 className="text-lg font-bold">{t("reports_title")}</h1>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
