@@ -1,0 +1,190 @@
+"use client";
+export const dynamic = "force-dynamic";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getSalesReturnAnalysis } from "./actions";
+import { Button } from "@/components/ui/button";
+import { CustomInput } from "@/components/ui/custom-input";
+import { Loader2, PrinterIcon } from "lucide-react";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useTranslations } from "next-intl";
+
+export default function SalesReturnAnalysisPage() {
+  const t = useTranslations("Sales");
+  const tCommon = useTranslations("Common");
+  const formatCurrency = useFormatCurrency();
+  const [startDate, setStartDate] = useState(
+    new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]
+  );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const {
+    data: report,
+    isLoading: loading,
+    refetch,
+  } = useQuery({
+    queryKey: ["sales-return-analysis", startDate, endDate],
+    queryFn: async () => {
+      return await getSalesReturnAnalysis(
+        new Date(startDate),
+        new Date(endDate)
+      );
+    },
+  });
+
+  const totals = report?.reduce(
+    (acc, item) => {
+      acc.returnCount += item.returnCount;
+      acc.returnAmount += item.returnAmount;
+      acc.salesAmount += item.salesAmount;
+      return acc;
+    },
+    { returnCount: 0, returnAmount: 0, salesAmount: 0 }
+  );
+
+  const overallReturnRate =
+    totals && totals.salesAmount > 0
+      ? (totals.returnAmount / totals.salesAmount) * 100
+      : 0;
+
+  return (
+    <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-lg font-bold">
+              {t("reports_return_analysis_heading")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("reports_return_analysis_subheading")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => window.print()}>
+              <PrinterIcon className="mr-2 h-4 w-4" />
+              {tCommon("print")}
+            </Button>
+            <Button onClick={() => refetch()} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                t("reports_run_report")
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 bg-muted/20 p-4 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t("reports_from")}</span>
+            <CustomInput
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-auto"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t("reports_to")}</span>
+            <CustomInput
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-auto"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : report && report.length > 0 ? (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("reports_col_customer")}</TableHead>
+                  <TableHead className="text-center">
+                    {t("reports_col_return_count")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_return_amount")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_sales_amount")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_return_rate")}
+                  </TableHead>
+                  <TableHead>{t("reports_col_top_reason")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.map((item) => {
+                  const returnRate =
+                    item.salesAmount > 0
+                      ? (item.returnAmount / item.salesAmount) * 100
+                      : 0;
+                  return (
+                    <TableRow key={item.contactId}>
+                      <TableCell className="font-medium">
+                        {item.contactName}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.returnCount}
+                      </TableCell>
+                      <TableCell className="text-right text-red-600">
+                        {formatCurrency(item.returnAmount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(item.salesAmount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {returnRate.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {item.topReason || "—"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                <TableRow className="font-bold border-t-2">
+                  <TableCell>{tCommon("total")}</TableCell>
+                  <TableCell className="text-center">
+                    {totals!.returnCount}
+                  </TableCell>
+                  <TableCell className="text-right text-red-600">
+                    {formatCurrency(totals!.returnAmount)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals!.salesAmount)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {overallReturnRate.toFixed(1)}%
+                  </TableCell>
+                  <TableCell>—</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            {t("reports_no_data")}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

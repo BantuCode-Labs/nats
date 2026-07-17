@@ -1,0 +1,192 @@
+"use client";
+export const dynamic = "force-dynamic";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getPurchaseByProductReport } from "./actions";
+import { Button } from "@/components/ui/button";
+import { CustomInput } from "@/components/ui/custom-input";
+import { Loader2, PrinterIcon } from "lucide-react";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useTranslations } from "next-intl";
+
+export default function PurchaseByProductPage() {
+  const t = useTranslations("Purchase");
+  const tCommon = useTranslations("Common");
+  const formatCurrency = useFormatCurrency();
+  const [startDate, setStartDate] = useState(
+    new Date(new Date().getFullYear(), 0, 1).toISOString().split("T")[0]
+  );
+  const [endDate, setEndDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const {
+    data: report,
+    isLoading: loading,
+    refetch,
+  } = useQuery({
+    queryKey: ["purchase-by-product", startDate, endDate],
+    queryFn: async () => {
+      return await getPurchaseByProductReport(
+        new Date(startDate),
+        new Date(endDate)
+      );
+    },
+  });
+
+  const totals = report?.reduce(
+    (acc, item) => {
+      acc.quantityOrdered += item.quantityOrdered;
+      acc.quantityReceived += item.quantityReceived;
+      acc.grossCost += item.grossCost;
+      return acc;
+    },
+    { quantityOrdered: 0, quantityReceived: 0, grossCost: 0 }
+  );
+
+  return (
+    <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-lg font-bold">
+              {t("reports_purchase_by_product_heading")}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {t("reports_purchase_by_product_subheading")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => window.print()}>
+              <PrinterIcon className="mr-2 h-4 w-4" />
+              {tCommon("print")}
+            </Button>
+            <Button onClick={() => refetch()} disabled={loading}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                t("reports_run_report")
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 bg-muted/20 p-4 rounded-lg border">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t("reports_from")}</span>
+            <CustomInput
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-auto"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{t("reports_to")}</span>
+            <CustomInput
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-auto"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : !report || report.length === 0 ? (
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            {t("reports_no_data")}
+          </div>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("reports_col_sku")}</TableHead>
+                  <TableHead>{t("reports_col_product")}</TableHead>
+                  <TableHead>{t("reports_col_category")}</TableHead>
+                  <TableHead className="text-center">
+                    {t("reports_col_qty_ordered")}
+                  </TableHead>
+                  <TableHead className="text-center">
+                    {t("reports_col_qty_received")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_gross_cost")}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {t("reports_col_avg_unit_cost")}
+                  </TableHead>
+                  <TableHead className="text-center">
+                    {t("reports_col_orders")}
+                  </TableHead>
+                  <TableHead className="text-center">
+                    {t("reports_col_vendors")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {report.map((item) => (
+                  <TableRow key={item.productId}>
+                    <TableCell className="font-medium">
+                      {item.productSku}
+                    </TableCell>
+                    <TableCell>{item.productName}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {item.categoryName}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.quantityOrdered}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.quantityReceived}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.grossCost)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.avgUnitCost)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.orderCount}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.vendorCount}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-bold border-t-2">
+                  <TableCell colSpan={3}>{tCommon("total")}</TableCell>
+                  <TableCell className="text-center">
+                    {totals!.quantityOrdered}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {totals!.quantityReceived}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(totals!.grossCost)}
+                  </TableCell>
+                  <TableCell className="text-right">—</TableCell>
+                  <TableCell className="text-center">—</TableCell>
+                  <TableCell className="text-center">—</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -4,6 +4,11 @@ import Link from "next/link";
 import {
   Users,
   BookOpen,
+  Clock,
+  Package,
+  TrendingUp,
+  Receipt,
+  Undo2,
   ArrowRight,
 } from "lucide-react";
 import {
@@ -27,6 +32,36 @@ const salesReports = [
     descKey: "reports_receivable_desc",
     href: "/sales/reports/receivable",
     icon: BookOpen,
+  },
+  {
+    titleKey: "reports_ar_aging_title",
+    descKey: "reports_ar_aging_desc",
+    href: "/sales/reports/ar-aging",
+    icon: Clock,
+  },
+  {
+    titleKey: "reports_sales_by_product_title",
+    descKey: "reports_sales_by_product_desc",
+    href: "/sales/reports/sales-by-product",
+    icon: Package,
+  },
+  {
+    titleKey: "reports_profitability_title",
+    descKey: "reports_profitability_desc",
+    href: "/sales/reports/profitability",
+    icon: TrendingUp,
+  },
+  {
+    titleKey: "reports_tax_summary_title",
+    descKey: "reports_tax_summary_desc",
+    href: "/sales/reports/tax-summary",
+    icon: Receipt,
+  },
+  {
+    titleKey: "reports_return_analysis_title",
+    descKey: "reports_return_analysis_desc",
+    href: "/sales/reports/return-analysis",
+    icon: Undo2,
   },
 ];
 

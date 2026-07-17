@@ -4,6 +4,10 @@ import Link from "next/link";
 import {
   Truck,
   BookOpen,
+  Clock,
+  Package,
+  Receipt,
+  Undo2,
   ArrowRight,
 } from "lucide-react";
 import {
@@ -27,6 +31,30 @@ const purchaseReports = [
     descKey: "reports_payable_desc",
     href: "/purchase/reports/payable",
     icon: BookOpen,
+  },
+  {
+    titleKey: "reports_ap_aging_title",
+    descKey: "reports_ap_aging_desc",
+    href: "/purchase/reports/ap-aging",
+    icon: Clock,
+  },
+  {
+    titleKey: "reports_purchase_by_product_title",
+    descKey: "reports_purchase_by_product_desc",
+    href: "/purchase/reports/purchase-by-product",
+    icon: Package,
+  },
+  {
+    titleKey: "reports_tax_summary_title",
+    descKey: "reports_tax_summary_desc",
+    href: "/purchase/reports/tax-summary",
+    icon: Receipt,
+  },
+  {
+    titleKey: "reports_return_analysis_title",
+    descKey: "reports_return_analysis_desc",
+    href: "/purchase/reports/return-analysis",
+    icon: Undo2,
   },
 ];
 
