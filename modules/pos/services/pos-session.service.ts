@@ -3,8 +3,53 @@ import { Decimal } from "decimal.js";
 
 const SESSION_NUMBER_PREFIX = "SES";
 
+export interface OpenSessionInput {
+    userId: string;
+    openingCash: number;
+    warehouseId: string;
+    /**
+     * Optional department tag to associate with the session. When provided it
+     * must reference a valid, active Department record; otherwise the session
+     * is opened without a department tag. The warehouse attachment is always
+     * preserved regardless of whether a department tag is supplied.
+     */
+    departmentId?: string | null;
+}
+
 export class POSSessionService {
-    static async open(userId: string, openingCash: number, warehouseId: string) {
+    /**
+     * Validates that the given departmentId refers to a valid, active
+     * Department. Returns `null` when no departmentId is supplied so callers
+     * can treat "no tag" and "validated tag" uniformly.
+     *
+     * @throws Error when departmentId is provided but does not match an active
+     *         Department.
+     */
+    static async validateDepartmentId(
+        departmentId?: string | null,
+    ): Promise<string | null> {
+        if (!departmentId) return null;
+
+        const department = await prisma.department.findUnique({
+            where: { id: departmentId },
+            select: { id: true, isActive: true },
+        });
+
+        if (!department || !department.isActive) {
+            throw new Error(
+                "Invalid department tag: department does not exist or is inactive",
+            );
+        }
+
+        return department.id;
+    }
+
+    static async open(
+        userId: string,
+        openingCash: number,
+        warehouseId: string,
+        departmentId?: string | null,
+    ) {
         // Close any existing open sessions for this user
         await prisma.pOSSession.updateMany({
             where: { cashierId: userId, status: "OPEN" },
@@ -12,6 +57,13 @@ export class POSSessionService {
         });
 
         const sessionNumber = `${SESSION_NUMBER_PREFIX}-${Date.now()}`;
+
+        // Validate the department tag (if any) before creating the session.
+        // The warehouse association is intentionally not validated here to
+        // preserve the existing behavior/contract of the warehouse attachment.
+        const validDepartmentId = await POSSessionService.validateDepartmentId(
+            departmentId,
+        );
 
         return await prisma.pOSSession.create({
             data: {
@@ -21,7 +73,35 @@ export class POSSessionService {
                 status: "OPEN",
                 startTime: new Date(),
                 warehouseId,
+                departmentId: validDepartmentId,
             },
+        });
+    }
+
+    /**
+     * Updates the department tag associated with a POS session. Pass `null` or
+     * `undefined` to clear the existing tag. The warehouse attachment is left
+     * untouched.
+     */
+    static async updateDepartment(
+        sessionId: string,
+        departmentId?: string | null,
+    ) {
+        const validDepartmentId = await POSSessionService.validateDepartmentId(
+            departmentId,
+        );
+
+        const session = await prisma.pOSSession.findUnique({
+            where: { id: sessionId },
+            select: { id: true, warehouseId: true },
+        });
+
+        if (!session) throw new Error("Session not found");
+
+        return await prisma.pOSSession.update({
+            where: { id: sessionId },
+            // Only touch the department tag; warehouseId is preserved verbatim.
+            data: { departmentId: validDepartmentId },
         });
     }
 

@@ -34,6 +34,7 @@ export function POSSessionsTable({
             <TableHead>{t("session_id")}</TableHead>
             <TableHead>{t("cashier")}</TableHead>
             <TableHead>{t("location")}</TableHead>
+            <TableHead>{t("department")}</TableHead>
             <TableHead>{t("start_time")}</TableHead>
             <TableHead>{t("end_time")}</TableHead>
             <TableHead className="text-right">{t("opening_cash")}</TableHead>
@@ -45,7 +46,7 @@ export function POSSessionsTable({
         <TableBody>
           {sessions.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="h-24 text-center">
+              <TableCell colSpan={10} className="h-24 text-center">
                 {t("no_sessions_found")}
               </TableCell>
             </TableRow>
@@ -57,6 +58,7 @@ export function POSSessionsTable({
                 </TableCell>
                 <TableCell>{session.cashier?.name}</TableCell>
                 <TableCell>{session.warehouse?.name || "-"}</TableCell>
+                <TableCell>{session.department?.name || "-"}</TableCell>
                 <TableCell>
                   {format(new Date(session.startTime), "PP p")}
                 </TableCell>

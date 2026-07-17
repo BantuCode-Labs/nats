@@ -25,6 +25,13 @@ export async function getPOSSessions() {
           name: true,
         },
       },
+      department: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
       _count: {
         select: {
           salesOrders: true,
@@ -170,6 +177,26 @@ export async function getWarehouses() {
   return SuperJSON.serialize(warehouses);
 }
 
+/**
+ * Returns the list of active Department tags that can be assigned to a POS
+ * session. Mirrors the existing `getDepartments` action from the general
+ * module but scoped to the `pos.access` permission so the POS UI can fetch
+ * both warehouses and departments in one place.
+ */
+export async function getPOSDepartments() {
+  const session = await getSession();
+  if (!session || !hasPermission(session.permissions, "pos.access")) {
+    return SuperJSON.serialize([]);
+  }
+
+  const departments = await prisma.department.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, code: true },
+  });
+  return SuperJSON.serialize(departments);
+}
+
 export async function getOpenPOSSession() {
   const session = await getSession();
   const userId = session?.userId;
@@ -183,6 +210,9 @@ export async function getOpenPOSSession() {
     },
     include: {
       warehouse: true,
+      department: {
+        select: { id: true, name: true, code: true },
+      },
     },
   });
 
@@ -199,7 +229,11 @@ export async function getOpenPOSSession() {
   });
 }
 
-export async function openPOSSession(openingCash: number, warehouseId: string) {
+export async function openPOSSession(
+  openingCash: number,
+  warehouseId: string,
+  departmentId?: string | null,
+) {
   const session = await getSession();
   const userId = session?.userId;
   if (!userId || !hasPermission(session.permissions, "pos.access"))
@@ -209,6 +243,7 @@ export async function openPOSSession(openingCash: number, warehouseId: string) {
     userId,
     openingCash,
     warehouseId,
+    departmentId,
   );
 
   revalidatePath("/pos");

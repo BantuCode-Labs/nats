@@ -22,6 +22,7 @@ model Department {
   salesReturns     SalesReturn[]
   salesPayments    SalesPayment[]
   cashTransactions CashTransaction[]
+  posSessions      POSSession[]
 }
 
 model Project {

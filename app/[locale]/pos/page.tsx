@@ -3,6 +3,7 @@ import {
   getPOSProducts,
   getPOSCategories,
   getWarehouses,
+  getPOSDepartments,
 } from "./actions";
 import { POSSessionDialog } from "./_components/pos-session-dialog";
 import { LogoutButton } from "./_components/logout-button";
@@ -17,6 +18,7 @@ export default async function POSPage() {
   const products = await getPOSProducts();
   const categories = await getPOSCategories();
   const warehouses = await getWarehouses();
+  const departments = await getPOSDepartments();
 
   if (!session) {
     return (
@@ -34,7 +36,7 @@ export default async function POSPage() {
                 {t("need_session")}
               </p>
               <div className="flex w-full flex-col gap-2">
-                <POSSessionDialog warehouses={warehouses} />
+                <POSSessionDialog warehouses={warehouses} departments={departments} />
                 <LogoutButton variant="outline" className="w-full" />
               </div>
             </div>

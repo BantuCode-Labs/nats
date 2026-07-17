@@ -30,14 +30,22 @@ import { useTranslations } from 'next-intl';
 
 interface POSSessionDialogProps {
   warehouses: SuperJSONResult;
+  departments?: SuperJSONResult;
 }
 
-export function POSSessionDialog({ warehouses: serializedWarehouses }: POSSessionDialogProps) {
+export function POSSessionDialog({
+  warehouses: serializedWarehouses,
+  departments: serializedDepartments,
+}: POSSessionDialogProps) {
   const t = useTranslations('POS');
   const warehouses = SuperJSON.deserialize<any[]>(serializedWarehouses);
+  const departments = serializedDepartments
+    ? SuperJSON.deserialize<any[]>(serializedDepartments)
+    : [];
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [warehouseId, setWarehouseId] = useState<string>("");
+  const [departmentId, setDepartmentId] = useState<string>("");
   const { toast } = useToast();
   const router = useRouter();
 
@@ -46,6 +54,7 @@ export function POSSessionDialog({ warehouses: serializedWarehouses }: POSSessio
     try {
       const openingCash = parseFloat(formData.get('openingCash') as string);
       const selectedWarehouseId = formData.get('warehouseId') as string;
+      const selectedDepartmentId = (formData.get('departmentId') as string) || null;
 
       if (isNaN(openingCash) || openingCash < 0) {
         toast({
@@ -67,7 +76,12 @@ export function POSSessionDialog({ warehouses: serializedWarehouses }: POSSessio
         return;
       }
 
-      await openPOSSession(openingCash, selectedWarehouseId);
+      // Department tag is optional — only pass it through when selected.
+      await openPOSSession(
+        openingCash,
+        selectedWarehouseId,
+        selectedDepartmentId || undefined,
+      );
 
       toast({
         title: t('session_opened'),
@@ -77,10 +91,15 @@ export function POSSessionDialog({ warehouses: serializedWarehouses }: POSSessio
       router.refresh();
     } catch (error) {
       console.error(error);
+      // Surface a dedicated message when the backend rejects the department tag.
+      const message = error instanceof Error ? error.message : "";
+      const isDepartmentError = /department/i.test(message);
       toast({
         variant: 'destructive',
-        title: t('error'),
-        description: t('error_open_session'),
+        title: isDepartmentError ? t('department_invalid') : t('error'),
+        description: isDepartmentError
+          ? t('department_invalid_desc')
+          : t('error_open_session'),
       });
     } finally {
       setLoading(false);
@@ -116,6 +135,26 @@ export function POSSessionDialog({ warehouses: serializedWarehouses }: POSSessio
                       {warehouses.map((w) => (
                         <SelectItem key={w.id} value={w.id}>
                           {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="department" className="text-right">
+                  {t('department')}
+                </Label>
+                <div className="col-span-3">
+                  <input type="hidden" name="departmentId" value={departmentId} />
+                  <Select onValueChange={setDepartmentId} value={departmentId}>
+                    <SelectTrigger id="department">
+                      <SelectValue placeholder={t('select_department')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

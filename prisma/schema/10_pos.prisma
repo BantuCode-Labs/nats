@@ -13,6 +13,11 @@ model POSSession {
   warehouseId String?
   warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
 
+  // Department tag association (optional). Allows POS sessions to be tagged
+  // to a department for reporting/budgeting, alongside the warehouse attachment.
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
   openingCash Decimal  @default(0)
   closingCash Decimal? // Calculated system total
   actualCash  Decimal? // Counted by cashier
