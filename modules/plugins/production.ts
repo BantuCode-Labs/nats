@@ -17,6 +17,7 @@ export const productionPlugin: ModulePlugin = {
                         { title: "Production.orders", url: "/production/orders" },
                         { title: "Production.issues", url: "/production/issues" },
                         { title: "Production.receipts", url: "/production/receipts" },
+                        { title: "Production.reports_title", url: "/production/reports" },
                     ],
                 },
             ],

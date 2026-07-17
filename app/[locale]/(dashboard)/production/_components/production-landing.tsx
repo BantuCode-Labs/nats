@@ -6,6 +6,7 @@ import {
   Factory,
   PackageMinus,
   PackageCheck,
+  BarChart3,
   ArrowRight,
 } from "lucide-react";
 import {
@@ -53,6 +54,15 @@ const productionModules = [
     color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     step: 4,
   },
+  {
+    title: "Production Reports",
+    description:
+      "Business insights on order progress, material consumption, yield, production costs, BOM cost rollups, and work-in-progress balances.",
+    icon: BarChart3,
+    href: "/production/reports",
+    color: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+    step: 5,
+  },
 ];
 
 export default function ProductionLandingPage() {
@@ -77,19 +87,21 @@ export default function ProductionLandingPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-            {productionModules.map((mod, i) => (
-              <div key={mod.href} className="flex items-center gap-2">
-                <Link
-                  href={mod.href}
-                  className="rounded-full bg-muted px-3 py-1.5 font-medium hover:bg-muted/80 transition-colors"
-                >
-                  {mod.step}. {mod.title}
-                </Link>
-                {i < productionModules.length - 1 && (
-                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                )}
-              </div>
-            ))}
+            {productionModules
+              .filter((mod) => mod.step < 5)
+              .map((mod, i, arr) => (
+                <div key={mod.href} className="flex items-center gap-2">
+                  <Link
+                    href={mod.href}
+                    className="rounded-full bg-muted px-3 py-1.5 font-medium hover:bg-muted/80 transition-colors"
+                  >
+                    {mod.step}. {mod.title}
+                  </Link>
+                  {i < arr.length - 1 && (
+                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                </div>
+              ))}
           </div>
         </CardContent>
       </Card>
