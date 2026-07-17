@@ -17,6 +17,21 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/:locale/inventory/products/stock-monitoring",
+        destination: "/:locale/inventory/products/reports/stock-monitoring",
+        permanent: true,
+      },
+      {
+        source: "/:locale/inventory/products/stock-monitoring/:productId",
+        destination:
+          "/:locale/inventory/products/reports/stock-monitoring/:productId",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

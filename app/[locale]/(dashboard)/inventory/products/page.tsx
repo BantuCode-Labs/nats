@@ -18,6 +18,7 @@ import {
   Eye,
   MoreHorizontal,
   Plus,
+  FileBarChart,
 } from "lucide-react";
 import Link from "next/link";
 import { deleteProduct, getCategories, getProducts } from "./actions";
@@ -220,6 +221,11 @@ export default function ProductsPage() {
       <PageListHeader>
         <PageListTitle title={t("products")} />
         <PageListActions>
+          <Button asChild variant="outline">
+            <Link href="/inventory/products/reports">
+              <FileBarChart className="mr-2 h-4 w-4" /> {t("reports_title")}
+            </Link>
+          </Button>
           <Protect permission="products.create">
             <Button asChild>
               <Link href="/inventory/products/create">

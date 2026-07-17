@@ -220,7 +220,7 @@ export function StockMonitoringView() {
             asChild
           >
             <Link
-              href={`/inventory/products/stock-monitoring/${item.id}${queryStr ? `?${queryStr}` : ""}`}
+              href={`/inventory/products/reports/stock-monitoring/${item.id}${queryStr ? `?${queryStr}` : ""}`}
             >
               <Eye className="mr-1 h-4 w-4" /> {t("view_detail")}
             </Link>
@@ -234,11 +234,6 @@ export function StockMonitoringView() {
     <PageListLayout>
       <PageListHeader>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/inventory/products">
-              <ArrowLeft className="mr-1 h-4 w-4" /> {tCommon("back")}
-            </Link>
-          </Button>
           <PageListTitle title={t("stock_monitoring")} />
         </div>
       </PageListHeader>

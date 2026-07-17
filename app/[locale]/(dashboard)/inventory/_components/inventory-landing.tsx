@@ -10,6 +10,7 @@ import {
   DollarSign,
   BarChart3,
   ArrowRight,
+  FileBarChart,
 } from "lucide-react";
 import {
   Card,
@@ -74,6 +75,15 @@ const inventoryModules = [
     href: "/inventory/movements",
     color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     step: 6,
+  },
+  {
+    title: "Reports",
+    description:
+      "Business reports for stock valuation, low stock alerts, warehouse distribution, movement summary, product margins, and slow-moving stock.",
+    icon: FileBarChart,
+    href: "/inventory/products/reports",
+    color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+    step: 7,
   },
 ];
 

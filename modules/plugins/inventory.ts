@@ -14,12 +14,12 @@ export const inventoryPlugin: ModulePlugin = {
           items: [
             { title: "Inventory.overview", url: "/inventory" },
             { title: "Inventory.products", url: "/inventory/products" },
-            { title: "Inventory.stock_monitoring", url: "/inventory/products/stock-monitoring" },
+            { title: "Inventory.reports_title", url: "/inventory/products/reports" },
             { title: "Inventory.pricing", url: "/inventory/pricing" },
             { title: "Inventory.categories", url: "/inventory/categories" },
             { title: "Inventory.warehouses", url: "/inventory/warehouses" },
             { title: "Inventory.movements", url: "/inventory/movements" },
-            { title: "Inventory.uom", url: "/inventory/uom" }, // Kept this item as it was not explicitly replaced by a new key
+            { title: "Inventory.uom", url: "/inventory/uom" },
           ],
         },
       ],

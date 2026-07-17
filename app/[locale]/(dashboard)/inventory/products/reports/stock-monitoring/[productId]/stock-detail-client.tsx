@@ -207,7 +207,7 @@ export function StockDetailClient({
       <PageListHeader>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/inventory/products/stock-monitoring">
+            <Link href="/inventory/products/reports/stock-monitoring">
               <ArrowLeft className="mr-1 h-4 w-4" /> {tCommon("back")}
             </Link>
           </Button>
