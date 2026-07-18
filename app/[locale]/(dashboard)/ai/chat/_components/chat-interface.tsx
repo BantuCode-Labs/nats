@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChatMessage } from "./chat-message";
+import { ThinkingProcess } from "./thinking-process";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -58,6 +59,7 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
@@ -169,10 +171,7 @@ export function ChatInterface() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
-
-    // Placeholder for assistant response
-    const assistantMessage: Message = { role: "assistant", content: "" };
-    setMessages((prev) => [...prev, assistantMessage]);
+    setIsGenerating(true);
 
     try {
       const response = await fetch("/api/ai/chat", {
@@ -205,24 +204,36 @@ export function ChatInterface() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let receivedContent = false;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const text = decoder.decode(value, { stream: true });
-        setMessages((prev) => {
-          const newMessages = [...prev];
-          const lastMsg = newMessages[newMessages.length - 1];
-          if (lastMsg.role === "assistant") {
-            // Create a new object to trigger re-render
-            newMessages[newMessages.length - 1] = {
-              ...lastMsg,
-              content: lastMsg.content + text,
-            };
-          }
-          return newMessages;
-        });
+        if (!text) continue;
+
+        if (!receivedContent) {
+          receivedContent = true;
+          setIsGenerating(false);
+          // First chunk: create assistant message
+          setMessages((prev) => [
+            ...prev,
+            { role: "assistant", content: text },
+          ]);
+        } else {
+          setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastMsg = newMessages[newMessages.length - 1];
+            if (lastMsg?.role === "assistant") {
+              newMessages[newMessages.length - 1] = {
+                ...lastMsg,
+                content: lastMsg.content + text,
+              };
+            }
+            return newMessages;
+          });
+        }
       }
     } catch (error) {
       console.error(error);
@@ -234,10 +245,9 @@ export function ChatInterface() {
             : "Failed to get response from AI service.",
         variant: "destructive",
       });
-      // Remove the failed message placeholder
-      setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -402,12 +412,7 @@ export function ChatInterface() {
                   content={msg.content}
                 />
               ))}
-              {isLoading && (
-                <div className="flex items-center gap-2 p-4 text-muted-foreground text-sm">
-                  <Bot className="h-4 w-4 animate-bounce" />
-                  Thinking...
-                </div>
-              )}
+              {isGenerating && <ThinkingProcess />}
             </div>
           )}
         </CardContent>
