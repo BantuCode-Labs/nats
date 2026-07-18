@@ -7,6 +7,7 @@ import {
 import { OpenAIProvider } from "./providers/openai";
 import { OpenRouterProvider } from "./providers/openrouter";
 import { createBusinessAgent, convertToLangChainMessages } from "./agent";
+import type { AIUserContext } from "./context";
 
 export class AIService {
   private provider: AIProvider;
@@ -42,10 +43,18 @@ export class AIService {
 
   async generateResponse(
     request: AICompletionRequest,
+    userContext?: AIUserContext,
   ): Promise<AICompletionResponse> {
     try {
-      // Use LangChain agent for enhanced capabilities
-      const agent = await createBusinessAgent();
+      if (!userContext) {
+        // Fallback provider path when no session context is available
+        return this.provider.chatCompletion({
+          ...request,
+          tools: Array.from(this.tools.values()),
+        });
+      }
+
+      const agent = await createBusinessAgent(userContext);
       const langChainMessages = convertToLangChainMessages(request.messages);
 
       const result = await agent.invoke({
@@ -58,8 +67,10 @@ export class AIService {
       };
     } catch (error) {
       console.error("LangChain agent error:", error);
-      // Fallback to original provider if agent fails
-      return this.provider.chatCompletion(request);
+      return this.provider.chatCompletion({
+        ...request,
+        tools: Array.from(this.tools.values()),
+      });
     }
   }
 
@@ -94,8 +105,6 @@ export function getAIService(
   customEndpoint?: string,
 ): AIService {
   const key = apiKey || process.env.OPENAI_API_KEY || "mock-key";
-  // We create a new instance if params are provided to support dynamic switching,
-  // or return the singleton if no params.
   if (apiKey || provider) {
     return new AIService(key, provider, customEndpoint);
   }

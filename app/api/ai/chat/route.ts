@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/auth";
 import { getAIService } from "@/lib/ai/service";
 import { getAIConfig } from "@/lib/ai/config";
-import { businessTools } from "@/lib/ai/tools";
+import { getToolsForUser } from "@/lib/ai/tool-registry";
+import { toAIUserContext } from "@/lib/ai/context";
 import { prisma } from "@/lib/prisma";
 import { AIChatMessage } from "@/lib/ai/types";
 
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
         { error: "Invalid request body: messages array required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -35,15 +36,22 @@ export async function POST(req: NextRequest) {
     if (recentUsage > 50) {
       return NextResponse.json(
         { error: "Rate limit exceeded. Please try again later." },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
-    const aiConfig = await getAIConfig(session.userId);
-    const aiService = getAIService();
+    const userContext = toAIUserContext(session);
+    const tools = getToolsForUser(userContext);
 
-    // Register tools
-    businessTools.forEach(tool => aiService.registerTool(tool));
+    const aiConfig = await getAIConfig(session.userId);
+    const aiService = getAIService(
+      aiConfig.apiKey,
+      aiConfig.provider,
+      aiConfig.customEndpoint,
+    );
+
+    // Register role-aware tools for provider fallback path
+    tools.forEach((tool) => aiService.registerTool(tool));
 
     // Get or create session
     let currentSessionId = sessionId;
@@ -56,7 +64,6 @@ export async function POST(req: NextRequest) {
       });
       currentSessionId = newSession.id;
     } else {
-      // Update the session's updatedAt timestamp
       await prisma.aISession.update({
         where: { id: currentSessionId },
         data: { updatedAt: new Date() },
@@ -75,16 +82,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Generate response using LangChain agent
-    const response = await aiService.generateResponse({
-      messages: messages as AIChatMessage[],
-      config: aiConfig,
-      tools: businessTools,
-    });
+    // Generate response using role-aware LangChain agent
+    const response = await aiService.generateResponse(
+      {
+        messages: messages as AIChatMessage[],
+        config: aiConfig,
+        tools,
+      },
+      userContext,
+    );
 
     const content = response.content || "";
 
-    // Save assistant message
     await prisma.aIMessage.create({
       data: {
         sessionId: currentSessionId,
@@ -93,7 +102,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Track usage
     await prisma.aIUsage.create({
       data: {
         userId: session.userId,
@@ -104,7 +112,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create a simple readable stream for the response
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
@@ -123,7 +130,7 @@ export async function POST(req: NextRequest) {
     console.error("Chat API Error:", error);
     return NextResponse.json(
       { error: error.message || "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

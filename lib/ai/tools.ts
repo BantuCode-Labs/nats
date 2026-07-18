@@ -1647,56 +1647,54 @@ export const getInventoryValuationTool: AITool = {
 export const getFinancialReportTool: AITool = {
   name: "get_financial_report",
   description:
-    "Get key financial reports like Profit & Loss, Balance Sheet, Cash Flow summary.",
+    "Get key financial reports like Profit & Loss, Balance Sheet, Cash Flow, Equity Change, or Financial Ratios. Prefer run_standard_report for full native-parity output.",
   parameters: {
     type: "object",
     properties: {
       reportType: {
         type: "string",
-        enum: ["profit_loss", "balance_sheet", "cash_flow"],
+        enum: [
+          "profit_loss",
+          "balance_sheet",
+          "cash_flow",
+          "equity_change",
+          "financial_ratios",
+        ],
         description: "Type of financial report to retrieve",
+      },
+      startDate: {
+        type: "string",
+        description: "Start date YYYY-MM-DD (period reports)",
+      },
+      endDate: {
+        type: "string",
+        description: "End / as-of date YYYY-MM-DD",
       },
     },
     required: ["reportType"],
   },
-  handler: async ({ reportType }: { reportType: string }) => {
-    if (reportType === "profit_loss") {
-      const revenueAccounts = await prisma.account.findMany({
-        where: { type: AccountType.revenue },
-        include: { journalEntryLines: true },
-      });
-      const expenseAccounts = await prisma.account.findMany({
-        where: { type: AccountType.expense },
-        include: { journalEntryLines: true },
-      });
-
-      const totalRevenue = revenueAccounts.reduce(
-        (sum, acc: any) =>
-          sum.add(
-            acc.journalEntryLines.reduce(
-              (s: Prisma.Decimal, line: any) =>
-                s.add(line.creditAmount).sub(line.debitAmount),
-              new Prisma.Decimal(0),
-            ),
-          ),
-        new Prisma.Decimal(0),
-      );
-      const totalExpenses = expenseAccounts.reduce(
-        (sum, acc: any) =>
-          sum.add(
-            acc.journalEntryLines.reduce(
-              (s: Prisma.Decimal, line: any) =>
-                s.add(line.debitAmount).sub(line.creditAmount),
-              new Prisma.Decimal(0),
-            ),
-          ),
-        new Prisma.Decimal(0),
-      );
-      const netProfit = totalRevenue.sub(totalExpenses);
-
-      return `**Profit & Loss Summary:**\n- Total Revenue: $${totalRevenue.toNumber().toFixed(2)}\n- Total Expenses: $${totalExpenses.toNumber().toFixed(2)}\n- Net Profit: $${netProfit.toNumber().toFixed(2)}`;
-    }
-    return `Report type ${reportType} summary available.`;
+  handler: async ({
+    reportType,
+    startDate,
+    endDate,
+  }: {
+    reportType: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    // Delegate to standard report tool for full parity with native reporting
+    const { runStandardReportTool } = await import("./tools/report-tools");
+    const end = endDate || new Date().toISOString().slice(0, 10);
+    const start =
+      startDate ||
+      new Date(new Date(end).getFullYear(), 0, 1).toISOString().slice(0, 10);
+    return runStandardReportTool.handler({
+      reportCode: reportType,
+      startDate: start,
+      endDate: end,
+      asOfDate: end,
+      includeAnalysis: true,
+    });
   },
 };
 

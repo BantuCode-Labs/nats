@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AIService } from "./service";
 import { AICompletionRequest } from "./types";
 
 // Mock OpenAI Provider
 vi.mock("./providers/openai", () => {
   return {
     OpenAIProvider: class {
-      constructor(apiKey: string) { }
+      constructor(_apiKey: string) {}
       chatCompletion = vi.fn().mockResolvedValue({
         content: "Mock response",
         usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
@@ -15,6 +14,14 @@ vi.mock("./providers/openai", () => {
   };
 });
 
+// Prevent agent / report-tool graph from loading Next.js modules in unit tests
+vi.mock("./agent", () => ({
+  createBusinessAgent: vi.fn(),
+  convertToLangChainMessages: vi.fn(() => []),
+}));
+
+import { AIService } from "./service";
+
 describe("AIService", () => {
   let service: AIService;
 
@@ -22,7 +29,7 @@ describe("AIService", () => {
     service = new AIService("mock-key");
   });
 
-  it("should generate response", async () => {
+  it("should generate response without user context via provider fallback", async () => {
     const request: AICompletionRequest = {
       messages: [{ role: "user", content: "Hello" }],
     };
