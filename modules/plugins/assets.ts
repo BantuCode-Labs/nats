@@ -16,6 +16,7 @@ export const assetsPlugin: ModulePlugin = {
             { title: "Assets.fixed_assets", url: "/assets" },
             { title: "Assets.depreciation", url: "/assets/depreciation" },
             { title: "Assets.categories", url: "/assets/categories" },
+            { title: "Assets.reports_title", url: "/assets/reports" },
           ],
         },
       ],

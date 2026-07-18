@@ -14,6 +14,7 @@ export const budgetingPlugin: ModulePlugin = {
           items: [
             { title: "Budgeting.dashboard", url: "/budgeting" },
             { title: "Budgeting.budgets", url: "/budgeting/budgets" },
+            { title: "Budgeting.reports_title", url: "/budgeting/reports" },
           ],
         },
       ],
