@@ -56,6 +56,24 @@ export interface CreateAttendanceDTO {
     notes?: string;
 }
 
+export interface ImportAttendanceRowDTO {
+    /** Employee number (preferred), or contact email as fallback identifier */
+    employeeNumber?: string;
+    email?: string;
+    date: Date;
+    status: AttendanceStatus;
+    checkIn?: Date;
+    checkOut?: Date;
+    overtimeHours?: number;
+    notes?: string;
+}
+
+export interface ImportAttendanceResult {
+    imported: number;
+    failed: number;
+    errors: { row: number; message: string }[];
+}
+
 export interface CreateLeaveRequestDTO {
     employeeDetailId: string;
     leaveType: LeaveType;

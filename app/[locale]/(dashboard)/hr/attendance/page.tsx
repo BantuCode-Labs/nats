@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,7 +42,8 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { getAttendanceRecords, upsertAttendance } from "./actions";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { getAttendanceRecords, upsertAttendance, importAttendanceCsv } from "./actions";
 import { getEmployeeOptions } from "../employees/actions";
 import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
@@ -59,6 +61,8 @@ type AttendanceRecord = {
     id: string;
     date: Date | string;
     status: AttendanceStatus;
+    checkIn?: Date | string | null;
+    checkOut?: Date | string | null;
     overtimeHours: number | string;
     notes?: string | null;
     employeeDetail: {
@@ -74,39 +78,94 @@ type AttendanceListResponse = {
     pageSize: number;
 };
 
+type ImportResult = {
+    imported: number;
+    failed: number;
+    errors: { row: number; message: string }[];
+};
+
+function formatTime(value?: Date | string | null) {
+    if (!value) return "—";
+    try {
+        return format(new Date(value), "HH:mm");
+    } catch {
+        return "—";
+    }
+}
+
+function combineDateAndTime(dateStr: string, timeStr: string): Date | undefined {
+    if (!dateStr || !timeStr) return undefined;
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!match) return undefined;
+    const d = new Date(dateStr);
+    d.setHours(Number(match[1]), Number(match[2]), Number(match[3] || 0), 0);
+    return d;
+}
+
+const CSV_TEMPLATE =
+    "employee_number,email,date,status,check_in,check_out,overtime_hours,notes\n" +
+    "EMP001,,2026-01-15,PRESENT,08:00,17:00,0,\n" +
+    ",jane@example.com,2026-01-15,LATE,09:15,18:00,1,Traffic\n";
+
 export default function AttendancePage() {
     const t = useTranslations("HR");
     const tCommon = useTranslations("Common");
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const today = format(new Date(), "yyyy-MM-dd");
     const [from, setFrom] = useState(today);
     const [to, setTo] = useState(today);
     const [open, setOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [importing, setImporting] = useState(false);
     const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+    const [employeeSearch, setEmployeeSearch] = useState("");
+    const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
     const [form, setForm] = useState({
         employeeDetailId: "",
         date: today,
         status: AttendanceStatus.PRESENT as AttendanceStatus,
+        checkIn: "",
+        checkOut: "",
         overtimeHours: "0",
     });
 
-    useEffect(() => {
-        async function loadEmployees() {
-            const result = await getEmployeeOptions();
-            if (result.success && result.data) {
-                setEmployees(
-                    SuperJSON.deserialize<EmployeeOption[]>(
-                        result.data as SuperJSONResult
-                    )
-                );
-            }
+    const loadEmployees = useCallback(async (search = "") => {
+        const result = await getEmployeeOptions(search);
+        if (result.success && result.data) {
+            setEmployees(
+                SuperJSON.deserialize<EmployeeOption[]>(
+                    result.data as SuperJSONResult
+                )
+            );
         }
-        loadEmployees();
     }, []);
+
+    useEffect(() => {
+        loadEmployees();
+    }, [loadEmployees]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            loadEmployees(employeeSearch);
+        }, 250);
+        return () => clearTimeout(timer);
+    }, [employeeSearch, loadEmployees]);
+
+    const employeeOptions = useMemo(
+        () =>
+            employees
+                .filter((e) => e.employeeDetail?.id)
+                .map((e) => ({
+                    value: e.employeeDetail!.id,
+                    label: e.name,
+                })),
+        [employees]
+    );
 
     const { data, isLoading } = useQuery({
         queryKey: ["attendance", from, to],
@@ -124,6 +183,17 @@ export default function AttendancePage() {
         },
     });
 
+    const resetForm = () => {
+        setForm({
+            employeeDetailId: "",
+            date: today,
+            status: AttendanceStatus.PRESENT,
+            checkIn: "",
+            checkOut: "",
+            overtimeHours: "0",
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.employeeDetailId || !form.date) return;
@@ -133,11 +203,14 @@ export default function AttendancePage() {
                 employeeDetailId: form.employeeDetailId,
                 date: new Date(form.date),
                 status: form.status,
+                checkIn: combineDateAndTime(form.date, form.checkIn),
+                checkOut: combineDateAndTime(form.date, form.checkOut),
                 overtimeHours: Number(form.overtimeHours) || 0,
             });
             if (result.success) {
                 toast({ title: tCommon("success"), description: t("attendance_saved") });
                 setOpen(false);
+                resetForm();
                 queryClient.invalidateQueries({ queryKey: ["attendance"] });
             } else {
                 toast({
@@ -155,6 +228,54 @@ export default function AttendancePage() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleImportFile = async (file: File) => {
+        setImporting(true);
+        setImportResult(null);
+        try {
+            const text = await file.text();
+            const result = await importAttendanceCsv(text);
+            if (result.success && result.data) {
+                const data = SuperJSON.deserialize<ImportResult>(
+                    result.data as SuperJSONResult
+                );
+                setImportResult(data);
+                toast({
+                    title: tCommon("success"),
+                    description: t("attendance_import_result", {
+                        imported: data.imported,
+                        failed: data.failed,
+                    }),
+                });
+                queryClient.invalidateQueries({ queryKey: ["attendance"] });
+            } else {
+                toast({
+                    title: tCommon("error"),
+                    description: result.error || t("attendance_import_failed"),
+                    variant: "destructive",
+                });
+            }
+        } catch {
+            toast({
+                title: tCommon("error"),
+                description: t("attendance_import_failed"),
+                variant: "destructive",
+            });
+        } finally {
+            setImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    const downloadTemplate = () => {
+        const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "attendance-import-template.csv";
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     const statusVariant = (status: string) => {
@@ -177,110 +298,235 @@ export default function AttendancePage() {
                 <PageListTitle title={t("attendance_title")} />
                 <PageListActions>
                     <Protect permission="hr.attendance.manage">
-                    <Dialog open={open} onOpenChange={setOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="h-4 w-4 mr-2" />
-                                {t("record_attendance")}
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <form onSubmit={handleSubmit}>
-                                <DialogHeader>
-                                    <DialogTitle>{t("record_attendance")}</DialogTitle>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="space-y-2">
-                                        <Label>{t("employee")}</Label>
-                                        <Select
-                                            value={form.employeeDetailId}
-                                            onValueChange={(v) =>
-                                                setForm((f) => ({
-                                                    ...f,
-                                                    employeeDetailId: v,
-                                                }))
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={t("employee")} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {employees
-                                                    .filter((e) => e.employeeDetail?.id)
-                                                    .map((e) => (
-                                                        <SelectItem
-                                                            key={e.id}
-                                                            value={e.employeeDetail!.id}
-                                                        >
-                                                            {e.name}
-                                                        </SelectItem>
-                                                    ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>{t("date")}</Label>
-                                        <Input
-                                            type="date"
-                                            value={form.date}
-                                            onChange={(e) =>
-                                                setForm((f) => ({
-                                                    ...f,
-                                                    date: e.target.value,
-                                                }))
-                                            }
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>{tCommon("status")}</Label>
-                                        <Select
-                                            value={form.status}
-                                            onValueChange={(v) =>
-                                                setForm((f) => ({
-                                                    ...f,
-                                                    status: v as AttendanceStatus,
-                                                }))
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {Object.values(AttendanceStatus).map((s) => (
-                                                    <SelectItem key={s} value={s}>
-                                                        {s.replace(/_/g, " ")}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>{t("overtime_hours")}</Label>
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            step="0.5"
-                                            value={form.overtimeHours}
-                                            onChange={(e) =>
-                                                setForm((f) => ({
-                                                    ...f,
-                                                    overtimeHours: e.target.value,
-                                                }))
-                                            }
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button type="submit" disabled={saving}>
-                                        {saving && (
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        )}
-                                        {tCommon("save")}
+                        <div className="flex items-center gap-2">
+                            <Dialog
+                                open={importOpen}
+                                onOpenChange={(v) => {
+                                    setImportOpen(v);
+                                    if (!v) setImportResult(null);
+                                }}
+                            >
+                                <DialogTrigger asChild>
+                                    <Button variant="outline">
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        {t("import_attendance")}
                                     </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-lg">
+                                    <DialogHeader>
+                                        <DialogTitle>{t("import_attendance")}</DialogTitle>
+                                        <DialogDescription>
+                                            {t("import_attendance_desc")}
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-2">
+                                        <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+                                            <p className="font-medium text-foreground">
+                                                {t("import_csv_columns")}
+                                            </p>
+                                            <code className="block break-all">
+                                                employee_number, email, date, status,
+                                                check_in, check_out, overtime_hours, notes
+                                            </code>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={downloadTemplate}
+                                            >
+                                                <Download className="h-4 w-4 mr-2" />
+                                                {t("download_csv_template")}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                disabled={importing}
+                                                onClick={() => fileInputRef.current?.click()}
+                                            >
+                                                {importing && (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                )}
+                                                <Upload className="h-4 w-4 mr-2" />
+                                                {t("choose_csv_file")}
+                                            </Button>
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept=".csv,text/csv"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) handleImportFile(file);
+                                                }}
+                                            />
+                                        </div>
+                                        {importResult && (
+                                            <div className="space-y-2 rounded-md border p-3 text-sm">
+                                                <p>
+                                                    {t("attendance_import_result", {
+                                                        imported: importResult.imported,
+                                                        failed: importResult.failed,
+                                                    })}
+                                                </p>
+                                                {importResult.errors.length > 0 && (
+                                                    <ul className="max-h-32 overflow-y-auto text-xs text-destructive space-y-1">
+                                                        {importResult.errors
+                                                            .slice(0, 20)
+                                                            .map((err, i) => (
+                                                                <li key={`${err.row}-${i}`}>
+                                                                    {t("import_row_error", {
+                                                                        row: err.row,
+                                                                        message: err.message,
+                                                                    })}
+                                                                </li>
+                                                            ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <DialogFooter>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setImportOpen(false)}
+                                        >
+                                            {tCommon("close")}
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+
+                            <Dialog
+                                open={open}
+                                onOpenChange={(v) => {
+                                    setOpen(v);
+                                    if (!v) resetForm();
+                                }}
+                            >
+                                <DialogTrigger asChild>
+                                    <Button>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        {t("record_attendance")}
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <form onSubmit={handleSubmit}>
+                                        <DialogHeader>
+                                            <DialogTitle>{t("record_attendance")}</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4">
+                                            <div className="space-y-2">
+                                                <Label>{t("employee")}</Label>
+                                                <SearchableSelect
+                                                    value={form.employeeDetailId || null}
+                                                    onValueChange={(v) =>
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            employeeDetailId: v || "",
+                                                        }))
+                                                    }
+                                                    options={employeeOptions}
+                                                    placeholder={t("employee")}
+                                                    onSearch={setEmployeeSearch}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>{t("date")}</Label>
+                                                <Input
+                                                    type="date"
+                                                    value={form.date}
+                                                    onChange={(e) =>
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            date: e.target.value,
+                                                        }))
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-2">
+                                                    <Label>{t("check_in")}</Label>
+                                                    <Input
+                                                        type="time"
+                                                        value={form.checkIn}
+                                                        onChange={(e) =>
+                                                            setForm((f) => ({
+                                                                ...f,
+                                                                checkIn: e.target.value,
+                                                            }))
+                                                        }
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>{t("check_out")}</Label>
+                                                    <Input
+                                                        type="time"
+                                                        value={form.checkOut}
+                                                        onChange={(e) =>
+                                                            setForm((f) => ({
+                                                                ...f,
+                                                                checkOut: e.target.value,
+                                                            }))
+                                                        }
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>{tCommon("status")}</Label>
+                                                <Select
+                                                    value={form.status}
+                                                    onValueChange={(v) =>
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            status: v as AttendanceStatus,
+                                                        }))
+                                                    }
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {Object.values(AttendanceStatus).map(
+                                                            (s) => (
+                                                                <SelectItem key={s} value={s}>
+                                                                    {s.replace(/_/g, " ")}
+                                                                </SelectItem>
+                                                            )
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>{t("overtime_hours")}</Label>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.5"
+                                                    value={form.overtimeHours}
+                                                    onChange={(e) =>
+                                                        setForm((f) => ({
+                                                            ...f,
+                                                            overtimeHours: e.target.value,
+                                                        }))
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button type="submit" disabled={saving}>
+                                                {saving && (
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                )}
+                                                {tCommon("save")}
+                                            </Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
                     </Protect>
                 </PageListActions>
             </PageListHeader>
@@ -312,6 +558,8 @@ export default function AttendancePage() {
                                 <TableHead>{t("date")}</TableHead>
                                 <TableHead>{t("employee")}</TableHead>
                                 <TableHead>{tCommon("status")}</TableHead>
+                                <TableHead>{t("check_in")}</TableHead>
+                                <TableHead>{t("check_out")}</TableHead>
                                 <TableHead className="text-right">
                                     {t("overtime_hours")}
                                 </TableHead>
@@ -331,6 +579,8 @@ export default function AttendancePage() {
                                             {row.status.replace(/_/g, " ")}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell>{formatTime(row.checkIn)}</TableCell>
+                                    <TableCell>{formatTime(row.checkOut)}</TableCell>
                                     <TableCell className="text-right">
                                         {Number(row.overtimeHours)}
                                     </TableCell>
@@ -339,7 +589,7 @@ export default function AttendancePage() {
                             {!data?.items?.length && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={4}
+                                        colSpan={6}
                                         className="text-center py-8 text-muted-foreground"
                                     >
                                         {t("no_attendance_found")}

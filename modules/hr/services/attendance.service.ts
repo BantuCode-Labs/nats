@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { CreateAttendanceDTO } from '../types';
+import { CreateAttendanceDTO, ImportAttendanceResult, ImportAttendanceRowDTO } from '../types';
 import { AttendanceStatus, Prisma } from '@/prisma/generated/prisma/client';
 
 function startOfDay(date: Date) {
@@ -101,6 +101,112 @@ export class AttendanceService {
             );
         }
         return results;
+    }
+
+    /**
+     * Import attendance rows resolved by employeeNumber (preferred) or email.
+     * Each row is upserted by (employeeDetailId, date).
+     */
+    static async importRows(rows: ImportAttendanceRowDTO[]): Promise<ImportAttendanceResult> {
+        const result: ImportAttendanceResult = { imported: 0, failed: 0, errors: [] };
+
+        const employeeNumbers = [
+            ...new Set(
+                rows
+                    .map((r) => r.employeeNumber?.trim())
+                    .filter((v): v is string => Boolean(v))
+            ),
+        ];
+        const emails = [
+            ...new Set(
+                rows
+                    .map((r) => r.email?.trim().toLowerCase())
+                    .filter((v): v is string => Boolean(v))
+            ),
+        ];
+
+        const orFilters: Prisma.EmployeeDetailWhereInput[] = [
+            ...(employeeNumbers.length
+                ? [{ employeeNumber: { in: employeeNumbers } }]
+                : []),
+            ...(emails.length
+                ? [{ contact: { email: { in: emails, mode: 'insensitive' as const } } }]
+                : []),
+        ];
+
+        const employees = orFilters.length
+            ? await prisma.employeeDetail.findMany({
+                where: { OR: orFilters },
+                select: {
+                    id: true,
+                    employeeNumber: true,
+                    contact: { select: { email: true } },
+                },
+            })
+            : [];
+
+        const byNumber = new Map(
+            employees
+                .filter((e) => e.employeeNumber)
+                .map((e) => [e.employeeNumber!.toLowerCase(), e.id])
+        );
+        const byEmail = new Map(
+            employees
+                .filter((e) => e.contact.email)
+                .map((e) => [e.contact.email!.toLowerCase(), e.id])
+        );
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowNum = i + 1;
+            try {
+                const numberKey = row.employeeNumber?.trim().toLowerCase();
+                const emailKey = row.email?.trim().toLowerCase();
+                const employeeDetailId =
+                    (numberKey ? byNumber.get(numberKey) : undefined) ||
+                    (emailKey ? byEmail.get(emailKey) : undefined);
+
+                if (!employeeDetailId) {
+                    result.failed += 1;
+                    result.errors.push({
+                        row: rowNum,
+                        message: `Employee not found (${row.employeeNumber || row.email || 'no identifier'})`,
+                    });
+                    continue;
+                }
+
+                if (!row.date || Number.isNaN(row.date.getTime())) {
+                    result.failed += 1;
+                    result.errors.push({ row: rowNum, message: 'Invalid date' });
+                    continue;
+                }
+
+                if (!Object.values(AttendanceStatus).includes(row.status)) {
+                    result.failed += 1;
+                    result.errors.push({ row: rowNum, message: `Invalid status: ${row.status}` });
+                    continue;
+                }
+
+                await this.upsert({
+                    employeeDetailId,
+                    date: row.date,
+                    status: row.status,
+                    checkIn: row.checkIn,
+                    checkOut: row.checkOut,
+                    overtimeHours: row.overtimeHours ?? 0,
+                    notes: row.notes,
+                });
+                result.imported += 1;
+            } catch (error) {
+                result.failed += 1;
+                result.errors.push({
+                    row: rowNum,
+                    message: (error as Error).message,
+                });
+            }
+        }
+
+        return result;
     }
 
     static async getOvertimeHours(employeeDetailId: string, from: Date, to: Date) {
