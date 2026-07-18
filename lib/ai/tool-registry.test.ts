@@ -28,6 +28,17 @@ vi.mock("./tools/report-tools", () => ({
   ],
 }));
 
+vi.mock("./tools/chart-tools", () => ({
+  chartTools: [
+    {
+      name: "create_chart",
+      description: "mock",
+      parameters: {},
+      handler: async () => "ok",
+    },
+  ],
+}));
+
 import { getToolsForUser } from "./tool-registry";
 import type { AIUserContext } from "./context";
 
@@ -49,6 +60,7 @@ describe("getToolsForUser", () => {
     expect(names).toContain("list_available_reports");
     expect(names).toContain("run_standard_report");
     expect(names).toContain("get_sales_orders");
+    expect(names).toContain("create_chart");
   });
 
   it("includes custom SQL tools for superadmin", () => {

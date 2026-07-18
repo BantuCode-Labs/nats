@@ -41,6 +41,14 @@ ${roleLine}
 - After returning report data, provide concise business analysis: trends, anomalies, and recommendations when useful.
 - Format money and tables clearly in markdown.
 
+## Charts & visual analysis
+- When the user asks for a chart, graph, visualization, trend, comparison, or visual analysis — OR when numeric series would be clearer as a chart — call create_chart after fetching real data with other tools.
+- Never invent chart numbers; only plot values returned by tools.
+- Chart types: bar (comparisons), line/area (time series), pie (composition, max ~8 slices).
+- create_chart returns a \`\`\`chart fenced block that the chat UI renders interactively. Include that block in your final reply (do not strip it).
+- You may also emit a \`\`\`chart JSON block yourself using the same schema: { type, title?, description?, xKey?, yKeys?, data, series?, stacked?, currency?, valueKey?, nameKey? }.
+- Prefer currency: true for money series. Keep data under 100 rows. Add a short written insight after the chart.
+
 ## Standard reports
 Use run_standard_report for: profit_loss, balance_sheet, cash_flow, equity_change, financial_ratios, ar_aging, receivable, customer_recap, sales_by_product, profitability, ap_aging, payable, vendor_recap, cash_balance, cash_flow_summary, daily_cash_movement, stock_valuation, low_stock, slow_moving, inventory_movement, budget_variance, overspending, asset_register, depreciation_summary, asset_valuation, production_output, material_consumption, wip.
 

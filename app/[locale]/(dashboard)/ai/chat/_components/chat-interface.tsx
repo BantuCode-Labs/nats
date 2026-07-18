@@ -370,9 +370,28 @@ export function ChatInterface() {
             <div className="flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
               <Bot className="h-12 w-12 mb-4 opacity-20" />
               <h3 className="text-lg font-medium">How can I help you today?</h3>
-              <p className="text-sm max-w-sm mt-2">
+              <p className="text-sm max-w-md mt-2">
                 Ask about financial reports, inventory status, or sales trends.
+                Request charts for visual analysis — for example monthly sales
+                or expense breakdown.
               </p>
+              <div className="mt-6 grid w-full max-w-lg gap-2 text-left sm:grid-cols-2">
+                {[
+                  "Chart monthly sales for this year",
+                  "Show expense breakdown as a pie chart",
+                  "Visualize cash flow by month",
+                  "Bar chart of top inventory by value",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => setInput(prompt)}
+                    className="rounded-lg border border-border bg-background/60 px-3 py-2 text-xs text-foreground transition-colors hover:bg-muted"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-2 p-4">

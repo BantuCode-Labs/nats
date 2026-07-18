@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { User, Bot } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { ChatChart, isChartLanguage } from "./chat-chart";
 
 interface ChatMessageProps {
   role: "user" | "assistant" | "system" | "function";
@@ -37,6 +38,8 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
           isUser
             ? "bg-primary text-primary-foreground shadow-md"
             : "bg-muted/50 text-foreground shadow-sm border-muted-foreground/10 hover:bg-muted/70",
+          // Charts need more width for readability
+          !isUser && "min-w-0 sm:max-w-[min(100%,42rem)]",
         )}
       >
         <div
@@ -84,10 +87,18 @@ export function ChatMessage({ role, content }: ChatMessageProps) {
                   {children}
                 </a>
               ),
+              // Unwrap <pre> when it only wraps a chart code block so we don't get double chrome
+              pre: ({ children }) => <>{children}</>,
               code: ({ className, children, ...props }: any) => {
                 const match = /language-(\w+)/.exec(className || "");
+                const language = match?.[1];
+                const raw = String(children ?? "").replace(/\n$/, "");
                 const isBlock =
                   !!match || (children && children.toString().includes("\n"));
+
+                if (isBlock && isChartLanguage(language)) {
+                  return <ChatChart source={raw} />;
+                }
 
                 return isBlock ? (
                   <div className="relative my-4 rounded-lg bg-zinc-950 shadow-lg group">
