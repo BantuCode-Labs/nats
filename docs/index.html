@@ -1,208 +1,510 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NATS — Enterprise Resource Planning System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        border: "rgb(209, 213, 219)",
-                        input: "rgb(209, 213, 219)",
-                        ring: "rgb(99, 102, 241)",
-                        background: "rgb(248, 250, 252)",
-                        foreground: "rgb(30, 41, 59)",
-                        primary: {
-                            DEFAULT: "rgb(99, 102, 241)",
-                            foreground: "rgb(255, 255, 255)",
-                        },
-                        secondary: {
-                            DEFAULT: "rgb(229, 231, 235)",
-                            foreground: "rgb(55, 65, 81)",
-                        },
-                        destructive: {
-                            DEFAULT: "rgb(239, 68, 68)",
-                            foreground: "rgb(255, 255, 255)",
-                        },
-                        muted: {
-                            DEFAULT: "rgb(243, 244, 246)",
-                            foreground: "rgb(107, 114, 128)",
-                        },
-                        accent: {
-                            DEFAULT: "rgb(224, 231, 255)",
-                            foreground: "rgb(55, 65, 81)",
-                        },
-                        popover: {
-                            DEFAULT: "rgb(255, 255, 255)",
-                            foreground: "rgb(30, 41, 59)",
-                        },
-                        card: {
-                            DEFAULT: "rgb(255, 255, 255)",
-                            foreground: "rgb(30, 41, 59)",
-                        },
-                    },
-                    borderRadius: {
-                        lg: "0.5rem",
-                        md: "calc(0.5rem - 2px)",
-                        sm: "calc(0.5rem - 4px)",
-                    },
-                    fontFamily: {
-                        sans: ["Inter", "sans-serif"],
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NATS is an open-source ERP for accounting, inventory, sales, purchasing, POS, payroll, and AI-assisted insights. Free, modular, and built for growing businesses.">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="color-scheme" content="light">
+  <title>NATS — Open-Source Enterprise Resource Planning</title>
+  <link rel="canonical" href="https://maziyank.github.io/nats/">
+  <meta property="og:title" content="NATS — Open-Source ERP System">
+  <meta property="og:description" content="Democratize ERP technology. Manage accounting, inventory, sales, POS, payroll, and more with one modular open-source platform.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://maziyank.github.io/nats/">
+  <meta property="og:image" content="assets/images/dashboard.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='white' font-family='system-ui' font-size='16' font-weight='700'%3EN%3C/text%3E%3C/svg%3E">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "NATS",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Cross-platform (Web)",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Open-source ERP covering accounting, inventory, sales, purchasing, POS, payroll, production, and AI insights.",
+    "softwareVersion": "1.0.0-alpha",
+    "license": "https://opensource.org/licenses/MIT",
+    "url": "https://maziyank.github.io/nats/",
+    "codeRepository": "https://github.com/maziyank/nats"
+  }
+  </script>
 </head>
-<body class="bg-background text-foreground antialiased">
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
 
-    <!-- Navigation -->
-    <nav class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div class="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center gap-2">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">N</div>
-                <span class="text-xl font-bold tracking-tight">NATS</span>
-            </div>
-            <div class="hidden md:flex items-center gap-6">
-                <a href="#features" class="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">Fitur</a>
-                <a href="usage.html" class="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">Dokumentasi</a>
-                <a href="https://github.com/maziyank/nats" class="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">GitHub</a>
-            </div>
-            <div class="flex items-center gap-4">
-                <a href="usage.html" class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50">
-                    Mulai Sekarang
-                </a>
-            </div>
-        </div>
-    </nav>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html" aria-label="NATS home">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span>NATS</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#showcase">Showcase</a></li>
+          <li><a href="#tech">Technology</a></li>
+          <li><a href="usage.html">Docs</a></li>
+          <li><a href="contribute.html">Contribute</a></li>
+        </ul>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-secondary btn-sm" href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a>
+        <a class="btn btn-primary btn-sm" href="usage.html">Get Started</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
+          <span aria-hidden="true">☰</span>
+        </button>
+      </div>
+    </div>
+    <div id="mobile-nav" class="nav-mobile" aria-hidden="true">
+      <a href="#features">Features</a>
+      <a href="#showcase">Showcase</a>
+      <a href="#tech">Technology</a>
+      <a href="usage.html">Docs</a>
+      <a href="contribute.html">Contribute</a>
+      <a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a>
+    </div>
+  </header>
 
-    <!-- Hero Section -->
-    <header class="relative overflow-hidden py-24 md:py-32">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div class="flex flex-col lg:flex-row items-center gap-16">
-                <div class="flex-1 text-center lg:text-left space-y-6">
-                    <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary/10 text-primary hover:bg-primary/20">
-                        <span class="relative mr-2 flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                        </span>
-                        Open Source Mini ERP
-                    </div>
-                    <h1 class="text-4xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
-                        Solusi IT <span class="text-primary">Ekonomis</span> untuk Bisnis Anda
-                    </h1>
-                    <p class="text-xl text-muted-foreground max-w-[42rem] mx-auto lg:mx-0 leading-normal">
-                        NATS hadir untuk mendemokratisasi teknologi ERP. Solusi kode terbuka yang komprehensif untuk mengelola akuntansi, inventaris, hingga penggajian dengan efisiensi tinggi.
-                    </p>
-                    <div class="flex flex-col sm:flex-row justify-center lg:justify-start gap-4 pt-4">
-                        <a href="usage.html" class="inline-flex h-11 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 gap-2">
-                            Mulai Sekarang <i class="fas fa-arrow-right text-sm"></i>
-                        </a>
-                        <a href="https://github.com/maziyank/nats" class="inline-flex h-11 items-center justify-center rounded-md border border-input bg-background px-8 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 gap-2">
-                            <i class="fab fa-github text-lg"></i> Kontribusi di GitHub
-                        </a>
-                    </div>
-                </div>
-                <div class="flex-1 relative">
-                    <div class="relative z-10 rounded-xl border bg-card text-card-foreground shadow p-2 transform lg:rotate-2 hover:rotate-0 transition-transform duration-500">
-                        <img src="https://github.com/maziyank/nats/raw/app-main/image/README/1776302209274.png" alt="ERP Dashboard Preview" class="rounded-lg shadow-inner">
-                    </div>
-                    <!-- Decorative elements -->
-                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl -z-10"></div>
-                    <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-100/50 rounded-full blur-3xl -z-10"></div>
-                </div>
-            </div>
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="badge">
+            <span aria-hidden="true">●</span>
+            Open Source · v1.0.0-alpha · MIT License
+          </div>
+          <h1>Run your business on one modular <span>ERP</span> you own</h1>
+          <p class="hero-lead">
+            NATS democratizes enterprise software. Manage accounting, inventory, sales, purchasing,
+            POS, payroll, production, and AI insights—without lock-in or enterprise price tags.
+          </p>
+          <div class="hero-cta">
+            <a class="btn btn-primary btn-lg" href="usage.html">Install &amp; Run Locally</a>
+            <a class="btn btn-secondary btn-lg" href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">View on GitHub</a>
+            <a class="btn btn-secondary btn-lg" href="#demo">Live Preview</a>
+          </div>
+          <div class="hero-meta">
+            <span><strong>Next.js 16</strong> + React 19</span>
+            <span><strong>PostgreSQL</strong> + Prisma</span>
+            <span><strong>i18n</strong> EN / ID</span>
+            <span><strong>Docker</strong> ready</span>
+          </div>
         </div>
-    </header>
-
-    <!-- Features Section -->
-    <section id="features" class="py-24 border-t bg-slate-50/50">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col items-center text-center space-y-4 mb-16">
-                <h2 class="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">Modul Terintegrasi</h2>
-                <p class="text-muted-foreground max-w-[42rem] leading-normal sm:text-lg sm:leading-7">
-                    NATS dirancang dengan arsitektur modular yang memudahkan pengelolaan berbagai aspek bisnis.
-                </p>
+        <div class="hero-visual">
+          <div class="hero-frame">
+            <div class="hero-chrome" aria-hidden="true">
+              <i class="dot-r"></i><i class="dot-y"></i><i class="dot-g"></i>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <!-- Accounting -->
-                <div class="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm transition-all hover:shadow-md group">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary mb-6 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        <i class="fas fa-calculator text-xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold mb-3 tracking-tight">Accounting</h3>
-                    <p class="text-muted-foreground leading-relaxed">Otomatisasi buku besar, jurnal, dan laporan keuangan real-time untuk transparansi finansial.</p>
-                </div>
-                <!-- Inventory -->
-                <div class="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm transition-all hover:shadow-md group">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-md bg-green-100 text-green-600 mb-6 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                        <i class="fas fa-boxes-stacked text-xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold mb-3 tracking-tight">Inventory</h3>
-                    <p class="text-muted-foreground leading-relaxed">Kelola stok, gudang, dan mutasi barang dengan sistem pelacakan yang akurat dan efisien.</p>
-                </div>
-                <!-- Sales -->
-                <div class="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm transition-all hover:shadow-md group">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-md bg-orange-100 text-orange-600 mb-6 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                        <i class="fas fa-shopping-cart text-xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold mb-3 tracking-tight">Sales & Purchasing</h3>
-                    <p class="text-muted-foreground leading-relaxed">Alur kerja lengkap dari pesanan, pengiriman, hingga faktur penjualan dan pembelian.</p>
-                </div>
-                <!-- POS -->
-                <div class="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm transition-all hover:shadow-md group">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-md bg-purple-100 text-purple-600 mb-6 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                        <i class="fas fa-cash-register text-xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold mb-3 tracking-tight">Point of Sale</h3>
-                    <p class="text-muted-foreground leading-relaxed">Interface kasir yang responsif dan mudah digunakan untuk transaksi retail yang cepat.</p>
-                </div>
-                <!-- Payroll -->
-                <div class="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm transition-all hover:shadow-md group">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-md bg-red-100 text-red-600 mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
-                        <i class="fas fa-file-invoice-dollar text-xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold mb-3 tracking-tight">Payroll</h3>
-                    <p class="text-muted-foreground leading-relaxed">Kelola struktur gaji, absensi, dan pembuatan slip gaji otomatis untuk karyawan Anda.</p>
-                </div>
-                <!-- AI -->
-                <div class="relative overflow-hidden rounded-lg border bg-card p-8 shadow-sm transition-all hover:shadow-md group">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-md bg-indigo-100 text-indigo-600 mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        <i class="fas fa-brain text-xl"></i>
-                    </div>
-                    <h3 class="text-xl font-bold mb-3 tracking-tight">AI Integration</h3>
-                    <p class="text-muted-foreground leading-relaxed">Fitur cerdas untuk membantu analisis data bisnis dan pengambilan keputusan yang lebih baik.</p>
-                </div>
-            </div>
+            <img
+              src="assets/images/dashboard.jpg"
+              width="1600"
+              height="872"
+              alt="NATS main dashboard showing KPIs, charts, and navigation"
+              fetchpriority="high"
+              decoding="async">
+          </div>
+          <div class="hero-float" aria-hidden="true">
+            <span class="stat-chip">Accounting</span>
+            <span class="stat-chip">Inventory</span>
+            <span class="stat-chip">POS</span>
+            <span class="stat-chip">AI Chat</span>
+          </div>
         </div>
+      </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="border-t bg-slate-900 text-slate-400 py-12">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
-                <div class="flex items-center gap-2">
-                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">N</div>
-                    <span class="text-xl font-bold text-white tracking-tight">NATS</span>
-                </div>
-                <div class="flex gap-8 text-sm font-medium">
-                    <a href="usage.html" class="hover:text-white transition-colors">Dokumentasi</a>
-                    <a href="https://github.com/maziyank/nats" class="hover:text-white transition-colors">GitHub</a>
-                </div>
-                <div class="text-sm">
-                    &copy; 2026 NATS ERP System. Lisensi MIT.
-                </div>
-            </div>
+    <!-- Features -->
+    <section id="features" class="section section-alt">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-kicker">Core modules</p>
+          <h2 class="section-title">Everything your operations need—tightly integrated</h2>
+          <p class="section-sub">
+            Each module shares master data, permissions, and reporting so finance, warehouse,
+            and front-line teams work from one source of truth.
+          </p>
         </div>
-    </footer>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">∑</div>
+            <h3>Accounting</h3>
+            <p>Double-entry journals, chart of accounts, ledgers, trial balance, and financial statements in real time.</p>
+            <ul class="feature-list">
+              <li>P&amp;L, balance sheet, cash flow, ratios</li>
+              <li>Tax summary &amp; default accounts</li>
+              <li>Beginning balance setup wizard</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">▣</div>
+            <h3>Inventory</h3>
+            <p>Multi-warehouse stock control with products, categories, UoM, pricing, and movement tracking.</p>
+            <ul class="feature-list">
+              <li>Stock monitoring &amp; low-stock alerts</li>
+              <li>Inter-warehouse transfers</li>
+              <li>Valuation &amp; margin reports</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">⇄</div>
+            <h3>Sales &amp; Purchasing</h3>
+            <p>End-to-end order-to-cash and procure-to-pay with invoices, payments, shipments, and returns.</p>
+            <ul class="feature-list">
+              <li>AR / AP aging &amp; recap reports</li>
+              <li>Department &amp; project tagging</li>
+              <li>PDF-ready business documents</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">⌁</div>
+            <h3>Point of Sale</h3>
+            <p>Fast cashier UI with sessions, hold orders, discounts, barcode-friendly search, and receipts.</p>
+            <ul class="feature-list">
+              <li>Session open/close with cash drawer</li>
+              <li>Optional department tags</li>
+              <li>Thermal receipt PDF support</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">◎</div>
+            <h3>HR &amp; Payroll</h3>
+            <p>Employees, attendance, leave, salary structures, payroll periods, and printable payslips.</p>
+            <ul class="feature-list">
+              <li>Configurable pay components</li>
+              <li>Period processing workflows</li>
+              <li>HR reports landing hub</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">✦</div>
+            <h3>AI Assistant</h3>
+            <p>Built-in chat agent with configurable providers to query business context and accelerate decisions.</p>
+            <ul class="feature-list">
+              <li>OpenAI / OpenRouter providers</li>
+              <li>Admin AI settings panel</li>
+              <li>Tool-assisted analysis flow</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">⚙</div>
+            <h3>Production</h3>
+            <p>BOMs, production orders, material issues, receipts, WIP, and cost analysis for light manufacturing.</p>
+            <ul class="feature-list">
+              <li>BOM cost reports</li>
+              <li>Order status tracking</li>
+              <li>Material consumption views</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">◆</div>
+            <h3>Assets &amp; Budgeting</h3>
+            <p>Fixed asset register with depreciation, plus budgets by department/project and variance reports.</p>
+            <ul class="feature-list">
+              <li>Category &amp; location reporting</li>
+              <li>Disposal &amp; valuation</li>
+              <li>Overspending alerts</li>
+            </ul>
+          </article>
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">☰</div>
+            <h3>Admin &amp; Security</h3>
+            <p>Role-based access control, users, company settings, document numbering, and integration outbox.</p>
+            <ul class="feature-list">
+              <li>Granular permission registry</li>
+              <li>Theme customization</li>
+              <li>Outbox event monitoring</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
 
+    <!-- Showcase carousel -->
+    <section id="showcase" class="section">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-kicker">Product tour</p>
+          <h2 class="section-title">See the interface teams actually use</h2>
+          <p class="section-sub">
+            From executive dashboards to cashier checkout—NATS is designed for daily operations,
+            not just configuration screens.
+          </p>
+        </div>
+        <div class="showcase">
+          <div class="carousel" data-carousel role="region" aria-roledescription="carousel" aria-label="Application screenshots">
+            <div class="carousel-viewport">
+              <figure class="carousel-slide is-active" aria-hidden="false">
+                <img src="assets/images/dashboard.jpg" width="1600" height="872" alt="NATS dashboard with revenue and activity widgets" loading="lazy" decoding="async">
+                <figcaption class="carousel-caption">Main dashboard — KPIs at a glance</figcaption>
+              </figure>
+              <figure class="carousel-slide" aria-hidden="true">
+                <img src="assets/images/accounting.jpg" width="1600" height="872" alt="Accounting module with journals and ledgers" loading="lazy" decoding="async">
+                <figcaption class="carousel-caption">Accounting — journals, ledgers, and COA</figcaption>
+              </figure>
+              <figure class="carousel-slide" aria-hidden="true">
+                <img src="assets/images/reports.jpg" width="1600" height="872" alt="Financial report screen in NATS" loading="lazy" decoding="async">
+                <figcaption class="carousel-caption">Financial reports — export-ready insights</figcaption>
+              </figure>
+              <figure class="carousel-slide" aria-hidden="true">
+                <img src="assets/images/pos.jpg" width="1600" height="872" alt="Point of sale cashier interface" loading="lazy" decoding="async">
+                <figcaption class="carousel-caption">POS — fast retail checkout experience</figcaption>
+              </figure>
+            </div>
+            <div class="carousel-controls">
+              <button type="button" class="carousel-btn" data-carousel-prev aria-label="Previous slide">‹</button>
+              <div class="carousel-dots" role="tablist" aria-label="Select slide">
+                <button type="button" class="carousel-dot" role="tab" aria-selected="true" aria-label="Slide 1"></button>
+                <button type="button" class="carousel-dot" role="tab" aria-selected="false" aria-label="Slide 2"></button>
+                <button type="button" class="carousel-dot" role="tab" aria-selected="false" aria-label="Slide 3"></button>
+                <button type="button" class="carousel-dot" role="tab" aria-selected="false" aria-label="Slide 4"></button>
+              </div>
+              <button type="button" class="carousel-btn" data-carousel-next aria-label="Next slide">›</button>
+            </div>
+          </div>
+          <div class="showcase-copy">
+            <h3>Why teams choose NATS</h3>
+            <p>
+              Proprietary ERPs often force trade-offs between cost, customization, and data ownership.
+              NATS is built for organizations that want modern UX and full control of their stack.
+            </p>
+            <ul class="advantage-list">
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>True open source (MIT)</strong> — self-host, audit, and extend without licensing surprises.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Modular but connected</strong> — sales, inventory, cash, and GL stay in sync automatically.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Modern developer stack</strong> — TypeScript, Next.js App Router, Prisma, and Vitest tests.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Bilingual ready</strong> — English and Indonesian via next-intl from day one.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Deploy your way</strong> — local Node, Docker Compose, or your own infrastructure.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live preview -->
+    <section id="demo" class="section section-alt">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-kicker">Interactive preview</p>
+          <h2 class="section-title">Explore a live UI mock of key modules</h2>
+          <p class="section-sub">
+            Switch modules below for a lightweight preview of how NATS surfaces operational data.
+            For full functionality, install the app locally.
+          </p>
+        </div>
+        <div class="demo-panel" data-demo>
+          <div class="demo-toolbar" role="tablist" aria-label="Preview modules">
+            <button type="button" class="demo-tab" role="tab" data-demo-tab="dashboard" aria-selected="true">Dashboard</button>
+            <button type="button" class="demo-tab" role="tab" data-demo-tab="accounting" aria-selected="false">Accounting</button>
+            <button type="button" class="demo-tab" role="tab" data-demo-tab="inventory" aria-selected="false">Inventory</button>
+            <button type="button" class="demo-tab" role="tab" data-demo-tab="pos" aria-selected="false">POS</button>
+          </div>
+          <div class="demo-body">
+            <aside class="demo-sidebar" aria-hidden="true">
+              <div class="logo"><span class="brand-mark">N</span> NATS</div>
+              <div class="demo-nav-item active" data-demo-nav="dashboard">Dashboard</div>
+              <div class="demo-nav-item" data-demo-nav="accounting">Accounting</div>
+              <div class="demo-nav-item" data-demo-nav="inventory">Inventory</div>
+              <div class="demo-nav-item" data-demo-nav="pos">Point of Sale</div>
+              <div class="demo-nav-item">Sales</div>
+              <div class="demo-nav-item">HR</div>
+            </aside>
+            <div class="demo-main">
+              <h3 class="mt-0" data-demo-title style="margin-top:0;margin-bottom:1rem;font-size:1.1rem;">Dashboard Overview</h3>
+              <div class="demo-kpis" data-demo-kpis></div>
+              <div class="demo-chart" data-demo-chart aria-hidden="true"></div>
+              <p class="demo-note">Illustrative preview only — figures are sample data for demonstration.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Technical overview -->
+    <section id="tech" class="section section-dark">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-kicker">Technical overview</p>
+          <h2 class="section-title">Architecture built for clarity and scale</h2>
+          <p class="section-sub">
+            NATS uses a modern full-stack TypeScript architecture with clear module boundaries,
+            server actions, and a PostgreSQL system of record.
+          </p>
+        </div>
+        <div class="tech-grid">
+          <div class="tech-card">
+            <h3>Technology stack</h3>
+            <ul class="stack-list">
+              <li><span>Framework</span><strong>Next.js 16 (App Router)</strong></li>
+              <li><span>UI</span><strong>React 19 + Tailwind CSS 4</strong></li>
+              <li><span>Language</span><strong>TypeScript</strong></li>
+              <li><span>ORM / DB</span><strong>Prisma 7 + PostgreSQL</strong></li>
+              <li><span>Auth &amp; RBAC</span><strong>Session + permission registry</strong></li>
+              <li><span>i18n</span><strong>next-intl (EN / ID)</strong></li>
+              <li><span>AI</span><strong>LangChain / OpenAI / OpenRouter</strong></li>
+              <li><span>Testing</span><strong>Vitest + Testing Library</strong></li>
+              <li><span>Docs &amp; PDFs</span><strong>@react-pdf/renderer</strong></li>
+            </ul>
+          </div>
+          <div class="req-card">
+            <h3>System requirements</h3>
+            <ul class="req-list">
+              <li><strong>Node.js</strong> 20.x or newer</li>
+              <li><strong>PostgreSQL</strong> 15+ (local or managed)</li>
+              <li><strong>npm</strong> (bundled with Node) or compatible package manager</li>
+              <li><strong>Git</strong> for source control</li>
+              <li><strong>Docker</strong> optional for Compose-based deploy</li>
+              <li><strong>Browser</strong> modern Chromium, Firefox, or Safari</li>
+              <li><strong>RAM</strong> 4 GB+ recommended for local dev</li>
+            </ul>
+            <div class="pill-row" aria-label="Supported platforms">
+              <span class="pill">macOS</span>
+              <span class="pill">Linux</span>
+              <span class="pill">Windows (WSL)</span>
+              <span class="pill">Docker</span>
+              <span class="pill">Self-hosted</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="arch-grid" style="margin-top:1.75rem;">
+          <article class="arch-card">
+            <div class="num">1</div>
+            <h3>Presentation</h3>
+            <p>Locale-aware App Router pages, shadcn/ui components, and responsive layouts.</p>
+          </article>
+          <article class="arch-card">
+            <div class="num">2</div>
+            <h3>Application</h3>
+            <p>Server actions and services enforce validation, permissions, and domain rules.</p>
+          </article>
+          <article class="arch-card">
+            <div class="num">3</div>
+            <h3>Domain modules</h3>
+            <p>Accounting, inventory, sales, POS, HR, production, assets, and budgeting services.</p>
+          </article>
+          <article class="arch-card">
+            <div class="num">4</div>
+            <h3>Data &amp; jobs</h3>
+            <p>PostgreSQL via Prisma, file storage drivers, and outbox workers for integrations.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick start teaser -->
+    <section id="quickstart" class="section">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-kicker">Get started</p>
+          <h2 class="section-title">From clone to running app in minutes</h2>
+          <p class="section-sub">Follow the full guide for configuration details, seed data, and Docker options.</p>
+        </div>
+        <div class="docs-content" style="max-width:48rem;margin:0 auto;">
+          <pre><code>git clone https://github.com/maziyank/nats.git
+cd nats
+npm install
+cp .env.example .env
+# set DATABASE_URL, then:
+npx prisma generate
+npx prisma migrate dev
+npx prisma db seed
+npm run dev</code></pre>
+          <p class="text-center" style="margin-bottom:0;">
+            Open <code>http://localhost:3000</code> and sign in with the seeded admin credentials.
+          </p>
+          <div class="cta-actions" style="margin-top:1.25rem;">
+            <a class="btn btn-primary" href="usage.html">Full setup &amp; usage guide</a>
+            <a class="btn btn-secondary" href="contribute.html">Become a contributor</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="section">
+      <div class="container">
+        <div class="cta-band">
+          <h2>Own your ERP stack. Ship improvements with the community.</h2>
+          <p>
+            Star the repository, try the install path, and open issues or pull requests to shape the roadmap.
+          </p>
+          <div class="cta-actions">
+            <a class="btn btn-secondary btn-lg" href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">Star on GitHub</a>
+            <a class="btn btn-ghost btn-lg" href="usage.html">Read the docs</a>
+            <a class="btn btn-ghost btn-lg" href="contribute.html">Contribution guide</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html" style="color:#fff;">
+            <span class="brand-mark" aria-hidden="true">N</span>
+            <span>NATS</span>
+          </a>
+          <p>Open-source enterprise resource planning for teams that want modern tooling without vendor lock-in.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#showcase">Showcase</a></li>
+            <li><a href="#tech">Technology</a></li>
+            <li><a href="#demo">Live preview</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="usage.html">Setup &amp; usage</a></li>
+            <li><a href="contribute.html">Contribute</a></li>
+            <li><a href="https://github.com/maziyank/nats/blob/main/CHANGELOG.md" rel="noopener noreferrer" target="_blank">Changelog</a></li>
+            <li><a href="https://github.com/maziyank/nats/blob/main/LICENSE" rel="noopener noreferrer" target="_blank">MIT License</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <ul>
+            <li><a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a></li>
+            <li><a href="https://github.com/maziyank/nats/issues" rel="noopener noreferrer" target="_blank">Issues</a></li>
+            <li><a href="https://github.com/maziyank/nats/discussions" rel="noopener noreferrer" target="_blank">Discussions</a></li>
+            <li><a href="https://github.com/maziyank/nats/pulls" rel="noopener noreferrer" target="_blank">Pull requests</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span data-year>2026</span> NATS Contributors. MIT License.</span>
+        <span>Hosted on GitHub Pages from <code style="color:#cbd5e1;">/docs</code></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js" defer></script>
 </body>
 </html>

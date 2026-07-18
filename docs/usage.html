@@ -1,228 +1,442 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dokumentasi NATS — Panduan Penggunaan</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        border: "rgb(209, 213, 219)",
-                        input: "rgb(209, 213, 219)",
-                        ring: "rgb(99, 102, 241)",
-                        background: "rgb(248, 250, 252)",
-                        foreground: "rgb(30, 41, 59)",
-                        primary: {
-                            DEFAULT: "rgb(99, 102, 241)",
-                            foreground: "rgb(255, 255, 255)",
-                        },
-                        secondary: {
-                            DEFAULT: "rgb(229, 231, 235)",
-                            foreground: "rgb(55, 65, 81)",
-                        },
-                        destructive: {
-                            DEFAULT: "rgb(239, 68, 68)",
-                            foreground: "rgb(255, 255, 255)",
-                        },
-                        muted: {
-                            DEFAULT: "rgb(243, 244, 246)",
-                            foreground: "rgb(107, 114, 128)",
-                        },
-                        accent: {
-                            DEFAULT: "rgb(224, 231, 255)",
-                            foreground: "rgb(55, 65, 81)",
-                        },
-                        popover: {
-                            DEFAULT: "rgb(255, 255, 255)",
-                            foreground: "rgb(30, 41, 59)",
-                        },
-                        card: {
-                            DEFAULT: "rgb(255, 255, 255)",
-                            foreground: "rgb(30, 41, 59)",
-                        },
-                    },
-                    borderRadius: {
-                        lg: "0.5rem",
-                        md: "calc(0.5rem - 2px)",
-                        sm: "calc(0.5rem - 4px)",
-                    },
-                    fontFamily: {
-                        sans: ["Inter", "sans-serif"],
-                    },
-                },
-            },
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        pre { background: #1e293b; color: #f8fafc; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 1rem 0; font-size: 0.875rem; border: 1px solid rgba(255,255,255,0.1); }
-        code { font-family: 'Fira Code', monospace; font-size: 0.9em; }
-        .prose h2 { margin-top: 2.5rem; margin-bottom: 1rem; font-weight: 700; font-size: 1.5rem; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; letter-spacing: -0.025em; }
-        .prose h3 { margin-top: 2rem; margin-bottom: 0.75rem; font-weight: 600; font-size: 1.25rem; color: #1e293b; letter-spacing: -0.025em; }
-        .prose p { margin-bottom: 1rem; line-height: 1.7; color: #475569; }
-        .prose ul { margin-bottom: 1rem; list-style-type: disc; padding-left: 1.5rem; }
-        .prose li { margin-bottom: 0.5rem; color: #475569; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Install, configure, and operate NATS ERP. Complete setup guide covering Node.js, PostgreSQL, Docker, seed data, and core module workflows.">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Setup &amp; Usage Guide — NATS ERP</title>
+  <link rel="canonical" href="https://maziyank.github.io/nats/usage.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='white' font-family='system-ui' font-size='16' font-weight='700'%3EN%3C/text%3E%3C/svg%3E">
 </head>
-<body class="bg-background text-foreground antialiased">
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
 
-    <!-- Navigation -->
-    <nav class="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div class="container mx-auto flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center gap-2">
-                <a href="index.html" class="flex items-center gap-2">
-                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">N</div>
-                    <span class="text-xl font-bold tracking-tight">NATS</span>
-                </a>
-            </div>
-            <div class="flex items-center gap-6">
-                <a href="index.html" class="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">Home</a>
-                <a href="https://github.com/maziyank/nats" class="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">GitHub</a>
-            </div>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html" aria-label="NATS home">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span>NATS</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="index.html#features">Features</a></li>
+          <li><a href="usage.html" aria-current="page">Docs</a></li>
+          <li><a href="contribute.html">Contribute</a></li>
+          <li><a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a></li>
+        </ul>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-primary btn-sm" href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">Clone Repo</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
+          <span aria-hidden="true">☰</span>
+        </button>
+      </div>
+    </div>
+    <div id="mobile-nav" class="nav-mobile" aria-hidden="true">
+      <a href="index.html">Home</a>
+      <a href="usage.html" aria-current="page">Docs</a>
+      <a href="contribute.html">Contribute</a>
+      <a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a>
+    </div>
+  </header>
+
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Setup &amp; usage</span>
+      </nav>
+    </div>
+  </div>
+
+  <main id="main" class="container docs-layout">
+    <aside class="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#install">Installation</a></li>
+        <li><a href="#configuration">Configuration</a></li>
+        <li><a href="#database">Database setup</a></li>
+        <li><a href="#run">Run the app</a></li>
+        <li><a href="#docker">Docker deploy</a></li>
+        <li><a href="#first-login">First login</a></li>
+        <li><a href="#workflows">Core workflows</a></li>
+        <li><a href="#accounting">Accounting</a></li>
+        <li><a href="#inventory">Inventory</a></li>
+        <li><a href="#sales-purchase">Sales &amp; purchasing</a></li>
+        <li><a href="#pos">Point of sale</a></li>
+        <li><a href="#hr">HR &amp; payroll</a></li>
+        <li><a href="#ai">AI assistant</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+      </ul>
+    </aside>
+
+    <article class="docs-content">
+      <p class="badge" style="margin-bottom:0.75rem;">Documentation · v1.0.0-alpha</p>
+      <h1>Setup &amp; usage guide</h1>
+      <p class="docs-lead">
+        This guide walks you from a clean machine to a running NATS instance, then through the
+        primary business workflows you will use day to day.
+      </p>
+
+      <section id="prerequisites">
+        <h2>Prerequisites</h2>
+        <p>Install the following before you begin:</p>
+        <ul>
+          <li><strong>Node.js 20.x+</strong> (LTS recommended)</li>
+          <li><strong>npm</strong> (ships with Node) or a compatible package manager</li>
+          <li><strong>PostgreSQL 15+</strong> running locally or reachable over the network</li>
+          <li><strong>Git</strong></li>
+          <li><strong>Docker &amp; Docker Compose</strong> (optional, for containerized runs)</li>
+        </ul>
+        <div class="callout callout-info">
+          <strong>Supported platforms</strong>
+          macOS, Linux, and Windows via WSL2 are supported for local development. Production is intended for Linux containers or VMs.
         </div>
-    </nav>
+      </section>
 
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div class="flex flex-col lg:flex-row gap-12">
-            
-            <!-- Sidebar Navigation -->
-            <aside class="lg:w-64 flex-shrink-0">
-                <div class="sticky top-24 space-y-8">
-                    <div class="space-y-4">
-                        <h4 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Mulai Cepat</h4>
-                        <ul class="space-y-1">
-                            <li><a href="#instalasi" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-medium transition-all p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <i class="fas fa-download w-4"></i> Instalasi
-                            </a></li>
-                            <li><a href="#konfigurasi" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-medium transition-all p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <i class="fas fa-cog w-4"></i> Konfigurasi
-                            </a></li>
-                            <li><a href="#database" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-medium transition-all p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <i class="fas fa-database w-4"></i> Persiapan Database
-                            </a></li>
-                        </ul>
-                    </div>
-                    <div class="space-y-4">
-                        <h4 class="text-xs font-bold text-muted-foreground uppercase tracking-wider">Modul</h4>
-                        <ul class="space-y-1">
-                            <li><a href="#accounting" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-medium transition-all p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <i class="fas fa-calculator w-4"></i> Accounting
-                            </a></li>
-                            <li><a href="#inventory" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-medium transition-all p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <i class="fas fa-boxes-stacked w-4"></i> Inventory
-                            </a></li>
-                            <li><a href="#sales" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-medium transition-all p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <i class="fas fa-shopping-cart w-4"></i> Sales & Purchasing
-                            </a></li>
-                            <li><a href="#pos" class="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary font-medium transition-all p-2 rounded-md hover:bg-accent hover:text-accent-foreground">
-                                <i class="fas fa-cash-register w-4"></i> Point of Sale
-                            </a></li>
-                        </ul>
-                    </div>
-                     
-                </div>
-            </aside>
-
-            <!-- Content -->
-            <main class="flex-1 max-w-4xl prose prose-slate">
-                <div class="mb-12">
-                    <div class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary/10 text-primary hover:bg-primary/20 mb-4">
-                        Dokumentasi Resmi v1.0
-                    </div>
-                    <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 mb-4 lg:text-5xl">Panduan Penggunaan NATS</h1>
-                    <p class="text-xl text-muted-foreground leading-relaxed">Selamat datang di dokumentasi resmi NATS ERP. Ikuti panduan ini untuk menginstal dan menjalankan solusi IT ekonomis ini di lingkungan Anda.</p>
-                </div>
-                <section id="instalasi">
-                    <h2>Instalasi</h2>
-                    <p>NATS memerlukan Node.js versi 20.x atau lebih baru. Pastikan Anda sudah menginstal Git dan PostgreSQL sebelum memulai.</p>
-                    
-                    <h3>Langkah 1: Clone Repository</h3>
-                    <pre><code>git clone https://github.com/maziyank/nats.git
+      <section id="install">
+        <h2>Installation</h2>
+        <h3>1. Clone the repository</h3>
+        <pre><code>git clone https://github.com/maziyank/nats.git
 cd nats</code></pre>
 
-                    <h3>Langkah 2: Install Dependensi</h3>
-                    <pre><code>npm install</code></pre>
-                </section>
+        <h3>2. Install dependencies</h3>
+        <pre><code>npm install</code></pre>
+        <p>
+          This installs Next.js, React, Prisma, UI libraries, AI clients, and development tooling
+          defined in <code>package.json</code>.
+        </p>
+      </section>
 
-                <section id="konfigurasi">
-                    <h2>Konfigurasi</h2>
-                    <p>Salin file <code>.env.example</code> menjadi <code>.env</code> dan sesuaikan nilai-nilainya.</p>
-                    <pre><code>cp .env.example .env</code></pre>
-                    <p>Pastikan variabel <code>DATABASE_URL</code> mengarah ke instance PostgreSQL Anda:</p>
-                    <pre><code>DATABASE_URL="postgresql://user:password@localhost:5432/nats"</code></pre>
-                </section>
+      <section id="configuration">
+        <h2>Configuration</h2>
+        <p>Copy the example environment file and edit values for your machine:</p>
+        <pre><code>cp .env.example .env</code></pre>
 
-                <section id="database">
-                    <h2>Persiapan Database</h2>
-                    <h3>1. Buat Database</h3>
-                    <pre><code>psql -U postgres -c "CREATE DATABASE nats;"</code></pre>
-
-                    <h3>2. Migrasi Schema</h3>
-                    <pre><code>npx prisma generate
-npx prisma migrate dev --name init</code></pre>
-
-                    <h3>3. Seed Data Awal</h3>
-                    <p>Anda dapat memilih antara seeding lengkap untuk pengujian atau seeding minimal untuk mulai dari awal.</p>
-                    <p><strong>Opsi A: Lengkap (Disarankan untuk Demo)</strong></p>
-                    <pre><code>npx prisma db seed</code></pre>
-                    <p><strong>Opsi B: Minimal (Clean Start)</strong></p>
-                    <pre><code>npx prisma:seed:minimal</code></pre>
-                </section>
-
-                <section id="accounting">
-                    <h2>Modul Accounting</h2>
-                    <p>Modul akuntansi di NATS memungkinkan Anda mengelola seluruh siklus keuangan perusahaan secara otomatis.</p>
-                    <ul>
-                        <li><strong>Chart of Accounts (COA):</strong> Atur struktur akun keuangan Anda.</li>
-                        <li><strong>Jurnal Umum:</strong> Catat transaksi manual dengan sistem double-entry.</li>
-                        <li><strong>Buku Besar:</strong> Lacak mutasi setiap akun secara detail.</li>
-                        <li><strong>Laporan Keuangan:</strong> Neraca, Laba Rugi, dan Arus Kas tersedia secara instan.</li>
-                    </ul>
-                </section>
-
-                <section id="inventory">
-                    <h2>Modul Inventory</h2>
-                    <p>Kelola persediaan barang Anda dengan fitur manajemen gudang yang canggih.</p>
-                    <ul>
-                        <li><strong>Manajemen Produk:</strong> Tambahkan produk dengan varian dan kategori.</li>
-                        <li><strong>Multi-Warehouse:</strong> Lacak stok di berbagai lokasi gudang.</li>
-                        <li><strong>Mutasi Barang:</strong> Catat perpindahan stok antar gudang atau penyesuaian stok.</li>
-                    </ul>
-                </section>
-
-                <section id="pos">
-                    <h2>Point of Sale (POS)</h2>
-                    <p>Interface kasir yang cepat untuk transaksi retail harian.</p>
-                    <p>Buka menu POS untuk mulai melakukan penjualan. Sistem mendukung shortcut keyboard, pencarian produk cepat, dan integrasi dengan printer thermal untuk cetak struk.</p>
-                </section>
-
-                <div class="mt-16 p-8 rounded-lg border bg-primary/5 text-primary border-primary/20">
-                    <h3 class="text-primary mt-0 mb-2 font-bold tracking-tight">Butuh Bantuan Lebih Lanjut?</h3>
-                    <p class="text-primary/80 mb-0">Jika Anda menemui masalah dalam instalasi atau penggunaan, silakan buka <a href="https://github.com/maziyank/nats/issues" class="font-bold underline hover:text-primary transition-colors">Issue di GitHub</a> atau hubungi tim pengembang.</p>
-                </div>
-            </main>
+        <p>Minimum variables used by the application:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Variable</th>
+                <th>Purpose</th>
+                <th>Example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>DATABASE_URL</code></td>
+                <td>PostgreSQL connection string</td>
+                <td><code>postgresql://postgres:@localhost:5432/nats</code></td>
+              </tr>
+              <tr>
+                <td><code>STORAGE_DRIVER</code></td>
+                <td>File storage backend</td>
+                <td><code>local</code></td>
+              </tr>
+              <tr>
+                <td><code>SESSION_SECRET</code></td>
+                <td>Session signing secret (change in production)</td>
+                <td>long random string</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+        <div class="callout callout-warn">
+          <strong>Security note</strong>
+          Never commit real <code>.env</code> files. Rotate <code>SESSION_SECRET</code> for any shared or production environment.
+        </div>
+      </section>
+
+      <section id="database">
+        <h2>Database setup</h2>
+        <h3>1. Create the database</h3>
+        <pre><code>psql -U postgres -c "CREATE DATABASE nats;"</code></pre>
+
+        <h3>2. Generate Prisma client &amp; migrate</h3>
+        <pre><code>npx prisma generate
+npx prisma migrate dev</code></pre>
+        <p>
+          On an existing deployment, prefer <code>npx prisma migrate deploy</code> so only applied migrations run.
+        </p>
+
+        <h3>3. Seed initial data</h3>
+        <p>Choose one seed profile:</p>
+        <p><strong>Option A — Complete seed (recommended for demos &amp; exploration)</strong></p>
+        <pre><code>npx prisma db seed</code></pre>
+        <p>Includes sample products, transactions, and bulk demo data.</p>
+
+        <p><strong>Option B — Minimal seed (clean start)</strong></p>
+        <pre><code>npm run prisma:seed:minimal</code></pre>
+        <p>Includes company profile, chart of accounts, and default roles/users only.</p>
+      </section>
+
+      <section id="run">
+        <h2>Run the application</h2>
+        <h3>Development server</h3>
+        <pre><code>npm run dev</code></pre>
+        <p>
+          Visit <a href="http://localhost:3000" rel="noopener noreferrer" target="_blank">http://localhost:3000</a>.
+          The dev script frees port <code>3000</code> if needed before starting Next.js.
+        </p>
+
+        <h3>Production build (local)</h3>
+        <pre><code>npm run build
+npm run start</code></pre>
+      </section>
+
+      <section id="docker">
+        <h2>Docker deployment</h2>
+        <p>Use Compose when you want app + PostgreSQL together:</p>
+        <pre><code>docker-compose up -d</code></pre>
+        <p>Then initialize the database inside the app container:</p>
+        <pre><code>docker-compose exec app npx prisma migrate deploy
+# Full demo data
+docker-compose exec app npx prisma db seed
+# OR minimal
+docker-compose exec app npm run prisma:seed:minimal</code></pre>
+        <p>
+          Default Compose services expose the app on port <code>3000</code> and Postgres on <code>5432</code>
+          with user/password/db <code>nats</code> / <code>nats_password</code> / <code>nats</code>.
+        </p>
+      </section>
+
+      <section id="first-login">
+        <h2>First login</h2>
+        <p>After seeding, use these default accounts (password for all: <code>password123</code>):</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Super Admin</td>
+                <td><code>admin@example.com</code></td>
+                <td>Admin User</td>
+              </tr>
+              <tr>
+                <td>Accountant</td>
+                <td><code>accountant@example.com</code></td>
+                <td>John Accountant</td>
+              </tr>
+              <tr>
+                <td>Cashier</td>
+                <td><code>cashier@example.com</code></td>
+                <td>Jane Cashier</td>
+              </tr>
+              <tr>
+                <td>Manager</td>
+                <td><code>manager@example.com</code></td>
+                <td>Mike Manager</td>
+              </tr>
+              <tr>
+                <td>Merchant</td>
+                <td><code>merchant@example.com</code></td>
+                <td>Sample Merchant</td>
+              </tr>
+              <tr>
+                <td>Customer</td>
+                <td><code>customer@example.com</code></td>
+                <td>Sample Customer</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout callout-warn">
+          <strong>Change credentials immediately</strong>
+          Seed passwords are for local demos only. Create real users and disable sample accounts before any production use.
+        </div>
+      </section>
+
+      <section id="workflows">
+        <h2>Core workflows</h2>
+        <p>Recommended first-run path after login as Super Admin:</p>
+        <ol class="steps">
+          <li>
+            <strong>Company setup</strong> — Open Admin → Settings and confirm company profile, document numbering, and storage.
+          </li>
+          <li>
+            <strong>Roles &amp; users</strong> — Review Admin → Roles permissions, then invite or create users for each department.
+          </li>
+          <li>
+            <strong>Master data</strong> — Create contacts, departments, warehouses, product categories, and products.
+          </li>
+          <li>
+            <strong>Opening balances</strong> — Configure beginning balances and default GL accounts under Accounting configuration.
+          </li>
+          <li>
+            <strong>Operate</strong> — Run purchasing → inventory receive → sales/POS → cash/bank → financial reports.
+          </li>
+        </ol>
+      </section>
+
+      <section id="accounting">
+        <h2>Accounting module</h2>
+        <p>Use Accounting for the full financial cycle:</p>
+        <ul>
+          <li><strong>Chart of accounts</strong> — Structure asset, liability, equity, income, and expense accounts.</li>
+          <li><strong>Journal entries</strong> — Post double-entry journals with validation and attachments/notes where available.</li>
+          <li><strong>General ledger</strong> — Drill into account activity by period.</li>
+          <li><strong>Trial balance</strong> — Verify debits and credits before period close.</li>
+          <li><strong>Reports</strong> — Profit &amp; loss, balance sheet, cash flow, equity, ratios, tax summary, and validation tools.</li>
+        </ul>
+        <div class="callout callout-success">
+          <strong>Tip</strong>
+          Many operational documents (sales, purchases, cash, payroll) post into GL automatically when configured with default accounts—keep those mappings accurate.
+        </div>
+      </section>
+
+      <section id="inventory">
+        <h2>Inventory module</h2>
+        <ul>
+          <li><strong>Products</strong> — SKU, pricing, images, labels, and category assignment.</li>
+          <li><strong>Warehouses &amp; locations</strong> — Multi-site stock with location detail.</li>
+          <li><strong>Movements</strong> — Transfers, adjustments, and batch movement forms.</li>
+          <li><strong>Pricing</strong> — Individual and global discount strategies.</li>
+          <li><strong>Reports</strong> — Low stock, slow moving, valuation, margin, and stock monitoring.</li>
+        </ul>
+      </section>
+
+      <section id="sales-purchase">
+        <h2>Sales &amp; purchasing</h2>
+        <h3>Sales (order-to-cash)</h3>
+        <ol>
+          <li>Create a sales order for a customer contact.</li>
+          <li>Ship goods (shipment document updates inventory).</li>
+          <li>Issue a sales invoice and record customer payments.</li>
+          <li>Handle returns when needed; review AR aging and customer recap reports.</li>
+        </ol>
+        <h3>Purchasing (procure-to-pay)</h3>
+        <ol>
+          <li>Create a purchase order for a vendor.</li>
+          <li>Receive goods into a warehouse.</li>
+          <li>Record the purchase invoice and vendor payment.</li>
+          <li>Monitor AP aging, vendor recap, and tax summaries.</li>
+        </ol>
+      </section>
+
+      <section id="pos">
+        <h2>Point of sale</h2>
+        <ol>
+          <li>Open a POS session for a warehouse (optionally tag a department).</li>
+          <li>Scan or search products, apply discounts, hold/resume orders.</li>
+          <li>Checkout and print or download the receipt PDF.</li>
+          <li>Close the session and reconcile cash drawer balances.</li>
+        </ol>
+        <p>
+          POS is optimized for speed: product grid, numpad, and session controls keep cashiers productive
+          during peak hours.
+        </p>
+      </section>
+
+      <section id="hr">
+        <h2>HR &amp; payroll</h2>
+        <ul>
+          <li><strong>Employees</strong> — Maintain employee master records and profiles.</li>
+          <li><strong>Attendance &amp; leave</strong> — Track presence and time-off requests.</li>
+          <li><strong>Salary structures</strong> — Define components and history per employee.</li>
+          <li><strong>Payroll periods</strong> — Open a period, process slips, and print payslips.</li>
+        </ul>
+      </section>
+
+      <section id="ai">
+        <h2>AI assistant</h2>
+        <p>
+          Admins can configure AI providers under Admin → Settings → AI. The chat interface uses
+          configured providers (for example OpenAI or OpenRouter) to assist with business questions.
+        </p>
+        <div class="callout callout-info">
+          <strong>API keys</strong>
+          Provider keys and model settings are environment/admin configuration concerns—do not hardcode secrets in the repository.
+        </div>
+      </section>
+
+      <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+        <ul>
+          <li>
+            <strong>Database connection errors</strong> — Verify PostgreSQL is running and <code>DATABASE_URL</code> matches host, port, user, password, and database name.
+          </li>
+          <li>
+            <strong>Prisma client out of date</strong> — Re-run <code>npx prisma generate</code> after pulling schema changes.
+          </li>
+          <li>
+            <strong>Port 3000 already in use</strong> — Stop the other process or let <code>npm run dev</code> free the port.
+          </li>
+          <li>
+            <strong>Missing seed users</strong> — Confirm you ran a seed command and check for errors in the terminal output.
+          </li>
+          <li>
+            <strong>Permission denied in UI</strong> — Sign in with a role that has the required permission, or adjust Admin → Roles.
+          </li>
+        </ul>
+        <div class="callout callout-info">
+          <strong>Still stuck?</strong>
+          Open an issue on GitHub with OS, Node version, exact command, and full error output:
+          <a href="https://github.com/maziyank/nats/issues" rel="noopener noreferrer" target="_blank">github.com/maziyank/nats/issues</a>.
+        </div>
+        <p>
+          Next: read the <a href="contribute.html">contribution guide</a> if you want to fix bugs or add features,
+          or return to the <a href="index.html">product overview</a>.
+        </p>
+      </section>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html" style="color:#fff;">
+            <span class="brand-mark" aria-hidden="true">N</span>
+            <span>NATS</span>
+          </a>
+          <p>Open-source ERP documentation for installation, configuration, and daily workflows.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Docs</h4>
+          <ul>
+            <li><a href="usage.html">Setup &amp; usage</a></li>
+            <li><a href="contribute.html">Contribute</a></li>
+            <li><a href="index.html#tech">Technology</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="index.html#features">Features</a></li>
+            <li><a href="index.html#demo">Live preview</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <ul>
+            <li><a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a></li>
+            <li><a href="https://github.com/maziyank/nats/issues" rel="noopener noreferrer" target="_blank">Issues</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span data-year>2026</span> NATS Contributors. MIT License.</span>
+        <span>Hosted on GitHub Pages from <code style="color:#cbd5e1;">/docs</code></span>
+      </div>
     </div>
+  </footer>
 
-    <!-- Footer -->
-    <footer class="border-t bg-slate-900 text-slate-400 py-12 mt-24">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-8">
-                <div class="flex items-center gap-2">
-                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">N</div>
-                    <span class="text-xl font-bold text-white tracking-tight">NATS</span>
-                </div>
-                <div class="text-sm">
-                    &copy; 2026 NATS ERP System.
-                </div>
-            </div>
-        </div>
-    </footer>
-
+  <script src="assets/js/main.js" defer></script>
 </body>
 </html>

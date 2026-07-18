@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Contribute to NATS ERP: fork, local setup, pull requests, code of conduct, coding standards, issue guidelines, and contribution pathways.">
+  <meta name="theme-color" content="#4f46e5">
+  <title>Contribution Guide — NATS ERP</title>
+  <link rel="canonical" href="https://maziyank.github.io/nats/contribute.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='white' font-family='system-ui' font-size='16' font-weight='700'%3EN%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html" aria-label="NATS home">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span>NATS</span>
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="index.html#features">Features</a></li>
+          <li><a href="usage.html">Docs</a></li>
+          <li><a href="contribute.html" aria-current="page">Contribute</a></li>
+          <li><a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a></li>
+        </ul>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-primary btn-sm" href="https://github.com/maziyank/nats/fork" rel="noopener noreferrer" target="_blank">Fork on GitHub</a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
+          <span aria-hidden="true">☰</span>
+        </button>
+      </div>
+    </div>
+    <div id="mobile-nav" class="nav-mobile" aria-hidden="true">
+      <a href="index.html">Home</a>
+      <a href="usage.html">Docs</a>
+      <a href="contribute.html" aria-current="page">Contribute</a>
+      <a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a>
+    </div>
+  </header>
+
+  <div class="page-hero">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="index.html">Home</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">Contribute</span>
+      </nav>
+    </div>
+  </div>
+
+  <main id="main" class="container docs-layout">
+    <aside class="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <ul>
+        <li><a href="#welcome">Welcome</a></li>
+        <li><a href="#pathways">Contribution pathways</a></li>
+        <li><a href="#code-of-conduct">Code of conduct</a></li>
+        <li><a href="#dev-setup">Local development</a></li>
+        <li><a href="#workflow">Fork &amp; PR workflow</a></li>
+        <li><a href="#standards">Coding standards</a></li>
+        <li><a href="#testing">Testing</a></li>
+        <li><a href="#issues">Bugs &amp; features</a></li>
+        <li><a href="#docs-design">Docs &amp; design</a></li>
+        <li><a href="#credits">Contributors</a></li>
+      </ul>
+    </aside>
+
+    <article class="docs-content">
+      <p class="badge" style="margin-bottom:0.75rem;">Community · MIT License</p>
+      <h1>Contribution guide</h1>
+      <p class="docs-lead">
+        NATS thrives on community effort—code, documentation, design, and support all count.
+        This page explains how to contribute safely, consistently, and effectively.
+      </p>
+
+      <section id="welcome">
+        <h2>Welcome</h2>
+        <p>
+          Whether you are fixing a typo, reporting a bug, or implementing a new module feature,
+          thank you. Contributions are accepted under the project’s
+          <a href="https://github.com/maziyank/nats/blob/main/LICENSE" rel="noopener noreferrer" target="_blank">MIT License</a>.
+        </p>
+        <div class="callout callout-info">
+          <strong>Good first steps</strong>
+          Read the <a href="usage.html">setup guide</a>, browse open
+          <a href="https://github.com/maziyank/nats/issues" rel="noopener noreferrer" target="_blank">issues</a>,
+          and introduce yourself on a relevant ticket before large changes.
+        </div>
+      </section>
+
+      <section id="pathways">
+        <h2>Contribution pathways</h2>
+        <div class="pathway-grid">
+          <article class="pathway-card">
+            <h3>Code</h3>
+            <p>Bug fixes, features, refactors, tests, performance work, and dependency upgrades.</p>
+          </article>
+          <article class="pathway-card">
+            <h3>Documentation</h3>
+            <p>Improve this GitHub Pages site, README accuracy, inline docs, and onboarding clarity.</p>
+          </article>
+          <article class="pathway-card">
+            <h3>Design &amp; UX</h3>
+            <p>UI polish, accessibility improvements, theme work, and clearer empty/error states.</p>
+          </article>
+          <article class="pathway-card">
+            <h3>Community support</h3>
+            <p>Triage issues, reproduce bugs, answer questions, and help newcomers get unblocked.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="code-of-conduct">
+        <h2>Code of conduct</h2>
+        <p>We expect every interaction—issues, PRs, discussions, and reviews—to follow these norms:</p>
+        <ul>
+          <li><strong>Be respectful.</strong> Critique ideas and code, never people.</li>
+          <li><strong>Be inclusive.</strong> Welcome contributors of all backgrounds and experience levels.</li>
+          <li><strong>Be collaborative.</strong> Assume good intent, ask clarifying questions, and document decisions.</li>
+          <li><strong>Be responsible.</strong> Do not share secrets, customer data, or exploit details that could harm users.</li>
+          <li><strong>No harassment or discrimination</strong> of any kind. Maintainers may moderate or block abusive behavior.</li>
+        </ul>
+        <p>
+          Report conduct concerns privately to the repository maintainers via GitHub when possible.
+          Serious violations may result in contribution privileges being revoked.
+        </p>
+      </section>
+
+      <section id="dev-setup">
+        <h2>Local development environment</h2>
+        <ol class="steps">
+          <li>
+            <strong>Fork</strong> the repository on GitHub, then clone your fork:
+            <pre style="margin:0.75rem 0 0;"><code>git clone https://github.com/&lt;your-username&gt;/nats.git
+cd nats
+git remote add upstream https://github.com/maziyank/nats.git</code></pre>
+          </li>
+          <li>
+            <strong>Install toolchain</strong> — Node.js 20+, PostgreSQL 15+, Git.
+          </li>
+          <li>
+            <strong>Install packages &amp; env</strong>
+            <pre style="margin:0.75rem 0 0;"><code>npm install
+cp .env.example .env
+# edit DATABASE_URL and SESSION_SECRET</code></pre>
+          </li>
+          <li>
+            <strong>Prepare database</strong>
+            <pre style="margin:0.75rem 0 0;"><code>npx prisma generate
+npx prisma migrate dev
+npm run prisma:seed:minimal</code></pre>
+          </li>
+          <li>
+            <strong>Start dev server</strong>
+            <pre style="margin:0.75rem 0 0;"><code>npm run dev</code></pre>
+          </li>
+        </ol>
+        <p>
+          Full operational details live in the <a href="usage.html">setup &amp; usage guide</a>.
+        </p>
+      </section>
+
+      <section id="workflow">
+        <h2>Fork, branch, and pull request workflow</h2>
+        <h3>Branching</h3>
+        <ul>
+          <li>Create a topic branch from an up-to-date <code>main</code> (or the repository default branch).</li>
+          <li>Use descriptive names: <code>fix/pos-session-department</code>, <code>docs/pages-performance</code>, <code>feat/inventory-export</code>.</li>
+        </ul>
+        <pre><code>git fetch upstream
+git checkout main
+git merge upstream/main
+git checkout -b fix/short-description</code></pre>
+
+        <h3>Commits</h3>
+        <ul>
+          <li>Keep commits focused and reviewable.</li>
+          <li>Write clear messages that explain <em>why</em>, not only <em>what</em>.</li>
+          <li>Do not commit secrets, local env files, or large unrelated binaries.</li>
+        </ul>
+
+        <h3>Open a pull request</h3>
+        <ol>
+          <li>Push your branch to your fork.</li>
+          <li>Open a PR against the upstream default branch.</li>
+          <li>Fill in a summary, linked issues, test plan, and screenshots for UI changes.</li>
+          <li>Ensure CI (lint/tests) is green when available.</li>
+          <li>Respond to review feedback promptly; force-push rebased topic branches only when needed for cleanliness.</li>
+        </ol>
+        <div class="callout callout-success">
+          <strong>PR checklist</strong>
+          Linked issue · description of change · how to test · screenshots if UI · no secrets · tests or rationale for none.
+        </div>
+      </section>
+
+      <section id="standards">
+        <h2>Coding standards</h2>
+        <ul>
+          <li><strong>Language:</strong> TypeScript for application code; keep types honest and avoid <code>any</code> unless justified.</li>
+          <li><strong>Style:</strong> Follow existing ESLint configuration (<code>npm run lint</code>). Prefer project patterns over personal style.</li>
+          <li><strong>Architecture:</strong> Keep domain logic in services/modules; keep server actions thin; reuse validation schemas.</li>
+          <li><strong>UI:</strong> Use existing components under <code>components/ui</code> and layout primitives before inventing new ones.</li>
+          <li><strong>i18n:</strong> User-facing strings should go through message catalogs (<code>messages/en.json</code>, <code>messages/id.json</code>). Run <code>npm run i18n:validate</code> when adding keys.</li>
+          <li><strong>Permissions:</strong> New privileged operations must use the permission registry / protected action helpers.</li>
+          <li><strong>Database:</strong> Schema changes require Prisma migrations; never edit production data ad hoc in PRs.</li>
+          <li><strong>Security:</strong> Validate inputs, avoid leaking secrets in logs, and consider multi-tenant/company boundaries.</li>
+        </ul>
+      </section>
+
+      <section id="testing">
+        <h2>Testing expectations</h2>
+        <ul>
+          <li>Add or update unit/integration tests for non-trivial logic (Vitest is the project runner).</li>
+          <li>Run targeted tests while developing, and a broader suite before requesting review:</li>
+        </ul>
+        <pre><code>npm run lint
+npm test
+npm run i18n:validate</code></pre>
+        <p>
+          For UI-heavy changes, include manual steps in the PR (roles used, pages visited, expected results).
+        </p>
+      </section>
+
+      <section id="issues">
+        <h2>Reporting bugs, requesting features, and filing tickets</h2>
+        <h3>Bug reports</h3>
+        <p>Include enough detail for a stranger to reproduce:</p>
+        <ul>
+          <li>NATS version / commit SHA and deployment method (local, Docker)</li>
+          <li>OS, Node.js version, browser (if UI)</li>
+          <li>Exact steps to reproduce</li>
+          <li>Expected vs actual behavior</li>
+          <li>Logs, stack traces, and screenshots</li>
+          <li>Whether the issue is a regression</li>
+        </ul>
+        <h3>Feature requests</h3>
+        <ul>
+          <li>Problem statement and who it helps</li>
+          <li>Proposed solution and alternatives considered</li>
+          <li>Impact on existing modules, permissions, and migrations</li>
+          <li>Willingness to implement or pair on the work</li>
+        </ul>
+        <h3>Issue hygiene</h3>
+        <ul>
+          <li>Search existing issues before opening a new one.</li>
+          <li>Use clear titles and keep one problem per ticket.</li>
+          <li>Update the issue when you learn more; close duplicates with a pointer.</li>
+        </ul>
+        <p>
+          Start here:
+          <a href="https://github.com/maziyank/nats/issues/new" rel="noopener noreferrer" target="_blank">Open a new issue</a>.
+        </p>
+      </section>
+
+      <section id="docs-design">
+        <h2>Documentation, design, and community support</h2>
+        <h3>Documentation</h3>
+        <ul>
+          <li>Marketing/docs site lives in <code>docs/</code> and deploys via GitHub Pages workflow.</li>
+          <li>Prefer accurate, concise steps over marketing fluff in guides.</li>
+          <li>Keep screenshots optimized and stored under <code>docs/assets/images/</code>.</li>
+        </ul>
+        <h3>Design</h3>
+        <ul>
+          <li>Match existing spacing, typography, and component patterns.</li>
+          <li>Target WCAG 2.1 AA: contrast, focus states, labels, and keyboard access.</li>
+          <li>Document visual changes with before/after captures in the PR.</li>
+        </ul>
+        <h3>Community support</h3>
+        <ul>
+          <li>Answer questions with reproducible steps and links to docs.</li>
+          <li>Label and triage issues if you have write access; otherwise leave structured comments.</li>
+          <li>Be patient with first-time contributors.</li>
+        </ul>
+      </section>
+
+      <section id="credits">
+        <h2>Credits &amp; contributors</h2>
+        <p>
+          NATS is built by volunteers and the broader open-source community.
+          Core project attribution:
+        </p>
+        <div class="contrib-avatars">
+          <span class="contrib-chip">
+            <span class="contrib-avatar" aria-hidden="true">M</span>
+            mazi yank / project maintainers
+          </span>
+          <span class="contrib-chip">
+            <span class="contrib-avatar" aria-hidden="true">C</span>
+            Community PR authors
+          </span>
+          <span class="contrib-chip">
+            <span class="contrib-avatar" aria-hidden="true">I</span>
+            Issue reporters &amp; testers
+          </span>
+        </div>
+        <p>
+          For a live list of code contributors, see the GitHub contributors graph:
+          <a href="https://github.com/maziyank/nats/graphs/contributors" rel="noopener noreferrer" target="_blank">github.com/maziyank/nats/graphs/contributors</a>.
+        </p>
+        <p>
+          Significant contributors may be recognized in release notes
+          (<a href="https://github.com/maziyank/nats/blob/main/CHANGELOG.md" rel="noopener noreferrer" target="_blank">CHANGELOG.md</a>)
+          when maintainers cut versions.
+        </p>
+        <div class="callout callout-info">
+          <strong>Ready to ship something?</strong>
+          Fork the repo, open a focused PR, and link this guide in your description if helpful.
+          Questions welcome on
+          <a href="https://github.com/maziyank/nats/discussions" rel="noopener noreferrer" target="_blank">GitHub Discussions</a>
+          or the related issue thread.
+        </div>
+        <p>
+          Return to the <a href="index.html">product home</a> or the <a href="usage.html">setup guide</a>.
+        </p>
+      </section>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="index.html" style="color:#fff;">
+            <span class="brand-mark" aria-hidden="true">N</span>
+            <span>NATS</span>
+          </a>
+          <p>Help build an open ERP that teams can own, audit, and extend.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Docs</h4>
+          <ul>
+            <li><a href="usage.html">Setup &amp; usage</a></li>
+            <li><a href="contribute.html">Contribute</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="index.html#features">Features</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <ul>
+            <li><a href="https://github.com/maziyank/nats" rel="noopener noreferrer" target="_blank">GitHub</a></li>
+            <li><a href="https://github.com/maziyank/nats/issues" rel="noopener noreferrer" target="_blank">Issues</a></li>
+            <li><a href="https://github.com/maziyank/nats/pulls" rel="noopener noreferrer" target="_blank">Pull requests</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; <span data-year>2026</span> NATS Contributors. MIT License.</span>
+        <span>Hosted on GitHub Pages from <code style="color:#cbd5e1;">/docs</code></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/main.js" defer></script>
+</body>
+</html>
