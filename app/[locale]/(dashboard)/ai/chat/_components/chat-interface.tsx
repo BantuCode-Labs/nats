@@ -185,7 +185,14 @@ export function ChatInterface() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to send message");
+        let errorMessage = "Failed to send message";
+        try {
+          const errBody = await response.json();
+          if (errBody?.error) errorMessage = errBody.error;
+        } catch {
+          // ignore non-JSON error bodies
+        }
+        throw new Error(errorMessage);
       }
 
       const newSessionId = response.headers.get("X-Session-Id");
@@ -221,7 +228,10 @@ export function ChatInterface() {
       console.error(error);
       toast({
         title: "Error",
-        description: "Failed to get response from AI service.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to get response from AI service.",
         variant: "destructive",
       });
       // Remove the failed message placeholder

@@ -3,6 +3,10 @@ import {
   AICompletionResponse,
   AIProvider,
 } from "../types";
+import {
+  normalizeChatCompletionsUrl,
+  parseJsonResponse,
+} from "./parse-response";
 
 export class OpenAIProvider implements AIProvider {
   private apiKey: string;
@@ -21,6 +25,7 @@ export class OpenAIProvider implements AIProvider {
     const temperature = config?.temperature ?? 0.7;
     const apiKey = config?.apiKey || this.apiKey;
     const baseUrl = config?.customEndpoint || this.baseUrl;
+    const url = normalizeChatCompletionsUrl(baseUrl);
 
     const tools = request.tools?.map((tool) => ({
       type: "function",
@@ -37,7 +42,7 @@ export class OpenAIProvider implements AIProvider {
         if (msg.role === "function") {
           return {
             role: "tool",
-            tool_call_id: msg.name, // Using name as tool_call_id for simplicity mapping
+            tool_call_id: msg.name,
             content: msg.content,
           };
         }
@@ -55,7 +60,7 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -64,16 +69,19 @@ export class OpenAIProvider implements AIProvider {
         body: JSON.stringify(body),
       });
 
+      const data = await parseJsonResponse<any>(response, "OpenAI");
+
       if (!response.ok) {
-        const error = await response.json();
         throw new Error(
-          `OpenAI API Error: ${error.error?.message || response.statusText}`,
+          `OpenAI API Error: ${data?.error?.message || response.statusText}`,
         );
       }
 
-      const data = await response.json();
-      const choice = data.choices[0];
-      const message = choice.message;
+      const choice = data?.choices?.[0];
+      const message = choice?.message;
+      if (!message) {
+        throw new Error("OpenAI API Error: missing choices[0].message in response");
+      }
 
       let functionCall = undefined;
       if (message.tool_calls && message.tool_calls.length > 0) {
@@ -85,13 +93,15 @@ export class OpenAIProvider implements AIProvider {
       }
 
       return {
-        content: message.content,
+        content: message.content ?? null,
         functionCall,
-        usage: {
-          promptTokens: data.usage.prompt_tokens,
-          completionTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens,
-        },
+        usage: data.usage
+          ? {
+              promptTokens: data.usage.prompt_tokens ?? 0,
+              completionTokens: data.usage.completion_tokens ?? 0,
+              totalTokens: data.usage.total_tokens ?? 0,
+            }
+          : undefined,
       };
     } catch (error) {
       console.error("AI Service Error:", error);
@@ -107,6 +117,7 @@ export class OpenAIProvider implements AIProvider {
     const temperature = config?.temperature ?? 0.7;
     const apiKey = config?.apiKey || this.apiKey;
     const baseUrl = config?.customEndpoint || this.baseUrl;
+    const url = normalizeChatCompletionsUrl(baseUrl);
 
     const tools = request.tools?.map((tool) => ({
       type: "function",
@@ -142,7 +153,7 @@ export class OpenAIProvider implements AIProvider {
     }
 
     try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -152,9 +163,9 @@ export class OpenAIProvider implements AIProvider {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await parseJsonResponse<any>(response, "OpenAI");
         throw new Error(
-          `OpenAI API Error: ${error.error?.message || response.statusText}`,
+          `OpenAI API Error: ${error?.error?.message || response.statusText}`,
         );
       }
 

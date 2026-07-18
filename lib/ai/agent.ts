@@ -52,6 +52,58 @@ ${customSection}
 - Never expose secrets, passwords, API keys, or raw connection strings.`;
 }
 
+function parseToolArgs(args: string): Record<string, unknown> {
+  const raw = args?.trim();
+  if (!raw) return {};
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Models sometimes wrap JSON in fences or append trailing text
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced?.[1]) {
+      try {
+        return JSON.parse(fenced[1].trim());
+      } catch {
+        // fall through
+      }
+    }
+
+    const start = raw.search(/[\[{]/);
+    if (start >= 0) {
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+      for (let i = start; i < raw.length; i++) {
+        const ch = raw[i];
+        if (inString) {
+          if (escaped) escaped = false;
+          else if (ch === "\\") escaped = true;
+          else if (ch === '"') inString = false;
+          continue;
+        }
+        if (ch === '"') {
+          inString = true;
+          continue;
+        }
+        if (ch === "{" || ch === "[") depth++;
+        else if (ch === "}" || ch === "]") {
+          depth--;
+          if (depth === 0) {
+            try {
+              return JSON.parse(raw.slice(start, i + 1));
+            } catch {
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    throw new Error("Unable to parse tool arguments as JSON");
+  }
+}
+
 export async function createBusinessAgent(ctx: AIUserContext) {
   const config = await getAIConfig(ctx.userId);
 
@@ -70,6 +122,16 @@ export async function createBusinessAgent(ctx: AIUserContext) {
         },
       },
     });
+  } else if (config.provider === "custom" && config.customEndpoint) {
+    llm = new ChatOpenAI({
+      model: config.model,
+      temperature: config.temperature,
+      apiKey: config.apiKey || process.env.OPENAI_API_KEY,
+      maxTokens: config.maxTokens,
+      configuration: {
+        baseURL: config.customEndpoint.replace(/\/+$/, ""),
+      },
+    });
   } else {
     llm = new ChatOpenAI({
       model: config.model,
@@ -86,7 +148,7 @@ export async function createBusinessAgent(ctx: AIUserContext) {
         description: tool.description,
         func: async (args: string) => {
           try {
-            const parsedArgs = args?.trim() ? JSON.parse(args) : {};
+            const parsedArgs = parseToolArgs(args);
             const result = await tool.handler(parsedArgs);
             return typeof result === "string" ? result : JSON.stringify(result);
           } catch (e) {

@@ -9,6 +9,36 @@ import { OpenRouterProvider } from "./providers/openrouter";
 import { createBusinessAgent, convertToLangChainMessages } from "./agent";
 import type { AIUserContext } from "./context";
 
+function extractMessageContent(content: unknown): string {
+  if (content == null) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object") {
+          if ("text" in part && typeof (part as any).text === "string") {
+            return (part as any).text;
+          }
+          if ("content" in part && typeof (part as any).content === "string") {
+            return (part as any).content;
+          }
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  if (typeof content === "object") {
+    try {
+      return JSON.stringify(content);
+    } catch {
+      return String(content);
+    }
+  }
+  return String(content);
+}
+
 export class AIService {
   private provider: AIProvider;
   private tools: Map<string, AITool> = new Map();
@@ -63,7 +93,7 @@ export class AIService {
 
       const lastMessage = result.messages[result.messages.length - 1];
       return {
-        content: lastMessage.content as string,
+        content: extractMessageContent(lastMessage?.content),
       };
     } catch (error) {
       console.error("LangChain agent error:", error);
