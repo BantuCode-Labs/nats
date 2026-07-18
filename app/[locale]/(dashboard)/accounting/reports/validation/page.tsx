@@ -18,6 +18,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 export default function ValidationPage() {
   const formatDate = useFormatDate();
@@ -44,12 +47,46 @@ export default function ValidationPage() {
     enabled: false, // Don't run on mount, wait for user
   });
 
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "entryNumber", header: "Entry #" },
+    {
+      key: "date",
+      header: "Date",
+      format: (value) =>
+        value instanceof Date
+          ? value.toISOString().split("T")[0]
+          : value
+            ? String(value)
+            : "",
+    },
+    { key: "difference", header: "Difference" },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (result?.unbalancedEntries ?? []) as unknown as Array<
+          Record<string, unknown>
+        >,
+      columns: exportColumns,
+      filename: () => `validation-issues-${startDate}-${endDate}`,
+      sheetName: "Validation",
+      estimatedRowCount: result?.unbalancedEntries?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h1 className="text-lg font-bold">Data Integrity Validation</h1>
           <div className="flex items-center gap-4">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !result?.unbalancedEntries?.length}
+            />
             <Button onClick={() => refetch()} disabled={loading}>
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -17,6 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 export default function PurchaseByProductPage() {
   const t = useTranslations("Purchase");
@@ -53,6 +56,28 @@ export default function PurchaseByProductPage() {
     { quantityOrdered: 0, quantityReceived: 0, grossCost: 0 }
   );
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "productSku", header: t("reports_col_sku") },
+    { key: "productName", header: t("reports_col_product") },
+    { key: "categoryName", header: t("reports_col_category") },
+    { key: "quantityOrdered", header: t("reports_col_qty_ordered") },
+    { key: "quantityReceived", header: t("reports_col_qty_received") },
+    { key: "grossCost", header: t("reports_col_gross_cost") },
+    { key: "avgUnitCost", header: t("reports_col_avg_cost") },
+    { key: "orderCount", header: t("reports_col_orders") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `purchase-by-product-${startDate}-${endDate}`,
+      sheetName: "Purchase by Product",
+      estimatedRowCount: report?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -66,6 +91,13 @@ export default function PurchaseByProductPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}

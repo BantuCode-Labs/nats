@@ -14,8 +14,11 @@ import { useFormatDate } from "@/hooks/use-format-date";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
-import { ExportButton, downloadCSV } from "../_components/export-button";
+import { ExportButton } from "../_components/export-button";
 import { ReportAccountLine } from "../actions";
+import { useReportExport } from "@/hooks/use-report-export";
+import type { ExportColumn } from "@/lib/export";
+import { flattenTreeRows } from "@/lib/export";
 
 import {
   Table,
@@ -106,6 +109,65 @@ export default function BalanceSheetPage() {
     );
   };
 
+  type ExportRow = {
+    type: string;
+    code: string;
+    account: string;
+    amount: number;
+    previous: number;
+    change: number;
+    changePercent: string;
+  };
+
+  const exportColumns: ExportColumn<ExportRow>[] = [
+    { key: "type", header: tCommon("type") },
+    { key: "code", header: t("code") },
+    { key: "account", header: t("account") },
+    { key: "amount", header: t("current") },
+    { key: "previous", header: t("previous") },
+    { key: "change", header: t("change") },
+    { key: "changePercent", header: "%" },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<ExportRow>({
+      fetchRows: async () => {
+        if (!report) return [];
+        const mapNode = (node: ReportAccountLine, depth: number) => ({
+          type: "",
+          code: node.code,
+          account: `${"  ".repeat(depth)}${node.name}`,
+          amount: node.amount,
+          previous: node.previousAmount || 0,
+          change: node.change || 0,
+          changePercent: node.changePercentage
+            ? `${node.changePercentage.toFixed(1)}%`
+            : "0%",
+        });
+        const withType = (nodes: ReportAccountLine[], type: string) =>
+          flattenTreeRows(nodes, mapNode).map(
+            (r) => ({ ...r, type }) as ExportRow,
+          );
+        return [
+          ...withType(report.assets, t("assets")),
+          ...withType(report.liabilities, t("liabilities")),
+          ...withType(report.equity, t("equity")),
+          {
+            type: tCommon("total"),
+            code: "",
+            account: t("total_liab_equity"),
+            amount: report.totalLiabilitiesAndEquity,
+            previous: 0,
+            change: 0,
+            changePercent: "0%",
+          },
+        ];
+      },
+      columns: exportColumns,
+      filename: () => `balance-sheet-${asOfDate}`,
+      sheetName: "Balance Sheet",
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -113,36 +175,11 @@ export default function BalanceSheetPage() {
           <h1 className="text-lg font-bold">{t("balance_sheet")}</h1>
           <div className="flex items-center gap-4">
             <ExportButton
-              onExportCSV={() => {
-                if (!report) return;
-                const flatten = (nodes: ReportAccountLine[], type: string): any[] => {
-                  let rows: any[] = [];
-                  for (const node of nodes) {
-                    rows.push({
-                      Type: type,
-                      Code: node.code,
-                      Account: node.name,
-                      Amount: node.amount,
-                      Previous: node.previousAmount || 0,
-                      Change: node.change || 0,
-                      ChangePercent: node.changePercentage ? node.changePercentage.toFixed(1) + "%" : "0%",
-                    });
-                    if (node.children) {
-                      rows = rows.concat(flatten(node.children, type));
-                    }
-                  }
-                  return rows;
-                };
-
-                const data = [
-                  ...flatten(report.assets, t("assets")),
-                  ...flatten(report.liabilities, t("liabilities")),
-                  ...flatten(report.equity, t("equity")),
-                  { Type: tCommon("total"), Account: t("total_liab_equity"), Amount: report.totalLiabilitiesAndEquity }
-                ];
-                downloadCSV(data, `balance-sheet-${asOfDate}`);
-              }}
+              onExportCSV={exportCsv}
+              onExportExcel={exportExcel}
               isLoading={loading}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
               reportCode="BALANCE_SHEET"
               reportInput={{
                 date: asOfDate,

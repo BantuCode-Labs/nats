@@ -17,6 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 type ViewMode = "summary" | "detail";
 
@@ -40,6 +43,47 @@ export default function ARAgingPage() {
   });
 
   const loading = viewMode === "summary" ? loadingSummary : loadingDetail;
+
+  const summaryColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "contactName", header: t("reports_col_customer") },
+    { key: "invoiceCount", header: t("reports_col_invoices") },
+    { key: "current", header: t("reports_col_bucket_current") },
+    { key: "bucket1", header: t("reports_col_bucket_1_30") },
+    { key: "bucket2", header: t("reports_col_bucket_31_60") },
+    { key: "bucket3", header: t("reports_col_bucket_61_90") },
+    { key: "bucket4", header: t("reports_col_bucket_90_plus") },
+    { key: "totalOutstanding", header: t("reports_col_outstanding") },
+  ];
+
+  const detailColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "contactName", header: t("reports_col_customer") },
+    { key: "invoiceNumber", header: t("invoice_number") },
+    { key: "invoiceDate", header: t("invoice_date") },
+    { key: "dueDate", header: t("due_date") },
+    { key: "totalAmount", header: t("reports_col_invoice_amount") },
+    { key: "paidAmount", header: t("paid_amount") },
+    { key: "balance", header: t("reports_col_balance") },
+    { key: "daysOverdue", header: t("reports_col_days_overdue") },
+    { key: "bucket", header: t("reports_col_bucket") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () => {
+        if (viewMode === "summary") {
+          return (summary ?? []) as unknown as Array<Record<string, unknown>>;
+        }
+        return (detail ?? []) as unknown as Array<Record<string, unknown>>;
+      },
+      columns: viewMode === "summary" ? summaryColumns : detailColumns,
+      filename: () =>
+        viewMode === "summary"
+          ? `ar-aging-summary-${asOfDate}`
+          : `ar-aging-detail-${asOfDate}`,
+      sheetName: viewMode === "summary" ? "AR Aging Summary" : "AR Aging Detail",
+      estimatedRowCount:
+        viewMode === "summary" ? summary?.length : detail?.length,
+    });
 
   const summaryTotals = summary?.reduce(
     (acc, item) => {
@@ -93,6 +137,18 @@ export default function ARAgingPage() {
             />
           </div>
           <div className="flex items-center gap-2 ml-auto">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={
+                loading ||
+                (viewMode === "summary"
+                  ? !summary?.length
+                  : !detail?.length)
+              }
+            />
             <Button
               variant={viewMode === "summary" ? "default" : "outline"}
               size="sm"

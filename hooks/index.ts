@@ -7,3 +7,4 @@ export { useIsMobile } from "./use-mobile";
 export { useAttachmentDialog } from "./use-attachment-dialog";
 export { useNoteDialog } from "./use-note-dialog";
 export { useSearchableSelect } from "./use-searchable-select";
+export { useReportExport } from "./use-report-export";

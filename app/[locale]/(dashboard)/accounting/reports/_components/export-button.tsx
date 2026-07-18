@@ -7,20 +7,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, Printer, FileText } from "lucide-react";
-import { useFormatDate } from "@/hooks/use-format-date";
+import { Download, Printer, FileText, FileSpreadsheet, Loader2 } from "lucide-react";
 import { ReportPreviewDialog } from "@/app/[locale]/(dashboard)/reporting/_components/report-preview-dialog";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { downloadCsvClient, buildCsv, type ExportFormat } from "@/lib/export";
 
 interface ExportButtonProps {
   onExportCSV?: () => void;
   onExportExcel?: () => void;
   onPrint?: () => void;
   isLoading?: boolean;
+  isExporting?: boolean;
+  exportingFormat?: ExportFormat | null;
 
   // PDF Report Props
   reportCode?: string;
-  reportInput?: any;
+  reportInput?: Record<string, unknown>;
   reportTitle?: string;
 }
 
@@ -29,10 +32,13 @@ export function ExportButton({
   onExportExcel,
   onPrint,
   isLoading,
+  isExporting = false,
+  exportingFormat = null,
   reportCode,
   reportInput,
   reportTitle,
 }: ExportButtonProps) {
+  const t = useTranslations("Common");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const handlePrint = () => {
@@ -45,33 +51,51 @@ export function ExportButton({
     }
   };
 
+  const busy = Boolean(isLoading || isExporting);
+
   return (
     <>
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={handlePrint} disabled={isLoading}>
+        <Button variant="outline" size="sm" onClick={handlePrint} disabled={busy}>
           {reportCode ? <FileText className="mr-2 h-4 w-4" /> : <Printer className="mr-2 h-4 w-4" />}
-          {reportCode ? "PDF Preview" : "Print"}
+          {reportCode ? "PDF Preview" : t("print")}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isLoading}>
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {onExportCSV && (
-              <DropdownMenuItem onClick={onExportCSV}>
-                Export as CSV
-              </DropdownMenuItem>
-            )}
-            {onExportExcel && (
-              <DropdownMenuItem onClick={onExportExcel}>
-                Export as Excel
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {(onExportCSV || onExportExcel) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={busy}>
+                {isExporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                {isExporting ? t("exporting") : t("export")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onExportCSV && (
+                <DropdownMenuItem onClick={() => onExportCSV()} disabled={isExporting}>
+                  {isExporting && exportingFormat === "csv" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  {t("export_csv")}
+                </DropdownMenuItem>
+              )}
+              {onExportExcel && (
+                <DropdownMenuItem onClick={() => onExportExcel()} disabled={isExporting}>
+                  {isExporting && exportingFormat === "xlsx" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  )}
+                  {t("export_excel")}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {reportCode && reportInput && (
@@ -87,32 +111,14 @@ export function ExportButton({
   );
 }
 
-// Helper to convert data to CSV
-export function downloadCSV(data: any[], filename: string) {
+/**
+ * @deprecated Prefer useReportExport + server generate. Kept for backward compatibility.
+ */
+export function downloadCSV(data: Record<string, unknown>[], filename: string) {
   if (!data || !data.length) return;
 
-  const headers = Object.keys(data[0]);
-  const csvContent = [
-    headers.join(","),
-    ...data.map((row) =>
-      headers
-        .map((header) => {
-          const value = row[header];
-          return typeof value === "string" && value.includes(",")
-            ? `"${value}"`
-            : value;
-        })
-        .join(",")
-    ),
-  ].join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", `${filename}.csv`);
-  link.style.visibility = "hidden";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  const keys = Object.keys(data[0]);
+  const columns = keys.map((key) => ({ key, header: key }));
+  const csvContent = buildCsv(data, columns);
+  downloadCsvClient(csvContent, filename);
 }

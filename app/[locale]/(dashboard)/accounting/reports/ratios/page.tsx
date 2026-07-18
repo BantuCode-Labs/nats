@@ -9,7 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useFormatDate } from "@/hooks/use-format-date";
-import { ExportButton, downloadCSV } from "../_components/export-button";
+import { ExportButton } from "../_components/export-button";
+import { useReportExport } from "@/hooks/use-report-export";
+import type { ExportColumn } from "@/lib/export";
 
 export default function FinancialRatiosPage() {
   const formatDate = useFormatDate();
@@ -32,19 +34,43 @@ export default function FinancialRatiosPage() {
     },
   });
 
-  const handleExportCSV = () => {
-    if (!ratios) return;
-    const data = [
-      { Metric: "Current Ratio", Value: ratios.currentRatio.toFixed(2) },
-      { Metric: "Quick Ratio", Value: ratios.quickRatio.toFixed(2) },
-      { Metric: "Debt to Equity", Value: ratios.debtToEquity.toFixed(2) },
-      { Metric: "Gross Profit Margin", Value: ratios.grossProfitMargin.toFixed(2) + "%" },
-      { Metric: "Net Profit Margin", Value: ratios.netProfitMargin.toFixed(2) + "%" },
-      { Metric: "Return on Assets", Value: ratios.returnOnAssets.toFixed(2) + "%" },
-      { Metric: "Return on Equity", Value: ratios.returnOnEquity.toFixed(2) + "%" },
-    ];
-    downloadCSV(data, `financial-ratios-${date}`);
-  };
+  type ExportRow = { metric: string; value: string };
+
+  const exportColumns: ExportColumn<ExportRow>[] = [
+    { key: "metric", header: "Metric" },
+    { key: "value", header: "Value" },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<ExportRow>({
+      fetchRows: async () => {
+        if (!ratios) return [];
+        return [
+          { metric: "Current Ratio", value: ratios.currentRatio.toFixed(2) },
+          { metric: "Quick Ratio", value: ratios.quickRatio.toFixed(2) },
+          { metric: "Debt to Equity", value: ratios.debtToEquity.toFixed(2) },
+          {
+            metric: "Gross Profit Margin",
+            value: `${ratios.grossProfitMargin.toFixed(2)}%`,
+          },
+          {
+            metric: "Net Profit Margin",
+            value: `${ratios.netProfitMargin.toFixed(2)}%`,
+          },
+          {
+            metric: "Return on Assets",
+            value: `${ratios.returnOnAssets.toFixed(2)}%`,
+          },
+          {
+            metric: "Return on Equity",
+            value: `${ratios.returnOnEquity.toFixed(2)}%`,
+          },
+        ];
+      },
+      columns: exportColumns,
+      filename: () => `financial-ratios-${date}`,
+      sheetName: "Ratios",
+    });
 
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
@@ -53,8 +79,11 @@ export default function FinancialRatiosPage() {
           <h1 className="text-lg font-bold">Financial Ratios & Analysis</h1>
           <div className="flex items-center gap-4">
             <ExportButton
-              onExportCSV={handleExportCSV}
+              onExportCSV={exportCsv}
+              onExportExcel={exportExcel}
               isLoading={loading}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
               reportCode="FINANCIAL_RATIOS"
               reportInput={{ date }}
               reportTitle="Financial Ratios Analysis"

@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 const STATUS_VARIANT: Record<
   string,
@@ -78,6 +81,29 @@ export default function BudgetVarianceReportPage() {
       ? filters.fiscalYears
       : [currentYear, currentYear - 1];
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "budgetName", header: t("reports_col_budget") },
+    { key: "status", header: tCommon("status") },
+    { key: "department", header: t("reports_col_department") },
+    { key: "project", header: t("reports_col_project") },
+    { key: "totalBudget", header: t("reports_col_budgeted") },
+    { key: "totalActual", header: t("reports_col_actual") },
+    { key: "variance", header: t("reports_col_variance") },
+    { key: "utilizationPct", header: t("reports_col_utilization") },
+    { key: "overBudgetItems", header: t("reports_col_over_items") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `budget-variance-${fiscalYear}`,
+      sheetName: "Variance",
+      estimatedRowCount: report?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -91,6 +117,13 @@ export default function BudgetVarianceReportPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}

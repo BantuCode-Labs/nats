@@ -28,6 +28,9 @@ import { getHrDashboardStats } from "../employees/actions";
 import { getPayrollCostByDepartment } from "../payroll/actions";
 import { SuperJSON } from "@/lib/superjson";
 import { SuperJSONResult } from "superjson";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 type DashboardStats = {
     totalEmployees: number;
@@ -71,10 +74,63 @@ export default function HrReportsPage() {
         },
     });
 
+    const headcountColumns: ExportColumn<Record<string, unknown>>[] = [
+        { key: "department", header: t("department") },
+        { key: "count", header: t("headcount") },
+    ];
+
+    const costColumns: ExportColumn<Record<string, unknown>>[] = [
+        { key: "department", header: t("department") },
+        { key: "headcount", header: t("headcount") },
+        { key: "gross", header: t("gross_salary") },
+        { key: "net", header: t("net_salary") },
+        { key: "deductions", header: t("total_deductions") },
+    ];
+
+    const headcountExport = useReportExport<Record<string, unknown>>({
+        fetchRows: async () =>
+            (stats?.byDepartment ?? []) as unknown as Array<
+                Record<string, unknown>
+            >,
+        columns: headcountColumns,
+        filename: "hr-headcount-by-department",
+        sheetName: "Headcount",
+        estimatedRowCount: stats?.byDepartment?.length,
+    });
+
+    const costExport = useReportExport<Record<string, unknown>>({
+        fetchRows: async () =>
+            (costs ?? []) as unknown as Array<Record<string, unknown>>,
+        columns: costColumns,
+        filename: "hr-payroll-cost-by-department",
+        sheetName: "Payroll Cost",
+        estimatedRowCount: costs?.length,
+    });
+
     return (
         <PageListLayout>
             <PageListHeader>
-                <PageListTitle title={t("reports")} />
+                <div className="flex w-full items-center justify-between gap-4">
+                    <PageListTitle title={t("reports")} />
+                    <div className="flex items-center gap-2">
+                        <ReportExportButton
+                            onExportCsv={headcountExport.exportCsv}
+                            onExportExcel={headcountExport.exportExcel}
+                            isExporting={headcountExport.isExporting}
+                            exportingFormat={headcountExport.exportingFormat}
+                            disabled={
+                                statsLoading || !stats?.byDepartment?.length
+                            }
+                        />
+                        <ReportExportButton
+                            onExportCsv={costExport.exportCsv}
+                            onExportExcel={costExport.exportExcel}
+                            isExporting={costExport.isExporting}
+                            exportingFormat={costExport.exportingFormat}
+                            disabled={costsLoading || !costs?.length}
+                        />
+                    </div>
+                </div>
             </PageListHeader>
 
             <div className="grid gap-4 md:grid-cols-4">

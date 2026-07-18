@@ -20,6 +20,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 export default function DailyCashMovementReportPage() {
   const t = useTranslations("CashBank");
@@ -48,6 +51,25 @@ export default function DailyCashMovementReportPage() {
 
   const totals = report?.totals;
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "date", header: t("date") },
+    { key: "transactionCount", header: t("reports_col_tx_count") },
+    { key: "cashIn", header: t("reports_col_cash_in") },
+    { key: "cashOut", header: t("reports_col_cash_out") },
+    { key: "net", header: t("reports_col_net") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report?.entries ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `cash-daily-movement-${startDate}-${endDate}`,
+      sheetName: "Daily Movement",
+      estimatedRowCount: report?.entries?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -62,6 +84,13 @@ export default function DailyCashMovementReportPage() {
             {t("reports_daily_movement_subheading")}
           </p>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.entries?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}

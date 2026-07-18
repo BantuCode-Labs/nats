@@ -20,7 +20,9 @@ import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useFormatDate } from "@/hooks/use-format-date";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ExportButton, downloadCSV } from "../_components/export-button";
+import { ExportButton } from "../_components/export-button";
+import { useReportExport } from "@/hooks/use-report-export";
+import type { ExportColumn } from "@/lib/export";
 
 export default function EquityPage() {
   const formatCurrency = useFormatCurrency();
@@ -75,6 +77,67 @@ export default function EquityPage() {
     return `${val.toFixed(1)}%`;
   };
 
+  type ExportRow = {
+    account: string;
+    balanceBeginning: number;
+    netIncome: number;
+    additions: number;
+    deductions: number;
+    balanceEnding: number;
+    previousEnding: number;
+    change: number;
+    changePercent: string;
+  };
+
+  const exportColumns: ExportColumn<ExportRow>[] = [
+    { key: "account", header: "Account" },
+    { key: "balanceBeginning", header: "Beginning Balance" },
+    { key: "netIncome", header: "Net Income" },
+    { key: "additions", header: "Additions" },
+    { key: "deductions", header: "Deductions" },
+    { key: "balanceEnding", header: "Ending Balance" },
+    { key: "previousEnding", header: "Previous Ending" },
+    { key: "change", header: "Change" },
+    { key: "changePercent", header: "%" },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<ExportRow>({
+      fetchRows: async () => {
+        if (!report) return [];
+        const rows: ExportRow[] = report.items.map((item) => ({
+          account: item.name,
+          balanceBeginning: item.balanceBeginning,
+          netIncome: item.netIncome,
+          additions: item.additions,
+          deductions: item.deductions,
+          balanceEnding: item.balanceEnding,
+          previousEnding: item.previousBalanceEnding || 0,
+          change: item.change || 0,
+          changePercent: item.changePercentage
+            ? `${item.changePercentage.toFixed(1)}%`
+            : "0%",
+        }));
+        rows.push({
+          account: "TOTAL",
+          balanceBeginning: report.totalBeginning,
+          netIncome: report.totalNetIncome,
+          additions: report.totalAdditions,
+          deductions: report.totalDeductions,
+          balanceEnding: report.totalEnding,
+          previousEnding: report.previousTotalEnding || 0,
+          change: report.change || 0,
+          changePercent: report.changePercentage
+            ? `${report.changePercentage.toFixed(1)}%`
+            : "0%",
+        });
+        return rows;
+      },
+      columns: exportColumns,
+      filename: () => `equity-change-${startDate}-${endDate}`,
+      sheetName: "Equity",
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -82,33 +145,11 @@ export default function EquityPage() {
           <h1 className="text-lg font-bold">Statement of Changes in Equity</h1>
           <div className="flex items-center gap-4">
             <ExportButton
-              onExportCSV={() => {
-                if (!report) return;
-                const data = report.items.map(item => ({
-                  Account: item.name,
-                  BalanceBeginning: item.balanceBeginning,
-                  NetIncome: item.netIncome,
-                  Additions: item.additions,
-                  Deductions: item.deductions,
-                  BalanceEnding: item.balanceEnding,
-                  PreviousEnding: item.previousBalanceEnding || 0,
-                  Change: item.change || 0,
-                  ChangePercent: item.changePercentage ? item.changePercentage.toFixed(1) + "%" : "0%"
-                }));
-                data.push({
-                  Account: "TOTAL",
-                  BalanceBeginning: report.totalBeginning,
-                  NetIncome: report.totalNetIncome,
-                  Additions: report.totalAdditions,
-                  Deductions: report.totalDeductions,
-                  BalanceEnding: report.totalEnding,
-                  PreviousEnding: report.previousTotalEnding || 0,
-                  Change: report.change || 0,
-                  ChangePercent: report.changePercentage ? report.changePercentage.toFixed(1) + "%" : "0%"
-                });
-                downloadCSV(data, `equity-change-${startDate}-${endDate}`);
-              }}
+              onExportCSV={exportCsv}
+              onExportExcel={exportExcel}
               isLoading={loading}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
               reportCode="EQUITY_CHANGE"
               reportInput={{
                 startDate,

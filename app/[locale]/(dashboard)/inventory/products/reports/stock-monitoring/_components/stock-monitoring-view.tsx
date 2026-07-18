@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import {
   getStockMonitoring,
+  getStockMonitoringForExport,
   getWarehousesForFilter,
   type StockMonitoringItem,
 } from "../actions";
@@ -35,6 +36,9 @@ import { SuperJSONResult } from "superjson";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 function StatCard({
   label,
@@ -151,6 +155,34 @@ export function StockMonitoringView() {
     router.push(`${pathname}`);
   };
 
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "sku", header: t("sku") },
+    { key: "name", header: tCommon("name") },
+    { key: "unitSymbol", header: tCommon("unit") },
+    { key: "openingStock", header: t("stock_opening") },
+    { key: "stockIn", header: t("stock_in") },
+    { key: "stockOut", header: t("stock_out") },
+    { key: "closingStock", header: t("stock_closing") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () => {
+        const result = await getStockMonitoringForExport({
+          search: search || undefined,
+          warehouseId: warehouseId !== "ALL" ? warehouseId : undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+        });
+        return result.items as unknown as Array<Record<string, unknown>>;
+      },
+      columns: exportColumns,
+      filename: () =>
+        `stock-monitoring${dateFrom ? `-${dateFrom}` : ""}${dateTo ? `-${dateTo}` : ""}`,
+      sheetName: "Stock Monitoring",
+      estimatedRowCount: data?.total,
+    });
+
   const columns: Column<StockMonitoringItem>[] = [
     {
       header: `${t("sku")}/${tCommon("name")}`,
@@ -233,11 +265,20 @@ export function StockMonitoringView() {
   return (
     <PageListLayout>
       <PageListHeader>
-        <div className="mb-2">
-          <PageListTitle title={t("stock_monitoring")} />
-          <p className="text-sm text-muted-foreground">
-            {t("reports_stock_monitoring_subheading")}
-          </p>
+        <div className="mb-2 flex w-full items-start justify-between gap-4">
+          <div>
+            <PageListTitle title={t("stock_monitoring")} />
+            <p className="text-sm text-muted-foreground">
+              {t("reports_stock_monitoring_subheading")}
+            </p>
+          </div>
+          <ReportExportButton
+            onExportCsv={exportCsv}
+            onExportExcel={exportExcel}
+            isExporting={isExporting}
+            exportingFormat={exportingFormat}
+            disabled={isLoading || !data?.total}
+          />
         </div>
       </PageListHeader>
 

@@ -29,6 +29,9 @@ import { useTranslations } from "next-intl";
 import { useFormatDate } from "@/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 function StatCard({
   label,
@@ -135,6 +138,37 @@ export function StockDetailClient({
   const movements = data?.movements || [];
   const inventory = data?.inventory || [];
 
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    {
+      key: "date",
+      header: tCommon("date"),
+      format: (value) =>
+        value instanceof Date
+          ? value.toISOString().split("T")[0]
+          : value
+            ? String(value)
+            : "",
+    },
+    { key: "type", header: t("type") },
+    { key: "direction", header: tCommon("type") },
+    { key: "reference", header: t("reference") },
+    { key: "fromWarehouse", header: t("from") },
+    { key: "toWarehouse", header: t("to") },
+    { key: "quantity", header: tCommon("quantity") },
+    { key: "notes", header: tCommon("description") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        movements as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () =>
+        `stock-movements-${product?.sku || productId}${dateFrom ? `-${dateFrom}` : ""}${dateTo ? `-${dateTo}` : ""}`,
+      sheetName: "Movements",
+      estimatedRowCount: movements.length,
+    });
+
   const columns: Column<StockMovementDetail>[] = [
     {
       header: tCommon("date"),
@@ -205,14 +239,23 @@ export function StockDetailClient({
   return (
     <PageListLayout>
       <PageListHeader>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/inventory/products/reports/stock-monitoring">
-              <ArrowLeft className="mr-1 h-4 w-4" /> {tCommon("back")}
-            </Link>
-          </Button>
-          <PageListTitle
-            title={`${t("stock_movement_detail")} - ${product?.name || ""}`}
+        <div className="flex w-full items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/inventory/products/reports/stock-monitoring">
+                <ArrowLeft className="mr-1 h-4 w-4" /> {tCommon("back")}
+              </Link>
+            </Button>
+            <PageListTitle
+              title={`${t("stock_movement_detail")} - ${product?.name || ""}`}
+            />
+          </div>
+          <ReportExportButton
+            onExportCsv={exportCsv}
+            onExportExcel={exportExcel}
+            isExporting={isExporting}
+            exportingFormat={exportingFormat}
+            disabled={isLoading || !movements.length}
           />
         </div>
       </PageListHeader>

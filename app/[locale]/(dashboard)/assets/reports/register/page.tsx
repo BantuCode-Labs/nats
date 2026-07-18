@@ -25,6 +25,9 @@ import {
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 const STATUS_VARIANT: Record<
   string,
@@ -71,6 +74,30 @@ export default function AssetRegisterReportPage() {
     { acquisitionCost: 0, currentBookValue: 0, accumulatedDepreciation: 0 },
   );
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "code", header: t("code") },
+    { key: "name", header: t("name") },
+    { key: "categoryName", header: t("category") },
+    { key: "status", header: tCommon("status") },
+    { key: "purchaseDate", header: t("purchase_date") },
+    { key: "acquisitionCost", header: t("acquisition_cost") },
+    { key: "accumulatedDepreciation", header: t("reports_col_accum_dep") },
+    { key: "currentBookValue", header: t("book_value") },
+    { key: "location", header: t("reports_col_location") },
+    { key: "department", header: t("department") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `asset-register`,
+      sheetName: "Asset Register",
+      estimatedRowCount: report?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -84,6 +111,13 @@ export default function AssetRegisterReportPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}

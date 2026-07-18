@@ -36,6 +36,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 const chartConfig = {
   cashIn: { label: "Cash In", color: "var(--color-chart-1)" },
@@ -67,6 +70,25 @@ export default function CashFlowSummaryReportPage() {
 
   const totals = report?.totals;
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "period", header: "Period" },
+    { key: "periodLabel", header: t("reports_col_period") },
+    { key: "cashIn", header: t("reports_col_cash_in") },
+    { key: "cashOut", header: t("reports_col_cash_out") },
+    { key: "net", header: t("reports_col_net") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report?.points ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `cash-flow-summary-${startDate}-${endDate}`,
+      sheetName: "Cash Flow",
+      estimatedRowCount: report?.points?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -79,6 +101,13 @@ export default function CashFlowSummaryReportPage() {
             {t("reports_cash_flow_subheading")}
           </p>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.points?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}

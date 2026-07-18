@@ -17,7 +17,10 @@ import { useFormatDate } from "@/hooks/use-format-date";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
-import { ExportButton, downloadCSV } from "../_components/export-button";
+import { ExportButton } from "../_components/export-button";
+import { useReportExport } from "@/hooks/use-report-export";
+import type { ExportColumn } from "@/lib/export";
+import { flattenTreeRows } from "@/lib/export";
 
 import {
   Table,
@@ -162,36 +165,65 @@ export default function ProfitLossPage() {
     return `${val.toFixed(1)}%`;
   };
 
-  const handleExportCSV = () => {
-    if (!report) return;
-
-    const flatten = (nodes: ReportAccountLine[], type: string): any[] => {
-      let rows: any[] = [];
-      for (const node of nodes) {
-        rows.push({
-          Type: type,
-          Code: node.code,
-          Account: node.name,
-          Amount: node.amount,
-          Previous: node.previousAmount || 0,
-          Change: node.change || 0,
-          ChangePercent: node.changePercentage ? node.changePercentage.toFixed(1) + "%" : "0%",
-        });
-        if (node.children) {
-          rows = rows.concat(flatten(node.children, type));
-        }
-      }
-      return rows;
-    };
-
-    const data = [
-      ...flatten(report.revenue, t("revenue")),
-      ...flatten(report.expenses, t("expenses")),
-      { Type: tCommon("total"), Account: t("net_income"), Amount: report.netIncome, Previous: report.previousNetIncome || 0, Change: netIncomeChange, ChangePercent: netIncomePercent.toFixed(1) + "%" }
-    ];
-
-    downloadCSV(data, `profit-loss-${startDate}-${endDate}`);
+  type ExportRow = {
+    type: string;
+    code: string;
+    account: string;
+    amount: number;
+    previous: number;
+    change: number;
+    changePercent: string;
   };
+
+  const exportColumns: ExportColumn<ExportRow>[] = [
+    { key: "type", header: tCommon("type") },
+    { key: "code", header: t("code") },
+    { key: "account", header: t("account") },
+    { key: "amount", header: t("current") },
+    { key: "previous", header: t("previous") },
+    { key: "change", header: t("change") },
+    { key: "changePercent", header: "%" },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<ExportRow>({
+      fetchRows: async () => {
+        if (!report) return [];
+        const mapNode = (node: ReportAccountLine, depth: number) => ({
+          type: "",
+          code: node.code,
+          account: `${"  ".repeat(depth)}${node.name}`,
+          amount: node.amount,
+          previous: node.previousAmount || 0,
+          change: node.change || 0,
+          changePercent: node.changePercentage
+            ? `${node.changePercentage.toFixed(1)}%`
+            : "0%",
+        });
+        const revenueRows = flattenTreeRows(report.revenue, mapNode).map(
+          (r) => ({ ...r, type: t("revenue") }) as ExportRow,
+        );
+        const expenseRows = flattenTreeRows(report.expenses, mapNode).map(
+          (r) => ({ ...r, type: t("expenses") }) as ExportRow,
+        );
+        return [
+          ...revenueRows,
+          ...expenseRows,
+          {
+            type: tCommon("total"),
+            code: "",
+            account: t("net_income"),
+            amount: report.netIncome,
+            previous: report.previousNetIncome || 0,
+            change: netIncomeChange,
+            changePercent: `${netIncomePercent.toFixed(1)}%`,
+          },
+        ];
+      },
+      columns: exportColumns,
+      filename: () => `profit-loss-${startDate}-${endDate}`,
+      sheetName: "Profit Loss",
+    });
 
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
@@ -200,8 +232,11 @@ export default function ProfitLossPage() {
           <h1 className="text-lg font-bold">{t("profit_loss")}</h1>
           <div className="flex items-center gap-4">
             <ExportButton
-              onExportCSV={handleExportCSV}
+              onExportCSV={exportCsv}
+              onExportExcel={exportExcel}
               isLoading={loading}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
               reportCode="PROFIT_LOSS"
               reportInput={{
                 startDate,

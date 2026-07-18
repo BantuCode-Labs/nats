@@ -21,6 +21,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 export default function AssetByLocationReportPage() {
   const t = useTranslations("Assets");
@@ -56,6 +59,26 @@ export default function AssetByLocationReportPage() {
     },
   );
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "groupType", header: t("reports_col_type") },
+    { key: "groupName", header: t("reports_col_location") },
+    { key: "assetCount", header: t("reports_col_count") },
+    { key: "activeCount", header: t("reports_col_active") },
+    { key: "totalAcquisitionCost", header: t("acquisition_cost") },
+    { key: "totalBookValue", header: t("book_value") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `assets-by-location`,
+      sheetName: "By Location",
+      estimatedRowCount: report?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -69,6 +92,13 @@ export default function AssetByLocationReportPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}

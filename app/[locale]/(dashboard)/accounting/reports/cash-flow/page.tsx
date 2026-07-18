@@ -16,7 +16,9 @@ import { useFormatDate } from "@/hooks/use-format-date";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
-import { ExportButton, downloadCSV } from "../_components/export-button";
+import { ExportButton } from "../_components/export-button";
+import { useReportExport } from "@/hooks/use-report-export";
+import type { ExportColumn } from "@/lib/export";
 
 import {
   Table,
@@ -141,6 +143,71 @@ export default function CashFlowPage() {
     );
   };
 
+  type ExportRow = {
+    section: string;
+    item: string;
+    amount: number;
+    previous: number;
+    change: number;
+    changePercent: string;
+  };
+
+  const exportColumns: ExportColumn<ExportRow>[] = [
+    { key: "section", header: "Section" },
+    { key: "item", header: "Item" },
+    { key: "amount", header: "Amount" },
+    { key: "previous", header: "Previous" },
+    { key: "change", header: "Change" },
+    { key: "changePercent", header: "%" },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<ExportRow>({
+      fetchRows: async () => {
+        if (!report) return [];
+        const mapSection = (
+          nodes: ReportAccountLine[],
+          section: string,
+        ): ExportRow[] =>
+          nodes.map((node) => ({
+            section,
+            item: node.name,
+            amount: node.amount,
+            previous: node.previousAmount || 0,
+            change: node.change || 0,
+            changePercent: node.changePercentage
+              ? `${node.changePercentage.toFixed(1)}%`
+              : "0%",
+          }));
+        const total = (
+          section: string,
+          item: string,
+          amount: number,
+        ): ExportRow => ({
+          section,
+          item,
+          amount,
+          previous: 0,
+          change: 0,
+          changePercent: "0%",
+        });
+        return [
+          ...mapSection(report.operatingActivities, "Operating"),
+          total("Operating", "Net Cash from Operating", report.netCashProvidedByOperating),
+          ...mapSection(report.investingActivities, "Investing"),
+          total("Investing", "Net Cash from Investing", report.netCashProvidedByInvesting),
+          ...mapSection(report.financingActivities, "Financing"),
+          total("Financing", "Net Cash from Financing", report.netCashProvidedByFinancing),
+          total("Summary", "Net Increase in Cash", report.netIncreaseInCash),
+          total("Summary", "Cash at Beginning", report.cashAtBeginning),
+          total("Summary", "Cash at End", report.cashAtEnd),
+        ];
+      },
+      columns: exportColumns,
+      filename: () => `cash-flow-${startDate}-${endDate}`,
+      sheetName: "Cash Flow",
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -148,31 +215,11 @@ export default function CashFlowPage() {
           <h1 className="text-lg font-bold">Statement of Cash Flows</h1>
           <div className="flex items-center gap-4">
             <ExportButton
-              onExportCSV={() => {
-                if (!report) return;
-                const mapSection = (nodes: ReportAccountLine[], type: string) => nodes.map(node => ({
-                  Section: type,
-                  Item: node.name,
-                  Amount: node.amount,
-                  Previous: node.previousAmount || 0,
-                  Change: node.change || 0,
-                  ChangePercent: node.changePercentage ? node.changePercentage.toFixed(1) + "%" : "0%"
-                }));
-
-                const data = [
-                  ...mapSection(report.operatingActivities, "Operating"),
-                  { Section: "Operating", Item: "Net Cash from Operating", Amount: report.netCashProvidedByOperating },
-                  ...mapSection(report.investingActivities, "Investing"),
-                  { Section: "Investing", Item: "Net Cash from Investing", Amount: report.netCashProvidedByInvesting },
-                  ...mapSection(report.financingActivities, "Financing"),
-                  { Section: "Financing", Item: "Net Cash from Financing", Amount: report.netCashProvidedByFinancing },
-                  { Section: "Summary", Item: "Net Increase in Cash", Amount: report.netIncreaseInCash },
-                  { Section: "Summary", Item: "Cash at Beginning", Amount: report.cashAtBeginning },
-                  { Section: "Summary", Item: "Cash at End", Amount: report.cashAtEnd },
-                ];
-                downloadCSV(data, `cash-flow-${startDate}-${endDate}`);
-              }}
+              onExportCSV={exportCsv}
+              onExportExcel={exportExcel}
               isLoading={loading}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
               reportCode="CASH_FLOW"
               reportInput={{
                 startDate,

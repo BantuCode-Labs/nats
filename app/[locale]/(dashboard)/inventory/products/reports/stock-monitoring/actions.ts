@@ -191,6 +191,26 @@ export async function getStockMonitoring(params: {
   };
 }
 
+/**
+ * Full unpaginated dataset for CSV/Excel export (capped at 50_000 rows).
+ */
+export async function getStockMonitoringForExport(params: {
+  search?: string;
+  warehouseId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  const result = await getStockMonitoring({
+    ...params,
+    page: 1,
+    limit: 50_000,
+  });
+  const items = SuperJSON.deserialize(
+    result.items as import("superjson").SuperJSONResult,
+  ) as StockMonitoringItem[];
+  return { items, total: result.total };
+}
+
 export type StockMovementDetail = {
   id: string;
   date: Date;

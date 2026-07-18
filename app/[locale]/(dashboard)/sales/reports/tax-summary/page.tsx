@@ -19,6 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 export default function SalesTaxSummaryPage() {
   const t = useTranslations("Sales");
@@ -54,6 +57,26 @@ export default function SalesTaxSummaryPage() {
     { taxableAmount: 0, taxAmount: 0 }
   );
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "taxRateName", header: t("reports_col_tax_rate") },
+    { key: "taxRateCode", header: t("reports_col_tax_code") },
+    { key: "rate", header: t("reports_col_rate_percent") },
+    { key: "taxableAmount", header: t("reports_col_taxable_amount") },
+    { key: "taxAmount", header: t("reports_col_tax_amount") },
+    { key: "invoiceCount", header: t("reports_col_invoices") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `sales-tax-summary-${startDate}-${endDate}`,
+      sheetName: "Tax Summary",
+      estimatedRowCount: report?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -67,6 +90,13 @@ export default function SalesTaxSummaryPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}

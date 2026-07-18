@@ -18,6 +18,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 export default function TaxSummaryPage() {
   const formatCurrency = useFormatCurrency()
@@ -43,12 +46,41 @@ export default function TaxSummaryPage() {
   const totalOutputTax = report?.reduce((sum, item) => sum + item.outputTax, 0) || 0
   const netLiability = totalOutputTax - totalInputTax
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "name", header: "Tax" },
+    { key: "code", header: "Code" },
+    { key: "rate", header: "Rate %" },
+    { key: "outputBase", header: "Output Base" },
+    { key: "outputTax", header: "Output Tax" },
+    { key: "inputBase", header: "Input Base" },
+    { key: "inputTax", header: "Input Tax" },
+    { key: "netTax", header: "Net Tax" },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `accounting-tax-summary-${startDate}-${endDate}`,
+      sheetName: "Tax Summary",
+      estimatedRowCount: report?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h1 className="text-lg font-bold">Tax Summary Report</h1>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               Print

@@ -19,6 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useTranslations } from "next-intl";
+import { useReportExport } from "@/hooks/use-report-export";
+import { ReportExportButton } from "@/components/ui/report-export-button";
+import type { ExportColumn } from "@/lib/export";
 
 export default function ReceivableReportPage() {
   const t = useTranslations("Sales");
@@ -63,6 +66,26 @@ export default function ReceivableReportPage() {
     }
   );
 
+
+  const exportColumns: ExportColumn<Record<string, unknown>>[] = [
+    { key: "contactName", header: t("reports_col_customer") },
+    { key: "openingBalance", header: t("reports_col_opening_balance") },
+    { key: "invoiceAmount", header: t("reports_col_invoice_additions") },
+    { key: "returnAmount", header: t("reports_col_returns") },
+    { key: "paymentAmount", header: t("reports_col_payments") },
+    { key: "closingBalance", header: t("reports_col_closing_balance") },
+  ];
+
+  const { isExporting, exportingFormat, exportCsv, exportExcel } =
+    useReportExport<Record<string, unknown>>({
+      fetchRows: async () =>
+        (report ?? []) as unknown as Array<Record<string, unknown>>,
+      columns: exportColumns,
+      filename: () => `sales-receivable-${startDate}-${endDate}`,
+      sheetName: "Receivable",
+      estimatedRowCount: report?.length,
+    });
+
   return (
     <div className="flex flex-1 flex-col gap-2 p-4 pt-0">
       <div className="flex flex-col gap-4">
@@ -74,6 +97,13 @@ export default function ReceivableReportPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ReportExportButton
+              onExportCsv={exportCsv}
+              onExportExcel={exportExcel}
+              isExporting={isExporting}
+              exportingFormat={exportingFormat}
+              disabled={loading || !report?.length}
+            />
             <Button variant="outline" onClick={() => window.print()}>
               <PrinterIcon className="mr-2 h-4 w-4" />
               {tCommon("print")}
