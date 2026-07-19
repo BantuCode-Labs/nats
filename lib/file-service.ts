@@ -73,24 +73,26 @@ class MinioStorage implements FileStorage {
       const exists = await this.client.bucketExists(this.bucketName);
       if (!exists) {
         await this.client.makeBucket(this.bucketName);
-        // Set bucket policy to public read if needed, or rely on presigned/proxy.
-        // For simplicity, we assume the bucket is accessible or we generate a public URL.
-        // To make it public read:
-        const policy = {
-          Version: "2012-10-17",
-          Statement: [
-            {
-              Effect: "Allow",
-              Principal: { AWS: ["*"] },
-              Action: ["s3:GetObject"],
-              Resource: [`arn:aws:s3:::${this.bucketName}/*`],
-            },
-          ],
-        };
-        await this.client.setBucketPolicy(
-          this.bucketName,
-          JSON.stringify(policy)
-        );
+        // Do not force a public-read policy. Prefer private buckets +
+        // presigned URLs / reverse-proxy for document access.
+        // Opt-in public read only when explicitly configured.
+        if (process.env.MINIO_PUBLIC_READ === "true") {
+          const policy = {
+            Version: "2012-10-17",
+            Statement: [
+              {
+                Effect: "Allow",
+                Principal: { AWS: ["*"] },
+                Action: ["s3:GetObject"],
+                Resource: [`arn:aws:s3:::${this.bucketName}/*`],
+              },
+            ],
+          };
+          await this.client.setBucketPolicy(
+            this.bucketName,
+            JSON.stringify(policy),
+          );
+        }
       }
     } catch (e) {
       console.error("Error checking/creating bucket:", e);

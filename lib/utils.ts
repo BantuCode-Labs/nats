@@ -58,7 +58,7 @@ export interface FormatCurrencyOptions {
  * @param options.currency - The currency code (e.g., "USD", "EUR")
  * @param options.currencySymbol - Optional symbol to override the default currency symbol
  * @param options.currencyFormat - Format style: "standard", "european", or "indian"
- * @param options.locale - Optional locale override (not currently used directly in logic logic overrides)
+ * @param options.locale - Optional locale override (takes precedence over currencyFormat)
  * @returns The formatted currency string
  */
 export const formatCurrency = (
@@ -69,15 +69,18 @@ export const formatCurrency = (
     currency = "USD",
     currencySymbol,
     currencyFormat = "standard",
+    locale,
   } = options || {};
 
   const numericAmount = amount instanceof Decimal ? amount.toNumber() : amount;
 
-  let targetLocale = "en-US";
-  if (currencyFormat === "european") {
-    targetLocale = "de-DE";
-  } else if (currencyFormat === "indian") {
-    targetLocale = "en-IN";
+  let targetLocale = locale ?? "en-US";
+  if (!locale) {
+    if (currencyFormat === "european") {
+      targetLocale = "de-DE";
+    } else if (currencyFormat === "indian") {
+      targetLocale = "en-IN";
+    }
   }
 
   if (currencySymbol) {
@@ -135,11 +138,16 @@ export const generatePagination = (currentPage: number, totalPages: number) => {
 };
 
 /**
- * Generates a random alphanumeric ID string.
- *
- * @returns A random string ID (e.g., "3x8f1a")
+ * Generates a short random alphanumeric ID for client-side list keys.
+ * Prefer `crypto.randomUUID()` when a full UUID is needed.
  */
-export const generateId = () => Math.random().toString(36).substring(2, 9);
+export const generateId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+  }
+  // Fallback for environments without Web Crypto
+  return Math.random().toString(36).substring(2, 10);
+};
 
 /**
  * Converts a string to title case, capitalizing the first letter of each word

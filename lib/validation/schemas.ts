@@ -6,7 +6,12 @@ const idSchema = z.string().cuid().optional();
 const requiredIdSchema = z.string().cuid();
 const dateSchema = z.coerce.date();
 const decimalSchema = z.union([z.number(), z.string()]).transform((val) => Number(val));
-const positiveDecimalSchema = decimalSchema.refine((val) => val >= 0, { message: "Must be positive" });
+/** Non-negative decimal (0 allowed). Use an extra `.refine(val => val > 0)` for strict positivity. */
+const nonNegativeDecimalSchema = decimalSchema.refine((val) => val >= 0, {
+  message: "Must be non-negative",
+});
+/** @deprecated Use nonNegativeDecimalSchema; kept as alias for existing call sites. */
+const positiveDecimalSchema = nonNegativeDecimalSchema;
 export const auditLogQuerySchema = z.object({
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(50).default(20),

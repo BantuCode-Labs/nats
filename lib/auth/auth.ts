@@ -34,7 +34,7 @@ export async function decrypt(session: string | undefined = "") {
       algorithms: ["HS256"],
     });
     return payload as unknown as SessionPayload;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -57,7 +57,8 @@ export async function createSession(
 
   cookieStore.set("session", session, {
     httpOnly: true,
-    secure: true,
+    // Secure cookies are required in production; allow plain HTTP in local dev.
+    secure: process.env.NODE_ENV === "production",
     expires: expiresAt,
     sameSite: "lax",
     path: "/",

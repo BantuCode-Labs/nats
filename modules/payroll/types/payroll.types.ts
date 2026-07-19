@@ -1,4 +1,4 @@
-import { PayrollPeriod, SalaryComponent, SalaryStructure, SalarySlip, SalarySlipStatus, PayrollPeriodStatus } from '@/prisma/generated/prisma/client';
+import { PayrollPeriod, SalaryStructure } from '@/prisma/generated/prisma/client';
 
 
 
@@ -41,8 +41,4 @@ export type PayrollRunResult = {
     totalAmount: number;
 };
 
-import { SuperJSONResult } from 'superjson';
-
-export type ActionResponse<T = SuperJSONResult> =
-    | { success: true; data: T }
-    | { success: false; error: string };
+export type { ActionResponse } from '@/types/actions';

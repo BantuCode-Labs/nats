@@ -3,9 +3,10 @@ import { Decimal } from "decimal.js";
 export interface LineItemInput {
   quantity: number | Decimal;
   unitPrice: number | Decimal;
-  discount?: number | Decimal; // Percentage (0-100) or Amount? Code seems to treat as Percentage usually, but let's be explicit.
-  // In previous code: discountAmount = subtotal * (discount / 100). So it's percentage.
-  tax?: number | Decimal; // Amount
+  /** Discount percentage (0–100), not a fixed amount. */
+  discount?: number | Decimal;
+  /** Pre-computed tax amount (ignored when taxRatePercentage is provided). */
+  tax?: number | Decimal;
   taxRateId?: string;
 }
 
@@ -46,9 +47,7 @@ export class CalculationService {
       taxAmount = taxableAmount.mul(rate.div(100));
     }
     
-    // Round tax to 2 decimal places? Usually yes for display/storage
-    // but maybe keep precision for intermediate?
-    // Let's round to 2 decimals as per previous logic "Number(taxAmount.toFixed(2))"
+    // Round tax to 2 decimal places for storage/display consistency.
     taxAmount = new Decimal(taxAmount.toFixed(2));
     
     const total = taxableAmount.plus(taxAmount);

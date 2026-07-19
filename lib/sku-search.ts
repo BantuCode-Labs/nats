@@ -2,6 +2,7 @@ import { getSession } from "@/lib/auth/auth";
 import { getAIConfig } from "@/lib/ai/config";
 import { OpenAIProvider } from "@/lib/ai/providers/openai";
 import { OpenRouterProvider } from "@/lib/ai/providers/openrouter";
+import { checkRateLimit as checkSharedRateLimit } from "@/lib/rate-limit";
 
 // ============================================================================
 // Types
@@ -28,36 +29,18 @@ function sanitizeHtml(html: string): string {
 // Rate Limiting
 // ============================================================================
 
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-
-function getRateLimitKey(userId: string): string {
-  return `sku_search:${userId}`;
-}
 
 export function checkRateLimit(userId: string): {
   allowed: boolean;
   remaining: number;
 } {
-  const key = getRateLimitKey(userId);
-  const now = Date.now();
-  const entry = rateLimitStore.get(key);
-
-  if (!entry || now > entry.resetTime) {
-    rateLimitStore.set(key, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW_MS,
-    });
-    return { allowed: true, remaining: RATE_LIMIT_MAX - 1 };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count };
+  return checkSharedRateLimit(
+    `sku_search:${userId}`,
+    RATE_LIMIT_MAX,
+    RATE_LIMIT_WINDOW_MS,
+  );
 }
 
 // ============================================================================

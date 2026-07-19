@@ -1,12 +1,15 @@
 import { getSession } from "@/lib/auth/auth";
 import { hasPermission, Permission } from "@/lib/permissions/utils";
 import { prisma } from "@/lib/prisma";
+import type { ActionResponse } from "@/types/actions";
+export type { ActionResponse };
 
-export type ActionResponse<T> = { success: boolean; data?: T; error?: string };
-
+/**
+ * Wraps a server action with session auth, active-role, and permission checks.
+ */
 export function authorizedAction<T, A extends unknown[]>(
   permission: Permission,
-  action: (...args: A) => Promise<ActionResponse<T>>
+  action: (...args: A) => Promise<ActionResponse<T>>,
 ) {
   return async (...args: A): Promise<ActionResponse<T>> => {
     const session = await getSession();
