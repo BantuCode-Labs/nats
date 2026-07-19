@@ -5,6 +5,7 @@ import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
+const supportedLocales = routing.locales as readonly string[];
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -58,7 +59,7 @@ export async function middleware(request: NextRequest) {
   // Adjust path check to ignore locale prefix for protected/public route checks
   // If the path starts with a locale, strip it for checking against route lists
   let pathToCheck = pathname;
-  if (["en", "id"].includes(locale)) {
+  if (supportedLocales.includes(locale)) {
     pathToCheck = `/${segments.slice(2).join("/")}`;
     // Ensure root path handling after stripping locale
     if (pathToCheck === "") pathToCheck = "/";
@@ -76,7 +77,7 @@ export async function middleware(request: NextRequest) {
 
   // 1. Redirect to /login if the user is not authenticated and trying to access a protected route
   if (isProtectedRoute && !session?.userId) {
-    if (!["en", "id"].includes(locale)) {
+    if (!supportedLocales.includes(locale)) {
       // If locale is missing (e.g. root /), let intlMiddleware redirect it first
       return response;
     }
@@ -87,7 +88,7 @@ export async function middleware(request: NextRequest) {
 
   // 2. Redirect to /dashboard if the user is authenticated and trying to access a public route (like login)
   if (isPublicRoute && session?.userId) {
-    if (!["en", "id"].includes(locale)) {
+    if (!supportedLocales.includes(locale)) {
       return response;
     }
     const dashboardUrl = new URL(`/${locale}/dashboard`, request.nextUrl);
@@ -96,7 +97,7 @@ export async function middleware(request: NextRequest) {
 
   // 3. Redirect root path: authenticated users go to dashboard, unauthenticated go to login
   if (pathToCheck === "/") {
-    if (!["en", "id"].includes(locale)) {
+    if (!supportedLocales.includes(locale)) {
       return response;
     }
     const targetPath = session?.userId ? "dashboard" : "auth";

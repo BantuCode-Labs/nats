@@ -4,7 +4,7 @@ import path from 'path';
 // Configuration
 const MESSAGES_DIR = path.resolve(process.cwd(), 'messages');
 const SOURCE_DIR = path.resolve(process.cwd(), 'app');
-const LANGUAGES = ['en', 'id'];
+const LANGUAGES = ['en', 'id', 'ms', 'vi', 'th', 'tl'];
 
 // Types
 type KeyMap = Map<string, Set<string>>; // Namespace -> Set<Key>

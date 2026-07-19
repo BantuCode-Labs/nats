@@ -34,6 +34,18 @@ export function LanguageSwitcher() {
                 <DropdownMenuItem onClick={() => switchLocale("id")} className="cursor-pointer" disabled={locale === "id"}>
                     Indonesia
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => switchLocale("ms")} className="cursor-pointer" disabled={locale === "ms"}>
+                    Bahasa Melayu
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => switchLocale("vi")} className="cursor-pointer" disabled={locale === "vi"}>
+                    Tiếng Việt
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => switchLocale("th")} className="cursor-pointer" disabled={locale === "th"}>
+                    ไทย
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => switchLocale("tl")} className="cursor-pointer" disabled={locale === "tl"}>
+                    Tagalog
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );

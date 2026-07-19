@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 const MESSAGES_DIR = path.resolve(process.cwd(), 'messages');
-const LANGUAGES = ['en', 'id'];
+const LANGUAGES = ['en', 'id', 'ms', 'vi', 'th', 'tl'];
 
 LANGUAGES.forEach(lang => {
   const filePath = path.join(MESSAGES_DIR, `${lang}.json`);
