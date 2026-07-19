@@ -35,7 +35,8 @@ export default async function SalaryStructureDetailPage({ params }: PageProps) {
     }
 
     const response = await getSalaryStructure(contactId);
-    const salaryStructure = response.success ? response.data : null;
+    const salaryStructure =
+        response.success && response.data ? response.data : null;
 
     return (
         <PageFormLayout>

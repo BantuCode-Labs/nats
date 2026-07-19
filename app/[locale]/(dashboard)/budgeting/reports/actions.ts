@@ -4,8 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth/auth";
 import { getBudgetVariance } from "../actions";
 import { SuperJSON } from "@/lib/superjson";
-import type { SuperJSONResult } from "superjson";
-import type { ActionResponse } from "@/types/actions";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -86,17 +84,17 @@ export async function getBudgetVarianceReport(params?: {
   const results: BudgetVarianceEntry[] = [];
 
   for (const budget of budgets) {
-    const varianceResponse: ActionResponse<SuperJSONResult> =
-      await getBudgetVariance(budget.id);
-    const varianceItems = varianceResponse.success
-      ? SuperJSON.deserialize<
-          {
-            budgeted: number;
-            actual: number;
-            variance: number;
-          }[]
-        >(varianceResponse.data)
-      : [];
+    const varianceResponse = await getBudgetVariance(budget.id);
+    const varianceItems =
+      varianceResponse.success && varianceResponse.data
+        ? SuperJSON.deserialize<
+            {
+              budgeted: number;
+              actual: number;
+              variance: number;
+            }[]
+          >(varianceResponse.data)
+        : [];
 
     const itemsTotal = varianceItems.reduce(
       (sum, item) => sum + Number(item.budgeted),
@@ -275,13 +273,13 @@ export async function getBudgetByProjectReport(params?: {
     let totalActual = 0;
 
     for (const budgetId of entry._ids) {
-      const varianceResponse: ActionResponse<SuperJSONResult> =
-        await getBudgetVariance(budgetId);
-      const items = varianceResponse.success
-        ? SuperJSON.deserialize<
-            { budgeted: number; actual: number }[]
-          >(varianceResponse.data)
-        : [];
+      const varianceResponse = await getBudgetVariance(budgetId);
+      const items =
+        varianceResponse.success && varianceResponse.data
+          ? SuperJSON.deserialize<{ budgeted: number; actual: number }[]>(
+              varianceResponse.data,
+            )
+          : [];
       totalBudget += items.reduce((s, i) => s + Number(i.budgeted), 0);
       totalActual += items.reduce((s, i) => s + Number(i.actual), 0);
     }
@@ -341,20 +339,20 @@ export async function getOverspendingReport(params?: {
   const results: OverspendingEntry[] = [];
 
   for (const budget of budgets) {
-    const varianceResponse: ActionResponse<SuperJSONResult> =
-      await getBudgetVariance(budget.id);
-    const items = varianceResponse.success
-      ? SuperJSON.deserialize<
-          {
-            accountCode: string;
-            accountName: string;
-            budgeted: number;
-            actual: number;
-            variance: number;
-            percentage: number;
-          }[]
-        >(varianceResponse.data)
-      : [];
+    const varianceResponse = await getBudgetVariance(budget.id);
+    const items =
+      varianceResponse.success && varianceResponse.data
+        ? SuperJSON.deserialize<
+            {
+              accountCode: string;
+              accountName: string;
+              budgeted: number;
+              actual: number;
+              variance: number;
+              percentage: number;
+            }[]
+          >(varianceResponse.data)
+        : [];
 
     for (const item of items) {
       const utilizationPct = Number(item.percentage) || 0;

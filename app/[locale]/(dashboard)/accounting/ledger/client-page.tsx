@@ -75,7 +75,7 @@ export default function LedgerClientPage({
     queryKey: ["ledger-accounts"],
     queryFn: async () => {
       const resp = await getLedgerAccounts();
-      return resp?.data || [];
+      return resp.success && resp.data ? resp.data : [];
     },
   });
 
@@ -117,9 +117,9 @@ export default function LedgerClientPage({
 
   const handleAccountChange = (
     value: string,
-    accounts: Awaited<ReturnType<typeof getLedgerAccounts>>["data"],
+    accountList: typeof accounts,
   ) => {
-    const found = accounts?.find((item) => item.id == value);
+    const found = accountList?.find((item) => item.id == value);
     if (found) {
       // Navigate to the slug URL
       router.push(`/accounting/ledger/${found.id}`);

@@ -10,7 +10,7 @@ import { Prisma } from "@/prisma/generated/prisma/client";
 import {
   maybeProcessIntegrationOutboxEvent,
 } from "@/modules/integration/outbox";
-import type { ActionResponse } from "@/lib/permissions/protected-action";
+import type { ActionResponse } from "@/types/actions";
 import { CashTransactionService } from "@/modules/cash-bank/services/cash-transaction.service";
 import { cashTransactionSchema } from "@/lib/validation/schemas";
 

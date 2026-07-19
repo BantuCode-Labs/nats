@@ -15,7 +15,10 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     const { id } = await params;
     const response = await getEmployee(id);
 
-    if (!response.success || !response.data) {
+    if (!response.success) {
+        notFound();
+    }
+    if (!response.data) {
         notFound();
     }
 

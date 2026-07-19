@@ -2,12 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { PayrollService } from '@/modules/payroll/services/payroll.service';
-import { CreatePayrollPeriodDTO, CreateSalaryStructureDTO, ActionResponse, CreateSalaryComponentDTO } from '@/modules/payroll/types/payroll.types';
+import { CreatePayrollPeriodDTO, CreateSalaryStructureDTO, CreateSalaryComponentDTO } from '@/modules/payroll/types/payroll.types';
+import type { ActionResponse } from '@/types/actions';
 import { prisma } from '@/lib/prisma';
 import { verifySession, getSession } from "@/lib/auth/auth";
 import { SalaryComponentService } from '@/modules/payroll/services/salary-component.service';
 import { ContactType, PayrollPeriodStatus } from '@/prisma/generated/prisma/client';
 import { SuperJSON } from "@/lib/superjson";
+import type { SuperJSONResult } from "superjson";
 import { authorizedAction } from "@/lib/permissions/protected-action";
 import { hasPermission } from "@/lib/permissions/utils";
 import { StatutoryService } from '@/modules/payroll/services/statutory.service';
@@ -44,7 +46,7 @@ export const configureSalaryStructure = authorizedAction(
     }
 );
 
-export async function getEmployees(search = ""): Promise<ActionResponse> {
+export async function getEmployees(search = ""): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -79,7 +81,7 @@ export async function getEmployees(search = ""): Promise<ActionResponse> {
     }
 }
 
-export async function getSalaryStructure(contactId: string): Promise<ActionResponse> {
+export async function getSalaryStructure(contactId: string): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -124,7 +126,7 @@ export async function getPayrollPeriods(
     page = 1,
     pageSize = 10,
     status?: PayrollPeriodStatus,
-): Promise<ActionResponse> {
+): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -137,7 +139,7 @@ export async function getPayrollPeriods(
     }
 }
 
-export async function getPayrollPeriod(id: string): Promise<ActionResponse> {
+export async function getPayrollPeriod(id: string): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -150,7 +152,7 @@ export async function getPayrollPeriod(id: string): Promise<ActionResponse> {
     }
 }
 
-export async function getSalaryComponents(): Promise<ActionResponse> {
+export async function getSalaryComponents(): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -176,7 +178,7 @@ export const createSalaryComponent = authorizedAction(
     }
 );
 
-export async function getSalaryHistory(contactId: string): Promise<ActionResponse> {
+export async function getSalaryHistory(contactId: string): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -189,7 +191,7 @@ export async function getSalaryHistory(contactId: string): Promise<ActionRespons
     }
 }
 
-export async function getPayrollReadiness(): Promise<ActionResponse> {
+export async function getPayrollReadiness(): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -215,7 +217,7 @@ export const markSlipsPaid = authorizedAction(
     }
 );
 
-export async function getSalarySlip(slipId: string): Promise<ActionResponse> {
+export async function getSalarySlip(slipId: string): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -229,7 +231,7 @@ export async function getSalarySlip(slipId: string): Promise<ActionResponse> {
     }
 }
 
-export async function getBankTransferExport(periodId: string): Promise<ActionResponse> {
+export async function getBankTransferExport(periodId: string): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "payroll.pay")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };

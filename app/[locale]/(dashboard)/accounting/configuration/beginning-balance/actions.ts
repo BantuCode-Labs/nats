@@ -18,11 +18,9 @@ export type BeginningBalanceItem = {
 
 export const getBeginningBalances = authorizedAction(
   "ledger.view",
-  async (): Promise<{
-    success: boolean;
-    data?: BeginningBalanceItem[];
-    error?: string;
-  }> => {
+  async (): Promise<
+    import("@/types/actions").ActionResponse<BeginningBalanceItem[]>
+  > => {
     try {
       const accounts = await prisma.account.findMany({
         where: {

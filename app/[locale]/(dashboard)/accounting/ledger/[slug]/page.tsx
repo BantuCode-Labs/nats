@@ -14,7 +14,10 @@ export default async function Page({
 
   const response = await getAccountById(decodedSlug);
 
-  if (!response.success || !response.data) {
+  if (!response.success) {
+    notFound();
+  }
+  if (!response.data) {
     notFound();
   }
 

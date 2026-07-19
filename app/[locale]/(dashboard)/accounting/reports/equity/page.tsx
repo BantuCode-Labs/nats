@@ -57,8 +57,10 @@ export default function EquityPage() {
       );
       if (res.success && res.data) {
         setReport(res.data);
-      } else {
+      } else if (!res.success) {
         console.error("Failed to fetch report:", res.error);
+      } else {
+        console.error("Failed to fetch report: empty data");
       }
     } catch (error) {
       console.error("Failed to fetch report:", error);

@@ -252,7 +252,9 @@ export default function AttendancePage() {
             } else {
                 toast({
                     title: tCommon("error"),
-                    description: result.error || t("attendance_import_failed"),
+                    description:
+                        (!result.success && result.error) ||
+                        t("attendance_import_failed"),
                     variant: "destructive",
                 });
             }

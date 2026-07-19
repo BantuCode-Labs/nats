@@ -19,7 +19,10 @@ import { SuperJSON } from "@/lib/superjson";
 
 export default async function BudgetsListPage() {
   const response = await getBudgets();
-  const budgets = response.success ? SuperJSON.deserialize<any[]>(response.data) : [];
+  const budgets =
+    response.success && response.data
+      ? SuperJSON.deserialize<any[]>(response.data)
+      : [];
 
 
   return (

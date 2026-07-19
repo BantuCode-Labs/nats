@@ -46,8 +46,11 @@ export function BeginningBalanceForm() {
     queryKey: ["beginning-balances"],
     queryFn: async () => {
       const res = await getBeginningBalances();
-      if (!res.success || !res.data) {
+      if (!res.success) {
         throw new Error(res.error || "Failed to fetch balances");
+      }
+      if (!res.data) {
+        throw new Error("Failed to fetch balances");
       }
       return res.data;
     },

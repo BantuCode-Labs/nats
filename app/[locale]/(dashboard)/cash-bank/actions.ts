@@ -25,7 +25,7 @@ import { cashTransferSchema } from "@/lib/validation/schemas";
 import {
   maybeProcessIntegrationOutboxEvent,
 } from "@/modules/integration/outbox";
-import type { ActionResponse } from "@/lib/permissions/protected-action";
+import type { ActionResponse } from "@/types/actions";
 import { CashAccountService } from "@/modules/cash-bank/services/cash-account.service";
 import { CashTransferService } from "@/modules/cash-bank/services/cash-transfer.service";
 import { CashAccountSyncService } from "@/modules/cash-bank/services/cash-account-sync.service";

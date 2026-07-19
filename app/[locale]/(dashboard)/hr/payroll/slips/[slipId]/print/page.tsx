@@ -18,7 +18,10 @@ export default async function PrintPayslipPage({ params }: PageProps) {
         prisma.companyProfile.findFirst(),
     ]);
 
-    if (!response.success || !response.data) {
+    if (!response.success) {
+        notFound();
+    }
+    if (!response.data) {
         notFound();
     }
 

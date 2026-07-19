@@ -13,7 +13,10 @@ export default async function NewBudgetPage() {
     getAccounts(),
   ]);
 
-  const accounts = accountsResult.success ? SuperJSON.deserialize<any[]>(accountsResult.data) : [];
+  const accounts =
+    accountsResult.success && accountsResult.data
+      ? SuperJSON.deserialize<any[]>(accountsResult.data)
+      : [];
 
 
   return (

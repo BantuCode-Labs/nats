@@ -38,7 +38,7 @@ describe("checkBudgetAvailability", () => {
     const result = await checkBudgetAvailability(null, null, date, 600);
 
     expect(result.success).toBe(true);
-    if (result.success) {
+    if (result.success && result.data) {
       expect(result.data.available).toBe(false);
       expect(result.data.warning).toContain("Exceeds budget");
     }
@@ -61,7 +61,7 @@ describe("checkBudgetAvailability", () => {
     const result = await checkBudgetAvailability(null, null, date, 100);
 
     expect(result.success).toBe(true);
-    if (result.success) {
+    if (result.success && result.data) {
       expect(result.data.available).toBe(true);
       expect(result.data.warning).toContain("approaching budget limit");
     }
@@ -84,7 +84,7 @@ describe("checkBudgetAvailability", () => {
     const result = await checkBudgetAvailability(null, null, date, 100);
 
     expect(result.success).toBe(true);
-    if (result.success) {
+    if (result.success && result.data) {
       expect(result.data.available).toBe(true);
       expect(result.data.warning).toBeUndefined();
     }

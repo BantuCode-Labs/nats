@@ -181,10 +181,11 @@ export function SkuSearchDialog({
     const metadata: SelectedMetadata = {
       sku: skuInput.trim(),
       name: fields.name ? result.name : "",
-      description: fields.description ? result.description : "",
-      category: fields.category ? result.category : "",
-      price: fields.price ? result.price : "",
-      image: fields.image && result.images.length > 0 ? result.images[0] : "",
+      description: fields.description ? (result.description ?? "") : "",
+      category: fields.category ? (result.category ?? "") : "",
+      price: fields.price ? (result.price ?? "") : "",
+      image:
+        fields.image && result.images.length > 0 ? result.images[0] : "",
     };
 
     onApplyMetadata(metadata);
@@ -425,19 +426,19 @@ function ResultCard({
           <FieldCheckbox
             label="Description"
             checked={selectedFields.description}
-            value={result.description}
+            value={result.description ?? ""}
             onChange={() => onToggleField("description")}
           />
           <FieldCheckbox
             label="Category"
             checked={selectedFields.category}
-            value={result.category}
+            value={result.category ?? ""}
             onChange={() => onToggleField("category")}
           />
           <FieldCheckbox
             label="Price"
             checked={selectedFields.price}
-            value={result.price}
+            value={result.price ?? ""}
             onChange={() => onToggleField("price")}
           />
           <div className="col-span-2 sm:col-span-3">

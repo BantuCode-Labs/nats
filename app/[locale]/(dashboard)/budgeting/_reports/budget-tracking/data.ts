@@ -19,10 +19,11 @@ export async function fetchBudgetTrackingData(input: { fiscalYear?: number }) {
 
   const reportData = await Promise.all(budgets.map(async (budget) => {
     // Reuse existing variance logic per budget
-    const varianceResponse: ActionResponse<SuperJSONResult> = await getBudgetVariance(budget.id);
-    const varianceItems = varianceResponse.success
-      ? SuperJSON.deserialize<any[]>(varianceResponse.data)
-      : [];
+    const varianceResponse = await getBudgetVariance(budget.id);
+    const varianceItems =
+      varianceResponse.success && varianceResponse.data
+        ? SuperJSON.deserialize<any[]>(varianceResponse.data)
+        : [];
 
     // itemsTotal calculation
     const itemsTotal = varianceItems.reduce((sum: any, item: any) => sum + Number(item.budgeted), 0);

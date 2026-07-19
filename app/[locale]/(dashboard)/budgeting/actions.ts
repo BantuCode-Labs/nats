@@ -8,28 +8,12 @@ import {
 import { z } from "zod";
 import { getSession } from "@/lib/auth/auth";
 import { SuperJSON } from "@/lib/superjson";
-import { ActionResponse } from "@/types/actions"; // Assuming shared type exists, or I will define it if needed.
-// Checking payroll actions: import { ActionResponse } from '@/modules/payroll/types/payroll.types';
-// I should probably define a local ActionResponse or import from a shared location if available. 
-// Given the lack of a clear shared validation, I'll define it locally similar to payroll if I can't find a shared one.
-// Let's look at `actions.ts` in `payroll` again. It imports from `@/modules/payroll/types/payroll.types`.
-// I will assume there is no global ActionResponse yet and define it or use `any` for now? No, better to define it.
-// Actually, I'll check if I can import it from `types/actions` or similar.
-// Wait, I see `import { ActionResponse } from '@/types/actions';` in my thought process but I haven't verified it exists.
-// Let me first check if '@/types/actions' exists or if I should define it in this file or a types file.
-// I'll define a generic type here for now or use the one from a common place if I find it.
-// The user said "look at the same implementation to other module". Payroll has it in `modules/payroll/types`.
-// I'll stick to defining it in a new types file for budgeting or just inline if simple.
-// Let's use `SuperJSON.serialize` as requested.
-
-// Define ActionResponse locally for now if not found, but I should probably check for a shared one.
-// ref: `app/(dashboard)/hr/payroll/actions.ts` imported it.
-
-// I'll start by replacing the content.
+import type { ActionResponse } from "@/types/actions";
+import type { SuperJSONResult } from "superjson";
 
 // --- Accounts ---
 
-export async function getAccounts(): Promise<ActionResponse> {
+export async function getAccounts(): Promise<ActionResponse<SuperJSONResult>> {
   try {
     const accounts = await prisma.account.findMany({
       where: { isActive: true },
@@ -43,7 +27,7 @@ export async function getAccounts(): Promise<ActionResponse> {
 
 // --- Budgets ---
 
-export async function getBudgets(): Promise<ActionResponse> {
+export async function getBudgets(): Promise<ActionResponse<SuperJSONResult>> {
   try {
     const budgets = await prisma.budget.findMany({
       orderBy: { createdAt: "desc" },
@@ -59,7 +43,7 @@ export async function getBudgets(): Promise<ActionResponse> {
   }
 }
 
-export async function getBudgetById(id: string): Promise<ActionResponse> {
+export async function getBudgetById(id: string): Promise<ActionResponse<SuperJSONResult>> {
   try {
     const budget = await prisma.budget.findUnique({
       where: { id },
@@ -272,7 +256,7 @@ export async function approveBudgetAction(id: string, approvalId: string, status
   }
 }
 
-export async function getBudgetVariance(budgetId: string): Promise<ActionResponse> {
+export async function getBudgetVariance(budgetId: string): Promise<ActionResponse<SuperJSONResult>> {
   try {
     const budget = await prisma.budget.findUnique({
       where: { id: budgetId },
@@ -352,12 +336,19 @@ export async function getBudgetVariance(budgetId: string): Promise<ActionRespons
   }
 }
 
+export type BudgetAvailabilityResult = {
+  available: boolean;
+  warning?: string;
+  remaining?: number;
+  budgetId?: string;
+};
+
 export async function checkBudgetAvailability(
   departmentId: string | null | undefined,
   projectId: string | null | undefined,
   date: Date,
   amount: number
-): Promise<ActionResponse> {
+): Promise<ActionResponse<BudgetAvailabilityResult>> {
   try {
     const fiscalYear = date.getFullYear();
 

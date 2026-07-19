@@ -29,7 +29,10 @@ import {
 export default async function BudgetingPage() {
   const session = await getSession();
   const response = await getBudgets();
-  const budgets = response.success ? SuperJSON.deserialize<any[]>(response.data) : [];
+  const budgets =
+    response.success && response.data
+      ? SuperJSON.deserialize<any[]>(response.data)
+      : [];
 
 
   return (

@@ -28,7 +28,8 @@ export default async function PrintSalarySlipPage({ params }: PageProps) {
     }
 
     const response = await getSalaryStructure(contactId);
-    const salaryStructure = response.success && response.data ? response.data : null;
+    const salaryStructure =
+        response.success && response.data ? response.data : null;
 
     return (
         <SalarySlip

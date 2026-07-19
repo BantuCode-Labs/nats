@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { LeaveService } from '@/modules/hr/services/leave.service';
-import { CreateLeaveRequestDTO, ReviewLeaveRequestDTO, ActionResponse } from '@/modules/hr/types';
+import { CreateLeaveRequestDTO, ReviewLeaveRequestDTO } from '@/modules/hr/types';
+import type { ActionResponse } from '@/types/actions';
 import { SuperJSON } from '@/lib/superjson';
 import { authorizedAction } from '@/lib/permissions/protected-action';
 import { getSession } from '@/lib/auth/auth';

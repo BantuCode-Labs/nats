@@ -14,6 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Play, CheckCircle, Banknote, Download } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Protect } from "@/components/ui/protect";
 
 type BankExportRow = {
     employeeName: string;
@@ -142,10 +143,18 @@ export function PayrollActions({
         setLoading(true);
         try {
             const result = await getBankTransferExport(periodId);
-            if (!result.success || !result.data) {
+            if (!result.success) {
                 toast({
                     title: tCommon("error"),
                     description: result.error || "Export failed",
+                    variant: "destructive",
+                });
+                return;
+            }
+            if (!result.data) {
+                toast({
+                    title: tCommon("error"),
+                    description: "Export failed",
                     variant: "destructive",
                 });
                 return;

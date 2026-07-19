@@ -68,7 +68,10 @@ export default async function PeriodDetailPage({
         getPayrollPeriod(periodId),
         getPayrollReadiness(),
     ]);
-    const period = response.success && response.data ? SuperJSON.deserialize<PeriodWithDetails>(response.data) : null;
+    const period =
+        response.success && response.data
+            ? SuperJSON.deserialize<PeriodWithDetails>(response.data)
+            : null;
 
     if (!period) {
         notFound();

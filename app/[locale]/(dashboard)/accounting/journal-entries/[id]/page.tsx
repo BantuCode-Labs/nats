@@ -21,8 +21,11 @@ export default function JournalEntryDetailsPage() {
     queryFn: async () => {
       if (!params?.id) throw new Error("ID is required");
       const res = await getJournalEntry(params.id);
-      if (!res.success || !res.data) {
+      if (!res.success) {
         throw new Error(res.error || "Journal entry not found");
+      }
+      if (!res.data) {
+        throw new Error("Journal entry not found");
       }
       return SuperJSON.deserialize<JournalEntryWithDetails>(res.data);
     },

@@ -22,8 +22,11 @@ export const fetchProfitLossData = async (input: {
     input.comparativeStartDate,
     input.comparativeEndDate
   );
-  if (!result.success || !result.data) {
+  if (!result.success) {
     throw new Error(result.error || "Failed to fetch Profit & Loss data");
+  }
+  if (!result.data) {
+    throw new Error("Failed to fetch Profit & Loss data");
   }
   return { ...result.data, ...input };
 };
@@ -33,8 +36,11 @@ export const fetchBalanceSheetData = async (input: {
   comparativeDate?: string;
 }) => {
   const result = await getBalanceSheet(input.date, input.comparativeDate);
-  if (!result.success || !result.data) {
+  if (!result.success) {
     throw new Error(result.error || "Failed to fetch Balance Sheet data");
+  }
+  if (!result.data) {
+    throw new Error("Failed to fetch Balance Sheet data");
   }
   return { ...result.data, ...input };
 };
@@ -51,8 +57,11 @@ export const fetchCashFlowData = async (input: {
     input.comparativeStartDate,
     input.comparativeEndDate
   );
-  if (!result.success || !result.data) {
+  if (!result.success) {
     throw new Error(result.error || "Failed to fetch Cash Flow data");
+  }
+  if (!result.data) {
+    throw new Error("Failed to fetch Cash Flow data");
   }
   return { ...result.data, ...input };
 };
@@ -69,16 +78,22 @@ export const fetchEquityData = async (input: {
     input.comparativeStartDate,
     input.comparativeEndDate
   );
-  if (!result.success || !result.data) {
+  if (!result.success) {
     throw new Error(result.error || "Failed to fetch Equity data");
+  }
+  if (!result.data) {
+    throw new Error("Failed to fetch Equity data");
   }
   return { ...result.data, ...input };
 };
 
 export const fetchRatiosData = async (input: { date: string }) => {
   const result = await getFinancialRatios(input.date);
-  if (!result.success || !result.data) {
-    throw new Error(result.error || "Failed to fetch Financial Ratios");
+  if (!result.success) {
+    throw new Error(result.error || "Failed to fetch Financial Ratios data");
+  }
+  if (!result.data) {
+    throw new Error("Failed to fetch Financial Ratios data");
   }
   return { ...result.data, ...input };
 };

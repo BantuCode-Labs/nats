@@ -4,9 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { AttendanceService } from '@/modules/hr/services/attendance.service';
 import {
     CreateAttendanceDTO,
-    ActionResponse,
     ImportAttendanceRowDTO,
 } from '@/modules/hr/types';
+import type { ActionResponse } from '@/types/actions';
 import { SuperJSON } from '@/lib/superjson';
 import { authorizedAction } from '@/lib/permissions/protected-action';
 import { getSession } from '@/lib/auth/auth';

@@ -22,11 +22,7 @@ export const getTrialBalance = authorizedAction(
   "reports.view",
   async (
     date: string
-  ): Promise<{
-    success: boolean;
-    data?: TrialBalanceResult;
-    error?: string;
-  }> => {
+  ): Promise<import("@/types/actions").ActionResponse<TrialBalanceResult>> => {
     const targetDate = new Date(date);
 
     // 1. Get ALL active accounts

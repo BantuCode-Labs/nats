@@ -9,7 +9,10 @@ export default async function DocumentNumberingPage() {
     const t = await getTranslations("DocumentNumbering");
     const response = await getDocumentNumberingSettings();
 
-    if (!response.success || !response.data) {
+    if (!response.success) {
+        return <div className="p-4 text-destructive">{t("failed_load")}</div>;
+    }
+    if (!response.data) {
         return <div className="p-4 text-destructive">{t("failed_load")}</div>;
     }
 

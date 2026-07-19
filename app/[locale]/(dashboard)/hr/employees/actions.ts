@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { EmployeeService } from '@/modules/hr/services/employee.service';
-import { CreateEmployeeDTO, UpdateEmployeeDTO, ActionResponse } from '@/modules/hr/types';
+import { CreateEmployeeDTO, UpdateEmployeeDTO } from '@/modules/hr/types';
+import type { ActionResponse } from '@/types/actions';
 import { SuperJSON } from "@/lib/superjson";
+import type { SuperJSONResult } from "superjson";
 import { authorizedAction } from "@/lib/permissions/protected-action";
 import { getSession } from "@/lib/auth/auth";
 import { hasPermission } from "@/lib/permissions/utils";
@@ -15,7 +17,7 @@ export async function getEmployees(
     search = "",
     departmentId?: string,
     isActive?: boolean,
-): Promise<ActionResponse> {
+): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "hr.employees.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };
@@ -28,7 +30,7 @@ export async function getEmployees(
     }
 }
 
-export async function getEmployee(id: string): Promise<ActionResponse> {
+export async function getEmployee(id: string): Promise<ActionResponse<SuperJSONResult>> {
     const session = await getSession();
     if (!session || !hasPermission(session.permissions, "hr.employees.view")) {
         return { success: false, error: "Forbidden: Insufficient permissions" };

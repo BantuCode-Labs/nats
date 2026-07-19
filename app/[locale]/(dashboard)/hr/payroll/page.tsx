@@ -42,7 +42,10 @@ export default async function PayrollPage({
     const resolvedParams = await searchParams;
     const page = Number(resolvedParams.page) || 1;
     const response = await getPayrollPeriods(page);
-    const periodsData = response.success && response.data ? SuperJSON.deserialize<PayrollPeriodsResult>(response.data) : null;
+    const periodsData =
+        response.success && response.data
+            ? SuperJSON.deserialize<PayrollPeriodsResult>(response.data)
+            : null;
 
     return (
         <PageListLayout>

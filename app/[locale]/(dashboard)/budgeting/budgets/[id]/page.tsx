@@ -22,7 +22,8 @@ import {
 export default async function BudgetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const budgetResponse = await getBudgetById(id);
-  if (!budgetResponse.success || !budgetResponse.data) return notFound();
+  if (!budgetResponse.success) return notFound();
+  if (!budgetResponse.data) return notFound();
 
   const budget = SuperJSON.deserialize<any>(budgetResponse.data);
 
@@ -32,7 +33,10 @@ export default async function BudgetDetailPage({ params }: { params: Promise<{ i
     prisma.companyProfile.findFirst()
   ]);
 
-  const varianceData = varianceResponse.success ? SuperJSON.deserialize<any[]>(varianceResponse.data) : [];
+  const varianceData =
+    varianceResponse.success && varianceResponse.data
+      ? SuperJSON.deserialize<any[]>(varianceResponse.data)
+      : [];
 
 
   const currencyOptions = {
