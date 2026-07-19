@@ -97,6 +97,28 @@ export async function getSalesOrders(
   };
 }
 
+async function resolveUserNames(userIds: Array<string | null | undefined>) {
+  const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true },
+  });
+
+  return new Map(users.map((user) => [user.id, user.name]));
+}
+
+function userNameRef(
+  userId: string | null | undefined,
+  nameById: Map<string, string>,
+) {
+  if (!userId) return null;
+  return { name: nameById.get(userId) || userId };
+}
+
 export async function getSalesOrder(id: string) {
   const session = await getSession();
   if (!session || !hasPermission(session.permissions, "sales.view")) {
@@ -125,7 +147,22 @@ export async function getSalesOrder(id: string) {
 
   if (!order) return null;
 
-  return SuperJSON.serialize(order);
+  const nameById = await resolveUserNames([
+    order.createdById,
+    order.updatedById,
+    order.confirmedById,
+    order.closedById,
+    order.cancelledById,
+  ]);
+
+  return SuperJSON.serialize({
+    ...order,
+    createdBy: userNameRef(order.createdById, nameById),
+    updatedBy: userNameRef(order.updatedById, nameById),
+    confirmedBy: userNameRef(order.confirmedById, nameById),
+    closedBy: userNameRef(order.closedById, nameById),
+    cancelledBy: userNameRef(order.cancelledById, nameById),
+  });
 }
 
 // Helper to generate SO Number

@@ -1,15 +1,12 @@
 import { Prisma, PurchaseOrderStatus } from "@/prisma/generated/prisma/client";
 
+type UserNameRef = { name: string } | null;
+
 export type PurchaseOrderWithDetails = Prisma.PurchaseOrderGetPayload<{
   include: {
     contact: true;
     department: true;
     project: true;
-    createdBy: { select: { name: true } };
-    updatedBy: { select: { name: true } };
-    issuedBy: { select: { name: true } };
-    closedBy: { select: { name: true } };
-    cancelledBy: { select: { name: true } };
     attachments: true;
     items: {
       include: {
@@ -22,7 +19,13 @@ export type PurchaseOrderWithDetails = Prisma.PurchaseOrderGetPayload<{
       };
     };
   };
-}>;
+}> & {
+  createdBy: UserNameRef;
+  updatedBy: UserNameRef;
+  issuedBy: UserNameRef;
+  closedBy: UserNameRef;
+  cancelledBy: UserNameRef;
+};
 
 export type PurchaseOrderItemInput = {
   productId: string;

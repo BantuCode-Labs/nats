@@ -369,7 +369,7 @@ export function PurchaseOrderForm({
           formData.orderDate,
           totalAmount,
         );
-        if (res.success && res.data.warning) {
+        if (res.success && res.data?.warning) {
           setBudgetWarning(res.data.warning);
         } else {
           setBudgetWarning(null);
@@ -441,7 +441,7 @@ export function PurchaseOrderForm({
                           {order.createdAt && formatDate(order.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.createdById || "System"}
+                          {order.createdBy?.name || "System"}
                         </TableCell>
                       </TableRow>
 
@@ -451,7 +451,7 @@ export function PurchaseOrderForm({
                           {order.updatedAt && formatDate(order.updatedAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.updatedById || "System"}
+                          {order.updatedBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -460,7 +460,7 @@ export function PurchaseOrderForm({
                           {order.issuedAt && formatDate(order.issuedAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.issuedById || "System"}
+                          {order.issuedBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -469,7 +469,7 @@ export function PurchaseOrderForm({
                           {order.closedAt && formatDate(order.closedAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.closedById || "System"}
+                          {order.closedBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -478,7 +478,7 @@ export function PurchaseOrderForm({
                           {order.cancelledAt && formatDate(order.cancelledAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.cancelledById || "System"}
+                          {order.cancelledBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                     </TableBody>

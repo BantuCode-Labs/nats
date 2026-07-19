@@ -440,7 +440,7 @@ export function SalesOrderForm({
                           {order.createdAt && formatDate(order.createdAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.createdById || "System"}
+                          {order.createdBy?.name || "System"}
                         </TableCell>
                       </TableRow>
 
@@ -450,7 +450,7 @@ export function SalesOrderForm({
                           {order.updatedAt && formatDate(order.updatedAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.updatedById || "System"}
+                          {order.updatedBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -459,7 +459,7 @@ export function SalesOrderForm({
                           {order.confirmedAt && formatDate(order.confirmedAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.confirmedById || "System"}
+                          {order.confirmedBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -468,7 +468,7 @@ export function SalesOrderForm({
                           {order.closedAt && formatDate(order.closedAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.closedById || "System"}
+                          {order.closedBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -477,7 +477,7 @@ export function SalesOrderForm({
                           {order.cancelledAt && formatDate(order.cancelledAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {order.cancelledById || "System"}
+                          {order.cancelledBy?.name || "System"}
                         </TableCell>
                       </TableRow>
                     </TableBody>
