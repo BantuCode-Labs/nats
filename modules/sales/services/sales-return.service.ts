@@ -50,6 +50,7 @@ export class SalesReturnService {
           notes: data.notes,
           status: INITIAL_DRAFT_STATUS,
           totalAmount,
+          createdById: userId,
           items: {
             create: itemsWithCalculations.map((i) => ({
               productId: i.itemData.productId,
@@ -85,7 +86,7 @@ export class SalesReturnService {
     });
   }
 
-  static async update(id: string, data: SalesReturnInput) {
+  static async update(id: string, data: SalesReturnInput, userId: string) {
     const currentReturn = await prisma.salesReturn.findUnique({
       where: { id },
     });
@@ -136,6 +137,7 @@ export class SalesReturnService {
           returnDate: data.returnDate,
           notes: data.notes,
           totalAmount: totals.totalAmount.toNumber(),
+          updatedById: userId,
           items: {
             create: itemsWithCalculations.map((i) => ({
               productId: i.itemData.productId,

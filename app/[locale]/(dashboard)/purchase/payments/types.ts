@@ -14,6 +14,8 @@ export type PurchasePaymentInput = {
   attachmentIds?: string[];
 };
 
+type UserNameRef = { name: string } | null;
+
 export type PurchasePaymentWithDetails = Prisma.PurchasePaymentGetPayload<{
   include: {
     contact: true;
@@ -24,4 +26,8 @@ export type PurchasePaymentWithDetails = Prisma.PurchasePaymentGetPayload<{
     project: true;
     attachments: true;
   };
-}>;
+}> & {
+  createdBy: UserNameRef;
+  updatedBy: UserNameRef;
+  postedBy: UserNameRef;
+};

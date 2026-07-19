@@ -40,6 +40,7 @@ import { useFormatDate, useFormatCurrency } from "@/hooks";
 import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SuperJSONResult } from "superjson";
+import { StatusHistoryDialog } from "@/components/ui/status-history-dialog";
 
 interface SalesPaymentFormProps {
   initialData?: SalesPaymentWithDetails;
@@ -200,7 +201,38 @@ export function SalesPaymentForm({
     <PageFormLayout>
       <form onSubmit={handleSubmit}>
         <PageFormHeader>
-          <PageFormTitle title={initialData ? (readonly ? t("view_payment") : t("edit_payment")) : t("new_payment")} />
+          <div className="flex items-center gap-2">
+            <PageFormTitle
+              title={
+                initialData
+                  ? readonly
+                    ? t("view_payment")
+                    : t("edit_payment")
+                  : t("new_payment")
+              }
+            />
+            {initialData && (
+              <StatusHistoryDialog
+                events={[
+                  {
+                    event: "Created",
+                    at: initialData.createdAt,
+                    byName: initialData.createdBy?.name,
+                  },
+                  {
+                    event: "Last Updated",
+                    at: initialData.updatedAt,
+                    byName: initialData.updatedBy?.name,
+                  },
+                  {
+                    event: "Posted",
+                    at: initialData.postedAt,
+                    byName: initialData.postedBy?.name,
+                  },
+                ]}
+              />
+            )}
+          </div>
           <PageFormActions>
             <Button
               type="button"

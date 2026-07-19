@@ -131,6 +131,12 @@ export async function handleSalesInvoiceIssued(tx: Tx, payloadInput: unknown) {
     data: {
       journalEntryId: journalEntry.id,
       status: invoice.status === "DRAFT" ? "ISSUED" : invoice.status,
+      ...(invoice.status === "DRAFT"
+        ? {
+            issuedAt: new Date(),
+            issuedById: payload.userId,
+          }
+        : {}),
     },
   });
 }

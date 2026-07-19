@@ -31,6 +31,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Loader2, Trash2, PlusIcon } from "lucide-react";
+import { StatusHistoryDialog } from "@/components/ui/status-history-dialog";
 import {
   createPurchaseInvoice,
   updatePurchaseInvoice,
@@ -644,25 +645,60 @@ export function PurchaseInvoiceForm({
                     </div>
 
                     {isEditing && (
-                      <CustomSelect
-                        value={formData.status}
-                        label={t("status")}
-                        onValueChange={(val: any) =>
-                          setFormData((prev) => ({ ...prev, status: val }))
-                        }
-                        disabled={
-                          readonly ||
-                          invoice.status === "PAID" ||
-                          invoice.status === "CANCELED"
-                        }
-                        options={[
-                          { label: "Draft", value: "DRAFT" },
-                          { label: "Billed", value: "BILLED" },
-                          { label: "Paid", value: "PAID" },
-                          { label: "Partially Paid", value: "PARTIALLY_PAID" },
-                          { label: "Canceled", value: "CANCELED" },
-                        ]}
-                      />
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <CustomSelect
+                            value={formData.status}
+                            label={t("status")}
+                            onValueChange={(val: any) =>
+                              setFormData((prev) => ({ ...prev, status: val }))
+                            }
+                            disabled={
+                              readonly ||
+                              invoice.status === "PAID" ||
+                              invoice.status === "CANCELED"
+                            }
+                            options={[
+                              { label: "Draft", value: "DRAFT" },
+                              { label: "Billed", value: "BILLED" },
+                              { label: "Paid", value: "PAID" },
+                              {
+                                label: "Partially Paid",
+                                value: "PARTIALLY_PAID",
+                              },
+                              { label: "Canceled", value: "CANCELED" },
+                            ]}
+                          />
+                        </div>
+                        {invoice && (
+                          <div className="pb-1">
+                            <StatusHistoryDialog
+                              events={[
+                                {
+                                  event: "Created",
+                                  at: invoice.createdAt,
+                                  byName: invoice.createdBy?.name,
+                                },
+                                {
+                                  event: "Last Updated",
+                                  at: invoice.updatedAt,
+                                  byName: invoice.updatedBy?.name,
+                                },
+                                {
+                                  event: "Billed",
+                                  at: invoice.billedAt,
+                                  byName: invoice.billedBy?.name,
+                                },
+                                {
+                                  event: "Cancelled",
+                                  at: invoice.cancelledAt,
+                                  byName: invoice.cancelledBy?.name,
+                                },
+                              ]}
+                            />
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 

@@ -39,13 +39,6 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   Loader2,
   Plus,
   Trash2,
@@ -54,8 +47,8 @@ import {
   CheckCircle,
   Trash2Icon,
   ArrowLeftSquare,
-  InfoIcon,
 } from "lucide-react";
+import { StatusHistoryDialog } from "@/components/ui/status-history-dialog";
 import {
   createPurchaseOrder,
   updatePurchaseOrder,
@@ -77,7 +70,7 @@ import { SuperJSON } from "@/lib/superjson";
 import { PurchaseOrderWithDetails } from "../types";
 import { ProductWithDetails } from "@/app/[locale]/(dashboard)/inventory/types";
 import { TaxRate } from "@/prisma/generated/prisma/client";
-import { useFormatDate, useFormatCurrency } from "@/hooks";
+import { useFormatCurrency } from "@/hooks";
 import {
   AttachmentDialog,
   Attachment,
@@ -120,7 +113,6 @@ export function PurchaseOrderForm({
 
   const router = useRouter();
   const formatCurrency = useFormatCurrency();
-  const formatDate = useFormatDate();
   const [isLoading, setIsLoading] = useState(false);
   const isEditing = !!order;
   const confirm = useConfirm();
@@ -416,75 +408,35 @@ export function PurchaseOrderForm({
               {formData.status?.replace("_", " ")}
             </span>
             {order && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                    <InfoIcon className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="min-w-1/3">
-                  <DialogHeader>
-                    <DialogTitle>Status History</DialogTitle>
-                  </DialogHeader>
-                  <Table className="text-sm">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="font-medium">Event</TableHead>
-                        <TableHead className="text-right">Timestamp</TableHead>
-                        <TableHead className="text-right">User</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell>Created</TableCell>
-                        <TableCell className="text-right">
-                          {order.createdAt && formatDate(order.createdAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {order.createdBy?.name || "System"}
-                        </TableCell>
-                      </TableRow>
-
-                      <TableRow>
-                        <TableCell>Last Updated</TableCell>
-                        <TableCell className="text-right">
-                          {order.updatedAt && formatDate(order.updatedAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {order.updatedBy?.name || "System"}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>Issued</TableCell>
-                        <TableCell className="text-right">
-                          {order.issuedAt && formatDate(order.issuedAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {order.issuedBy?.name || "System"}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>Closed</TableCell>
-                        <TableCell className="text-right">
-                          {order.closedAt && formatDate(order.closedAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {order.closedBy?.name || "System"}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>Cancelled</TableCell>
-                        <TableCell className="text-right">
-                          {order.cancelledAt && formatDate(order.cancelledAt)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {order.cancelledBy?.name || "System"}
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </DialogContent>
-              </Dialog>
+              <StatusHistoryDialog
+                events={[
+                  {
+                    event: "Created",
+                    at: order.createdAt,
+                    byName: order.createdBy?.name,
+                  },
+                  {
+                    event: "Last Updated",
+                    at: order.updatedAt,
+                    byName: order.updatedBy?.name,
+                  },
+                  {
+                    event: "Issued",
+                    at: order.issuedAt,
+                    byName: order.issuedBy?.name,
+                  },
+                  {
+                    event: "Closed",
+                    at: order.closedAt,
+                    byName: order.closedBy?.name,
+                  },
+                  {
+                    event: "Cancelled",
+                    at: order.cancelledAt,
+                    byName: order.cancelledBy?.name,
+                  },
+                ]}
+              />
             )}
           </div>
         </div>

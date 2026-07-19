@@ -118,6 +118,16 @@ model SalesShipment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Status Tracking
+  createdById String?
+  updatedById String?
+
+  completedAt   DateTime?
+  completedById String?
+
+  cancelledAt   DateTime?
+  cancelledById String?
 }
 
 model SalesShipmentItem {
@@ -191,6 +201,16 @@ model SalesInvoice {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Status Tracking
+  createdById String?
+  updatedById String?
+
+  issuedAt   DateTime?
+  issuedById String?
+
+  cancelledAt   DateTime?
+  cancelledById String?
 }
 
 model SalesInvoiceItem {
@@ -258,6 +278,12 @@ model SalesPayment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Status Tracking
+  createdById String?
+  updatedById String?
+  postedAt    DateTime?
+  postedById  String?
 }
 
 enum SalesReturnStatus {
@@ -299,6 +325,19 @@ model SalesReturn {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Status Tracking
+  createdById String?
+  updatedById String?
+
+  approvedAt   DateTime?
+  approvedById String?
+
+  completedAt   DateTime?
+  completedById String?
+
+  cancelledAt   DateTime?
+  cancelledById String?
 }
 
 model SalesReturnItem {

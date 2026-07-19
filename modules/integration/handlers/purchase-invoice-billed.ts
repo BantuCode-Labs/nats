@@ -144,6 +144,8 @@ export async function handlePurchaseInvoiceBilled(
     data: {
       status: "BILLED",
       journalEntryId: journalEntry.id,
+      billedAt: new Date(),
+      billedById: payload.userId,
     },
   });
 }

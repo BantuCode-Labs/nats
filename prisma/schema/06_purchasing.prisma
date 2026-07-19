@@ -104,6 +104,12 @@ model PurchasePayment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Status Tracking
+  createdById String?
+  updatedById String?
+  postedAt    DateTime?
+  postedById  String?
 }
 
 enum PurchaseReceiveStatus {
@@ -138,6 +144,16 @@ model PurchaseReceive {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Status Tracking
+  createdById String?
+  updatedById String?
+
+  completedAt   DateTime?
+  completedById String?
+
+  cancelledAt   DateTime?
+  cancelledById String?
 }
 
 model PurchaseReceiveItem {
@@ -205,6 +221,16 @@ model PurchaseInvoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Status Tracking
+  createdById String?
+  updatedById String?
+
+  billedAt   DateTime?
+  billedById String?
+
+  cancelledAt   DateTime?
+  cancelledById String?
+
   @@unique([contactId, invoiceNumber])
 }
 
@@ -271,6 +297,19 @@ model PurchaseReturn {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Status Tracking
+  createdById String?
+  updatedById String?
+
+  approvedAt   DateTime?
+  approvedById String?
+
+  completedAt   DateTime?
+  completedById String?
+
+  cancelledAt   DateTime?
+  cancelledById String?
 }
 
 model PurchaseReturnItem {

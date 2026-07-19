@@ -16,6 +16,7 @@ import {
   maybeProcessIntegrationOutboxEvent,
 } from "@/modules/integration/outbox";
 import { PurchasePaymentService } from "@/modules/purchase/services/purchase-payment.service";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 type PostPurchasePaymentResult = {
   processed: boolean;
@@ -101,7 +102,21 @@ export async function getPurchasePayment(id: string) {
       attachments: true,
     },
   });
-  return SuperJSON.serialize(payment);
+
+  if (!payment) return null;
+
+  const nameById = await resolveUserNames([
+    payment.createdById,
+    payment.updatedById,
+    payment.postedById,
+  ]);
+
+  return SuperJSON.serialize({
+    ...payment,
+    createdBy: userNameRef(payment.createdById, nameById),
+    updatedBy: userNameRef(payment.updatedById, nameById),
+    postedBy: userNameRef(payment.postedById, nameById),
+  });
 }
 
 export async function getUnpaidInvoices() {

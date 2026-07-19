@@ -33,6 +33,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { Loader2, Trash2, PlusIcon } from "lucide-react";
+import { StatusHistoryDialog } from "@/components/ui/status-history-dialog";
 import {
   createSalesInvoice,
   updateSalesInvoice,
@@ -632,27 +633,59 @@ export function SalesInvoiceForm({
                     </div>
 
                     {isEditing && (
-                      <CustomSelect
-                        value={formData.status}
-                        label={t("status")}
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        onValueChange={(val: any) =>
-                          setFormData((prev) => ({ ...prev, status: val }))
-                        }
-                        disabled={
-                          readonly ||
-                          invoice.status === "PAID" ||
-                          invoice.status === "CANCELLED"
-                        }
-                      >
-                        <SelectItem value="DRAFT">Draft</SelectItem>
-                        <SelectItem value="ISSUED">Issued</SelectItem>
-                        <SelectItem value="PAID">Paid</SelectItem>
-                        <SelectItem value="PARTIALLY_PAID">
-                          Partially Paid
-                        </SelectItem>
-                        <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                      </CustomSelect>
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <CustomSelect
+                            value={formData.status}
+                            label={t("status")}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            onValueChange={(val: any) =>
+                              setFormData((prev) => ({ ...prev, status: val }))
+                            }
+                            disabled={
+                              readonly ||
+                              invoice.status === "PAID" ||
+                              invoice.status === "CANCELLED"
+                            }
+                          >
+                            <SelectItem value="DRAFT">Draft</SelectItem>
+                            <SelectItem value="ISSUED">Issued</SelectItem>
+                            <SelectItem value="PAID">Paid</SelectItem>
+                            <SelectItem value="PARTIALLY_PAID">
+                              Partially Paid
+                            </SelectItem>
+                            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                          </CustomSelect>
+                        </div>
+                        {invoice && (
+                          <div className="pb-1">
+                            <StatusHistoryDialog
+                              events={[
+                                {
+                                  event: "Created",
+                                  at: invoice.createdAt,
+                                  byName: invoice.createdBy?.name,
+                                },
+                                {
+                                  event: "Last Updated",
+                                  at: invoice.updatedAt,
+                                  byName: invoice.updatedBy?.name,
+                                },
+                                {
+                                  event: "Issued",
+                                  at: invoice.issuedAt,
+                                  byName: invoice.issuedBy?.name,
+                                },
+                                {
+                                  event: "Cancelled",
+                                  at: invoice.cancelledAt,
+                                  byName: invoice.cancelledBy?.name,
+                                },
+                              ]}
+                            />
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 

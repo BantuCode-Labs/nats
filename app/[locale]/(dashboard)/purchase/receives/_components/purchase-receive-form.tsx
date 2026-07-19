@@ -58,6 +58,7 @@ import {
   PageFormTitle,
 } from "@/components/layout/page/form-layout";
 import { useTranslations } from "next-intl";
+import { StatusHistoryDialog } from "@/components/ui/status-history-dialog";
 
 interface ProductForSelect {
   id: string;
@@ -476,7 +477,7 @@ export function PurchaseReceiveForm({
                     </div>
 
                     {isEditing && (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2 items-end">
                         <CustomSelect
                           label={t("status")}
                           value={status}
@@ -492,6 +493,34 @@ export function PurchaseReceiveForm({
                           ]}
                           disabled={readonly || receive.status === "COMPLETED"}
                         />
+                        {receive && (
+                          <div className="pb-1">
+                            <StatusHistoryDialog
+                              events={[
+                                {
+                                  event: "Created",
+                                  at: receive.createdAt,
+                                  byName: receive.createdBy?.name,
+                                },
+                                {
+                                  event: "Last Updated",
+                                  at: receive.updatedAt,
+                                  byName: receive.updatedBy?.name,
+                                },
+                                {
+                                  event: "Completed",
+                                  at: receive.completedAt,
+                                  byName: receive.completedBy?.name,
+                                },
+                                {
+                                  event: "Cancelled",
+                                  at: receive.cancelledAt,
+                                  byName: receive.cancelledBy?.name,
+                                },
+                              ]}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
 

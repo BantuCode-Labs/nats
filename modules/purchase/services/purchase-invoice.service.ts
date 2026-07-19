@@ -29,6 +29,7 @@ export class PurchaseInvoiceService {
           handlingCost: data.handlingCost,
           departmentId: data.departmentId,
           projectId: data.projectId,
+          createdById: userId,
           items: {
             create: itemsData,
           },
@@ -59,7 +60,7 @@ export class PurchaseInvoiceService {
     });
   }
 
-  static async update(id: string, data: PurchaseInvoiceInput) {
+  static async update(id: string, data: PurchaseInvoiceInput, userId: string) {
     const currentInvoice = await prisma.purchaseInvoice.findUnique({
       where: { id },
     });
@@ -103,6 +104,7 @@ export class PurchaseInvoiceService {
           handlingCost: data.handlingCost,
           departmentId: data.departmentId,
           projectId: data.projectId,
+          updatedById: userId,
           items: {
             create: itemsData,
           },

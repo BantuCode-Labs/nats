@@ -36,6 +36,7 @@ export class SalesInvoiceService {
           shippingCost: data.shippingCost,
           departmentId: data.departmentId,
           projectId: data.projectId,
+          createdById: userId,
           items: {
             create: itemsData,
           },
@@ -66,7 +67,11 @@ export class SalesInvoiceService {
     });
   }
 
-  static async update(id: string, data: CreateSalesInvoiceInput) {
+  static async update(
+    id: string,
+    data: CreateSalesInvoiceInput,
+    userId: string,
+  ) {
     // 1. Validation: Check if invoice exists and is editable
     const currentInvoice = await prisma.salesInvoice.findUnique({
       where: { id },
@@ -119,6 +124,7 @@ export class SalesInvoiceService {
           shippingCost: data.shippingCost,
           departmentId: data.departmentId,
           projectId: data.projectId,
+          updatedById: userId,
           items: {
             create: itemsData,
           },

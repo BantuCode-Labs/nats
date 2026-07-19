@@ -1,5 +1,7 @@
 import { Prisma } from "@/prisma/generated/prisma/client";
 
+type UserNameRef = { name: string } | null;
+
 export type PurchaseReceiveWithDetails = Prisma.PurchaseReceiveGetPayload<{
   include: {
     contact: true;
@@ -16,7 +18,12 @@ export type PurchaseReceiveWithDetails = Prisma.PurchaseReceiveGetPayload<{
     };
     attachments: true;
   };
-}>;
+}> & {
+  createdBy: UserNameRef;
+  updatedBy: UserNameRef;
+  completedBy: UserNameRef;
+  cancelledBy: UserNameRef;
+};
 
 export interface PurchaseReceiveItemInput {
   productId: string;

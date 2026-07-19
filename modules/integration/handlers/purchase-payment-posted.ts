@@ -66,7 +66,11 @@ export async function handlePurchasePaymentPostedAccounting(
 
   await tx.purchasePayment.update({
     where: { id: payment.id },
-    data: { journalEntryId: journalEntry.id },
+    data: {
+      journalEntryId: journalEntry.id,
+      postedAt: new Date(),
+      postedById: payload.userId,
+    },
   });
 }
 

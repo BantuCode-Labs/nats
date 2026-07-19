@@ -48,6 +48,7 @@ import { Department, Project } from "@/prisma/generated/prisma/client";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useTranslations } from "next-intl";
 import { useFormatCurrency } from "@/hooks/use-format-currency";
+import { StatusHistoryDialog } from "@/components/ui/status-history-dialog";
 import {
   PageFormActions,
   PageFormContent,
@@ -446,25 +447,71 @@ export function PurchaseReturnForm({
                         disabled={readonly}
                       />
 
-                      <CustomSelect
-                        label={t("status")}
-                        value={formData.status || "DRAFT"}
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        onValueChange={(val: any) =>
-                          setFormData((prev) => ({ ...prev, status: val }))
-                        }
-                        options={[
-                          { label: t("status_draft"), value: "DRAFT" },
-                          { label: t("status_approved"), value: "APPROVED" },
-                          { label: t("status_completed"), value: "COMPLETED" },
-                          { label: t("status_cancelled"), value: "CANCELLED" },
-                        ]}
-                        disabled={
-                          readonly ||
-                          returnItem?.status === "COMPLETED" ||
-                          returnItem?.status === "CANCELLED"
-                        }
-                      />
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <CustomSelect
+                            label={t("status")}
+                            value={formData.status || "DRAFT"}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            onValueChange={(val: any) =>
+                              setFormData((prev) => ({ ...prev, status: val }))
+                            }
+                            options={[
+                              { label: t("status_draft"), value: "DRAFT" },
+                              {
+                                label: t("status_approved"),
+                                value: "APPROVED",
+                              },
+                              {
+                                label: t("status_completed"),
+                                value: "COMPLETED",
+                              },
+                              {
+                                label: t("status_cancelled"),
+                                value: "CANCELLED",
+                              },
+                            ]}
+                            disabled={
+                              readonly ||
+                              returnItem?.status === "COMPLETED" ||
+                              returnItem?.status === "CANCELLED"
+                            }
+                          />
+                        </div>
+                        {returnItem && (
+                          <div className="pb-1">
+                            <StatusHistoryDialog
+                              events={[
+                                {
+                                  event: "Created",
+                                  at: returnItem.createdAt,
+                                  byName: returnItem.createdBy?.name,
+                                },
+                                {
+                                  event: "Last Updated",
+                                  at: returnItem.updatedAt,
+                                  byName: returnItem.updatedBy?.name,
+                                },
+                                {
+                                  event: "Approved",
+                                  at: returnItem.approvedAt,
+                                  byName: returnItem.approvedBy?.name,
+                                },
+                                {
+                                  event: "Completed",
+                                  at: returnItem.completedAt,
+                                  byName: returnItem.completedBy?.name,
+                                },
+                                {
+                                  event: "Cancelled",
+                                  at: returnItem.cancelledAt,
+                                  byName: returnItem.cancelledBy?.name,
+                                },
+                              ]}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">

@@ -10,6 +10,7 @@ import { SuperJSON } from "@/lib/superjson";
 import { hasPermission } from "@/lib/permissions/utils";
 import { SalesOrderService } from "@/modules/sales/services/sales-order.service";
 import { generateDocumentNumber } from "@/lib/document-numbering";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 export async function getSalesOrders(
   page: number = 1,
@@ -95,28 +96,6 @@ export async function getSalesOrders(
     total,
     totalPages: Math.ceil(total / limit),
   };
-}
-
-async function resolveUserNames(userIds: Array<string | null | undefined>) {
-  const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
-  if (ids.length === 0) {
-    return new Map<string, string>();
-  }
-
-  const users = await prisma.user.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, name: true },
-  });
-
-  return new Map(users.map((user) => [user.id, user.name]));
-}
-
-function userNameRef(
-  userId: string | null | undefined,
-  nameById: Map<string, string>,
-) {
-  if (!userId) return null;
-  return { name: nameById.get(userId) || userId };
 }
 
 export async function getSalesOrder(id: string) {

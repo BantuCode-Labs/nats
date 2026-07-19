@@ -15,6 +15,8 @@ export type SalesPaymentInput = {
   attachmentIds?: string[];
 };
 
+type UserNameRef = { name: string } | null;
+
 export type SalesPaymentWithDetails = Prisma.SalesPaymentGetPayload<{
   include: {
     contact: true;
@@ -25,4 +27,8 @@ export type SalesPaymentWithDetails = Prisma.SalesPaymentGetPayload<{
     project: true;
     attachments: true;
   };
-}>;
+}> & {
+  createdBy: UserNameRef;
+  updatedBy: UserNameRef;
+  postedBy: UserNameRef;
+};

@@ -1,5 +1,7 @@
 import { Prisma } from "@/prisma/generated/prisma/client";
 
+type UserNameRef = { name: string } | null;
+
 export type SalesShipmentWithDetails = Prisma.SalesShipmentGetPayload<{
   include: {
     contact: true;
@@ -16,7 +18,12 @@ export type SalesShipmentWithDetails = Prisma.SalesShipmentGetPayload<{
     };
     attachments: true;
   };
-}>;
+}> & {
+  createdBy: UserNameRef;
+  updatedBy: UserNameRef;
+  completedBy: UserNameRef;
+  cancelledBy: UserNameRef;
+};
 
 export interface SalesShipmentItemInput {
   productId: string;

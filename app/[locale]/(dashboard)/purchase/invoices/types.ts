@@ -34,6 +34,8 @@ export interface PurchaseInvoiceInput {
   attachmentIds?: string[];
 }
 
+type UserNameRef = { name: string } | null;
+
 export type PurchaseInvoiceWithDetails = Prisma.PurchaseInvoiceGetPayload<{
   include: {
     contact: true;
@@ -44,4 +46,9 @@ export type PurchaseInvoiceWithDetails = Prisma.PurchaseInvoiceGetPayload<{
     payments: true;
     attachments: true;
   };
-}>;
+}> & {
+  createdBy: UserNameRef;
+  updatedBy: UserNameRef;
+  billedBy: UserNameRef;
+  cancelledBy: UserNameRef;
+};

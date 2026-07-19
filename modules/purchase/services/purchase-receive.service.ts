@@ -20,6 +20,7 @@ export class PurchaseReceiveService {
           receiveDate: data.receiveDate,
           notes: data.notes,
           status: INITIAL_DRAFT_STATUS,
+          createdById: userId,
           items: {
             create: data.items.map((item) => ({
               productId: item.productId,

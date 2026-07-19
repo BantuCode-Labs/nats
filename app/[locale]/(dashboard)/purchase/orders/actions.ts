@@ -9,6 +9,7 @@ import { PurchaseOrderInput } from "./types";
 import { SuperJSON } from "@/lib/superjson";
 import { hasPermission } from "@/lib/permissions/utils";
 import { PurchaseOrderService } from "@/modules/purchase/services/purchase-order.service";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 export async function getPurchaseOrders(
   page: number = 1,
@@ -93,28 +94,6 @@ export async function getPurchaseOrders(
     total,
     totalPages: Math.ceil(total / limit),
   };
-}
-
-async function resolveUserNames(userIds: Array<string | null | undefined>) {
-  const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
-  if (ids.length === 0) {
-    return new Map<string, string>();
-  }
-
-  const users = await prisma.user.findMany({
-    where: { id: { in: ids } },
-    select: { id: true, name: true },
-  });
-
-  return new Map(users.map((user) => [user.id, user.name]));
-}
-
-function userNameRef(
-  userId: string | null | undefined,
-  nameById: Map<string, string>,
-) {
-  if (!userId) return null;
-  return { name: nameById.get(userId) || userId };
 }
 
 export async function getPurchaseOrder(id: string) {
@@ -207,7 +186,10 @@ export const issuePurchaseOrder = authorizedAction(
   "purchase.edit",
   async (id: string) => {
     try {
-      const result = await PurchaseOrderService.issue(id);
+      const session = await getSession();
+      if (!session) throw new Error("Unauthorized");
+
+      const result = await PurchaseOrderService.issue(id, session.userId);
 
       revalidatePath("/purchase/orders");
       revalidatePath(`/purchase/orders/${id}`);
@@ -224,7 +206,10 @@ export const cancelPurchaseOrder = authorizedAction(
   "purchase.edit",
   async (id: string) => {
     try {
-      const result = await PurchaseOrderService.cancel(id);
+      const session = await getSession();
+      if (!session) throw new Error("Unauthorized");
+
+      const result = await PurchaseOrderService.cancel(id, session.userId);
 
       revalidatePath("/purchase/orders");
       revalidatePath(`/purchase/orders/${id}`);

@@ -18,6 +18,7 @@ import {
   maybeProcessIntegrationOutboxEvent,
 } from "@/modules/integration/outbox";
 import { PurchaseInvoiceService } from "@/modules/purchase/services/purchase-invoice.service";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 type PostPurchaseInvoiceResult = {
   processed: boolean;
@@ -110,7 +111,22 @@ export async function getPurchaseInvoice(id: string) {
     },
   });
 
-  return SuperJSON.serialize(invoice);
+  if (!invoice) return null;
+
+  const nameById = await resolveUserNames([
+    invoice.createdById,
+    invoice.updatedById,
+    invoice.billedById,
+    invoice.cancelledById,
+  ]);
+
+  return SuperJSON.serialize({
+    ...invoice,
+    createdBy: userNameRef(invoice.createdById, nameById),
+    updatedBy: userNameRef(invoice.updatedById, nameById),
+    billedBy: userNameRef(invoice.billedById, nameById),
+    cancelledBy: userNameRef(invoice.cancelledById, nameById),
+  });
 }
 
 export async function getPurchaseOrdersForSelect() {
@@ -175,6 +191,9 @@ export const updatePurchaseInvoice = authorizedAction(
   "purchase.edit",
   async (id: string, rawData: PurchaseInvoiceInput) => {
     try {
+      const session = await getSession();
+      if (!session) throw new Error("Unauthorized");
+
       const parseResult = purchaseInvoiceSchema.safeParse(rawData);
       if (!parseResult.success) {
         return { success: false, error: parseResult.error.message };
@@ -292,6 +311,7 @@ export const updatePurchaseInvoice = authorizedAction(
             handlingCost: data.handlingCost,
             departmentId: data.departmentId,
             projectId: data.projectId,
+            updatedById: session.userId,
             items: {
               create: itemsData,
             },

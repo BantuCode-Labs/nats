@@ -13,6 +13,7 @@ import { getPurchaseInvoice } from "../invoices/actions";
 import { getSession } from "@/lib/auth/auth";
 import { hasPermission } from "@/lib/permissions/utils";
 import { PurchaseReturnService } from "@/modules/purchase/services/purchase-return.service";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 export { getPurchaseOrder, getPurchaseInvoice };
 
@@ -113,7 +114,22 @@ export async function getPurchaseReturn(id: string) {
 
   if (!purchaseReturn) return null;
 
-  return SuperJSON.serialize(purchaseReturn);
+  const nameById = await resolveUserNames([
+    purchaseReturn.createdById,
+    purchaseReturn.updatedById,
+    purchaseReturn.approvedById,
+    purchaseReturn.completedById,
+    purchaseReturn.cancelledById,
+  ]);
+
+  return SuperJSON.serialize({
+    ...purchaseReturn,
+    createdBy: userNameRef(purchaseReturn.createdById, nameById),
+    updatedBy: userNameRef(purchaseReturn.updatedById, nameById),
+    approvedBy: userNameRef(purchaseReturn.approvedById, nameById),
+    completedBy: userNameRef(purchaseReturn.completedById, nameById),
+    cancelledBy: userNameRef(purchaseReturn.cancelledById, nameById),
+  });
 }
 
 export async function getPurchaseOrdersForReturn() {
@@ -202,16 +218,17 @@ export const updatePurchaseReturn = authorizedAction(
   "purchase.edit",
   async (id: string, data: PurchaseReturnInput) => {
     try {
+      const session = await getSession();
+      if (!session) throw new Error("Unauthorized");
+
       const currentReturn = await prisma.purchaseReturn.findUnique({
         where: { id },
       });
 
       if (!currentReturn) throw new Error("Return not found");
 
-      if (
-        currentReturn.status === "APPROVED" ||
-        currentReturn.status === "COMPLETED"
-      ) {
+      const previousStatus = currentReturn.status;
+      if (previousStatus === "APPROVED" || previousStatus === "COMPLETED") {
         return {
           success: false,
           error: "Cannot edit approved or completed return",
@@ -232,6 +249,33 @@ export const updatePurchaseReturn = authorizedAction(
         totalAmount += item.quantity * item.unitPrice;
       });
 
+      const nextStatus = data.status || previousStatus;
+      const statusTracking: {
+        updatedById: string;
+        approvedAt?: Date;
+        approvedById?: string;
+        completedAt?: Date;
+        completedById?: string;
+        cancelledAt?: Date;
+        cancelledById?: string;
+      } = {
+        updatedById: session.userId,
+      };
+
+      // previousStatus is DRAFT | CANCELLED after the guard above
+      if (nextStatus === "APPROVED") {
+        statusTracking.approvedAt = new Date();
+        statusTracking.approvedById = session.userId;
+      }
+      if (nextStatus === "COMPLETED") {
+        statusTracking.completedAt = new Date();
+        statusTracking.completedById = session.userId;
+      }
+      if (nextStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
+        statusTracking.cancelledAt = new Date();
+        statusTracking.cancelledById = session.userId;
+      }
+
       const result = await prisma.$transaction(async (tx) => {
         await tx.purchaseReturnItem.deleteMany({
           where: { purchaseReturnId: id },
@@ -249,8 +293,9 @@ export const updatePurchaseReturn = authorizedAction(
             returnDate: data.returnDate,
             notes: data.notes,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            status: (data.status || currentReturn.status) as any,
+            status: nextStatus as any,
             totalAmount,
+            ...statusTracking,
             items: {
               create: data.items.map((item) => ({
                 productId: item.productId,

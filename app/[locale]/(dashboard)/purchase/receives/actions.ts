@@ -15,6 +15,7 @@ import { hasPermission } from "@/lib/permissions/utils";
 import { JournalService } from "@/modules/accounting/services/journal.service";
 import { Decimal } from "decimal.js";
 import { PurchaseReceiveService } from "@/modules/purchase/services/purchase-receive.service";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 export { getPurchaseOrder };
 
@@ -101,7 +102,20 @@ export async function getPurchaseReceive(id: string) {
 
   if (!receive) return null;
 
-  return SuperJSON.serialize(receive);
+  const nameById = await resolveUserNames([
+    receive.createdById,
+    receive.updatedById,
+    receive.completedById,
+    receive.cancelledById,
+  ]);
+
+  return SuperJSON.serialize({
+    ...receive,
+    createdBy: userNameRef(receive.createdById, nameById),
+    updatedBy: userNameRef(receive.updatedById, nameById),
+    completedBy: userNameRef(receive.completedById, nameById),
+    cancelledBy: userNameRef(receive.cancelledById, nameById),
+  });
 }
 
 export async function getProducts() {
@@ -178,6 +192,9 @@ export const updatePurchaseReceive = authorizedAction(
     },
   ) => {
     try {
+      const session = await getSession();
+      if (!session) throw new Error("Unauthorized");
+
       const currentReceive = await prisma.purchaseReceive.findUnique({
         where: { id },
         include: { items: true },
@@ -185,8 +202,31 @@ export const updatePurchaseReceive = authorizedAction(
 
       if (!currentReceive) throw new Error("Receive not found");
 
-      if (currentReceive.status === "COMPLETED") {
+      const previousStatus = currentReceive.status;
+      if (previousStatus === "COMPLETED") {
         return { success: false, error: "Cannot edit completed receive" };
+      }
+
+      const nextStatus = data.status || previousStatus;
+      const statusTracking: {
+        updatedById: string;
+        completedAt?: Date;
+        completedById?: string;
+        cancelledAt?: Date;
+        cancelledById?: string;
+      } = {
+        updatedById: session.userId,
+      };
+
+      // previousStatus is DRAFT | CANCELLED after the guard above
+      if (nextStatus === "COMPLETED") {
+        statusTracking.completedAt = new Date();
+        statusTracking.completedById = session.userId;
+      }
+
+      if (nextStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
+        statusTracking.cancelledAt = new Date();
+        statusTracking.cancelledById = session.userId;
       }
 
       const result = await prisma.$transaction(async (tx) => {
@@ -205,17 +245,13 @@ export const updatePurchaseReceive = authorizedAction(
             projectId: data.projectId,
             receiveDate: data.receiveDate,
             notes: data.notes,
-            status: data.status || currentReceive.status,
+            status: nextStatus,
+            ...statusTracking,
             items: {
               create: data.items.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
                 purchaseOrderItemId: item.purchaseOrderItemId,
-                // No cost in Receive Item?
-                // PurchaseReceiveItem only has quantity and links.
-                // It doesn't store cost?
-                // The schema:
-                // model PurchaseReceiveItem { ... quantity Float ... }
               })),
             },
             attachments: {

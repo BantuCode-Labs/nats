@@ -11,6 +11,7 @@ import { getSession } from "@/lib/auth/auth";
 import { hasPermission } from "@/lib/permissions/utils";
 import { JournalService } from "@/modules/accounting/services/journal.service";
 import { Decimal } from "decimal.js";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 export { getSalesOrder };
 
@@ -98,7 +99,20 @@ export async function getSalesShipment(id: string) {
 
   if (!shipment) return null;
 
-  return SuperJSON.serialize(shipment);
+  const nameById = await resolveUserNames([
+    shipment.createdById,
+    shipment.updatedById,
+    shipment.completedById,
+    shipment.cancelledById,
+  ]);
+
+  return SuperJSON.serialize({
+    ...shipment,
+    createdBy: userNameRef(shipment.createdById, nameById),
+    updatedBy: userNameRef(shipment.updatedById, nameById),
+    completedBy: userNameRef(shipment.completedById, nameById),
+    cancelledBy: userNameRef(shipment.cancelledById, nameById),
+  });
 }
 
 export async function getProducts() {
@@ -181,6 +195,9 @@ export const updateSalesShipment = authorizedAction(
     },
   ) => {
     try {
+      const session = await getSession();
+      if (!session) throw new Error("Unauthorized");
+
       const currentShipment = await prisma.salesShipment.findUnique({
         where: { id },
         include: { items: true },
@@ -188,8 +205,31 @@ export const updateSalesShipment = authorizedAction(
 
       if (!currentShipment) throw new Error("Shipment not found");
 
-      if (currentShipment.status === "COMPLETED") {
+      const previousStatus = currentShipment.status;
+      if (previousStatus === "COMPLETED") {
         return { success: false, error: "Cannot edit completed shipment" };
+      }
+
+      const nextStatus = data.status || previousStatus;
+      const statusTracking: {
+        updatedById: string;
+        completedAt?: Date;
+        completedById?: string;
+        cancelledAt?: Date;
+        cancelledById?: string;
+      } = {
+        updatedById: session.userId,
+      };
+
+      // previousStatus is DRAFT | CANCELLED after the guard above
+      if (nextStatus === "COMPLETED") {
+        statusTracking.completedAt = new Date();
+        statusTracking.completedById = session.userId;
+      }
+
+      if (nextStatus === "CANCELLED" && previousStatus !== "CANCELLED") {
+        statusTracking.cancelledAt = new Date();
+        statusTracking.cancelledById = session.userId;
       }
 
       const result = await prisma.$transaction(async (tx) => {
@@ -210,7 +250,8 @@ export const updateSalesShipment = authorizedAction(
             notes: data.notes,
             trackingNumber: data.trackingNumber,
             carrier: data.carrier,
-            status: data.status || currentShipment.status,
+            status: nextStatus,
+            ...statusTracking,
             items: {
               create: data.items.map((item) => ({
                 productId: item.productId,

@@ -102,7 +102,7 @@ export class PurchaseOrderService {
     });
   }
 
-  static async issue(id: string) {
+  static async issue(id: string, userId: string) {
     const currentOrder = await prisma.purchaseOrder.findUnique({
       where: { id },
     });
@@ -122,11 +122,13 @@ export class PurchaseOrderService {
       data: {
         status: "ISSUED",
         orderNumber,
+        issuedAt: new Date(),
+        issuedById: userId,
       },
     });
   }
 
-  static async cancel(id: string) {
+  static async cancel(id: string, userId: string) {
     const currentOrder = await prisma.purchaseOrder.findUnique({
       where: { id },
     });
@@ -143,6 +145,8 @@ export class PurchaseOrderService {
       where: { id },
       data: {
         status: "CANCELLED",
+        cancelledAt: new Date(),
+        cancelledById: userId,
       },
     });
   }

@@ -54,6 +54,7 @@ import {
   PageFormTitle,
 } from "@/components/layout/page/form-layout";
 import { useTranslations } from "next-intl";
+import { StatusHistoryDialog } from "@/components/ui/status-history-dialog";
 
 interface SalesShipmentFormProps {
   shipment?: SuperJSONResult;
@@ -268,9 +269,37 @@ export function SalesShipmentForm({
     <PageFormLayout>
       <form onSubmit={handleSubmit} className="space-y-8 w-full">
         <PageFormHeader>
-          <PageFormTitle
-            title={shipment ? t("edit_shipment") : t("new_shipment")}
-          />
+          <div className="flex items-center gap-2">
+            <PageFormTitle
+              title={shipment ? t("edit_shipment") : t("new_shipment")}
+            />
+            {shipment && (
+              <StatusHistoryDialog
+                events={[
+                  {
+                    event: "Created",
+                    at: shipment.createdAt,
+                    byName: shipment.createdBy?.name,
+                  },
+                  {
+                    event: "Last Updated",
+                    at: shipment.updatedAt,
+                    byName: shipment.updatedBy?.name,
+                  },
+                  {
+                    event: "Completed",
+                    at: shipment.completedAt,
+                    byName: shipment.completedBy?.name,
+                  },
+                  {
+                    event: "Cancelled",
+                    at: shipment.cancelledAt,
+                    byName: shipment.cancelledBy?.name,
+                  },
+                ]}
+              />
+            )}
+          </div>
           <PageFormActions>
             {!readonly && (
               <>

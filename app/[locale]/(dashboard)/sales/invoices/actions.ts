@@ -14,6 +14,7 @@ import {
   enqueueIntegrationEventOnce,
   maybeProcessIntegrationOutboxEvent,
 } from "@/modules/integration/outbox";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 type PostSalesInvoiceResult = {
   processed: boolean;
@@ -106,7 +107,22 @@ export async function getSalesInvoice(id: string) {
     },
   });
 
-  return SuperJSON.serialize(invoice);
+  if (!invoice) return null;
+
+  const nameById = await resolveUserNames([
+    invoice.createdById,
+    invoice.updatedById,
+    invoice.issuedById,
+    invoice.cancelledById,
+  ]);
+
+  return SuperJSON.serialize({
+    ...invoice,
+    createdBy: userNameRef(invoice.createdById, nameById),
+    updatedBy: userNameRef(invoice.updatedById, nameById),
+    issuedBy: userNameRef(invoice.issuedById, nameById),
+    cancelledBy: userNameRef(invoice.cancelledById, nameById),
+  });
 }
 
 export async function getSalesOrdersForSelect() {
@@ -173,7 +189,10 @@ export const updateSalesInvoice = authorizedAction(
       }
       const data = parseResult.data;
 
-      const result = await SalesInvoiceService.update(id, data);
+      const session = await getSession();
+      if (!session) throw new Error("Unauthorized");
+
+      const result = await SalesInvoiceService.update(id, data, session.userId);
 
       revalidatePath("/sales/invoices");
       return { success: true, data: SuperJSON.serialize(result) };

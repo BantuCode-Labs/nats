@@ -58,6 +58,7 @@ export class PurchasePaymentService {
           departmentId: data.departmentId,
           projectId: data.projectId,
           cashAccountId: data.cashAccountId,
+          createdById: userId,
           attachments: {
             connect: data.attachmentIds?.map((id) => ({ id })),
           },

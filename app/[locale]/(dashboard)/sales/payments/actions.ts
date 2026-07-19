@@ -12,6 +12,7 @@ import {
   enqueueIntegrationEventOnce,
   maybeProcessIntegrationOutboxEvent,
 } from "@/modules/integration/outbox";
+import { resolveUserNames, userNameRef } from "@/lib/status-tracking";
 
 type PostSalesPaymentResult = {
   processed: boolean;
