@@ -1,12 +1,11 @@
 import { Decimal } from "decimal.js";
 import SuperJSON from "superjson";
-import { Prisma } from "@/prisma/generated/prisma/client";
 
+// Duck-type Prisma.Decimal / decimal.js without importing Prisma (Node-only),
+// so this module stays safe for Client Components.
 function isAnyDecimal(v: unknown): v is Decimal {
   return (
     Decimal.isDecimal(v) ||
-    v instanceof Prisma.Decimal ||
-    // Prisma.Decimal often shares the same prototype surface as decimal.js
     (typeof v === "object" &&
       v !== null &&
       typeof (v as { toFixed?: unknown }).toFixed === "function" &&
