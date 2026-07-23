@@ -9,7 +9,6 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useFormatDate } from "@/hooks/use-format-date";
 import { useRouter } from "next/navigation";
-import { getJournalEntry } from "../actions";
 import { Decimal } from "decimal.js";
 import { JournalEntryWithDetails } from "../../types";
 import { useState } from "react";
@@ -232,7 +231,7 @@ export function JournalEntryDetails({
 
           <div className="text-sm text-muted-foreground">
             <p>
-              {t("created_by")} {entry.userId || "System"} {t("on")}{" "}
+              {t("created_by")} {entry.user?.name || entry.user?.email || "System"} {t("on")}{" "}
               {formatDate(entry.createdAt, { includeTime: true })}
             </p>
             {entry.status === "posted" && entry.postedAt && (

@@ -199,7 +199,7 @@ export default function JournalEntryPage() {
       },
       {
         header: t("created_by"),
-        cell: (entry) => entry.userId || "System",
+        cell: (entry) => entry.user?.name || entry.user?.email || "System",
       },
       {
         header: t("amount"),
