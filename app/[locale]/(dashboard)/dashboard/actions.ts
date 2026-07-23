@@ -118,35 +118,40 @@ async function getRecentPurchaseOrders() {
 }
 
 async function getMonthlyTrend(now: Date) {
-    const months: { month: string; revenue: number; expenses: number }[] = [];
-
-    for (let i = MONTHLY_TREND_MONTHS - 1; i >= 0; i--) {
-        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthWindows = Array.from({ length: MONTHLY_TREND_MONTHS }, (_, idx) => {
+        const offset = MONTHLY_TREND_MONTHS - 1 - idx;
+        const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
         const { start, end } = getMonthDateRange(date);
+        return { date, start, end, label: getMonthLabel(date) };
+    });
 
-        const [salesAgg, purchaseAgg] = await Promise.all([
-            prisma.salesInvoice.aggregate({
-                where: {
-                    invoiceDate: { gte: start, lte: end },
-                    status: { notIn: CANCELLED_SALES_STATUSES },
-                },
-                _sum: { totalAmount: true },
-            }),
-            prisma.purchaseInvoice.aggregate({
-                where: {
-                    invoiceDate: { gte: start, lte: end },
-                    status: { notIn: CANCELLED_PURCHASE_STATUSES },
-                },
-                _sum: { totalAmount: true },
-            }),
-        ]);
+    // Run all month aggregates in parallel instead of 12 sequential round-trips.
+    const results = await Promise.all(
+        monthWindows.map(async ({ start, end, label }) => {
+            const [salesAgg, purchaseAgg] = await Promise.all([
+                prisma.salesInvoice.aggregate({
+                    where: {
+                        invoiceDate: { gte: start, lte: end },
+                        status: { notIn: CANCELLED_SALES_STATUSES },
+                    },
+                    _sum: { totalAmount: true },
+                }),
+                prisma.purchaseInvoice.aggregate({
+                    where: {
+                        invoiceDate: { gte: start, lte: end },
+                        status: { notIn: CANCELLED_PURCHASE_STATUSES },
+                    },
+                    _sum: { totalAmount: true },
+                }),
+            ]);
 
-        months.push({
-            month: getMonthLabel(date),
-            revenue: Number(salesAgg._sum?.totalAmount ?? 0),
-            expenses: Number(purchaseAgg._sum?.totalAmount ?? 0),
-        });
-    }
+            return {
+                month: label,
+                revenue: Number(salesAgg._sum?.totalAmount ?? 0),
+                expenses: Number(purchaseAgg._sum?.totalAmount ?? 0),
+            };
+        }),
+    );
 
-    return months;
+    return results;
 }

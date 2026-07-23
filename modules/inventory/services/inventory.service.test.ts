@@ -21,14 +21,17 @@ const prismaMock = {
     },
     inventoryMovementDetail: {
         create: vi.fn(),
+        createMany: vi.fn(),
     },
     inventory: {
         findFirst: vi.fn(),
         findMany: vi.fn(),
+        groupBy: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
     },
     product: {
+        findMany: vi.fn(),
         findUniqueOrThrow: vi.fn(),
         update: vi.fn(),
     },
@@ -43,7 +46,6 @@ describe("InventoryService", () => {
         const mockDate = new Date("2024-01-01T00:00:00.000Z");
 
         it("should create an IN movement and update stock correctly", async () => {
-            // Setup Mocks
             const input: CreateInventoryMovementData = {
                 type: MovementType.IN,
                 items: [
@@ -53,8 +55,6 @@ describe("InventoryService", () => {
                 transactionDate: mockDate,
             };
 
-            // 1. Warehouse resolution (mock provided warehouse)
-            // 2. Create Movement Header
             const mockMovement = {
                 id: "mov-1",
                 type: MovementType.IN,
@@ -63,26 +63,25 @@ describe("InventoryService", () => {
             };
             (prismaMock.inventoryMovement.create as any).mockResolvedValue(mockMovement);
 
-            // 3. Process Items & Update Inventory
-            // Product lookup
-            (prismaMock.product.findUniqueOrThrow as any).mockResolvedValue({ id: "prod-1", name: "Product 1" });
-
-            // Existing inventory lookup
-            (prismaMock.inventory.findFirst as any).mockResolvedValue({
-                id: "inv-1",
-                quantity: 5,
-                unitCost: new Decimal(100)
-            });
-
-            // All inventory layers for avg cost calc
+            (prismaMock.product.findMany as any).mockResolvedValue([
+                { id: "prod-1", name: "Product 1", sku: "SKU-1", averageCost: new Decimal(100) },
+            ]);
             (prismaMock.inventory.findMany as any).mockResolvedValue([
-                { quantity: 5, unitCost: new Decimal(100) }
+                {
+                    id: "inv-1",
+                    productId: "prod-1",
+                    warehouseId: "wh-1",
+                    batchNumber: null,
+                    quantity: 5,
+                    unitCost: new Decimal(100),
+                },
+            ]);
+            (prismaMock.inventory.groupBy as any).mockResolvedValue([
+                { productId: "prod-1", _sum: { quantity: 5 } },
             ]);
 
-            // Execute
             const result = await InventoryService.createInventoryMovement(prismaMock, input);
 
-            // Verify Movement Creation
             expect(prismaMock.inventoryMovement.create).toHaveBeenCalledWith({
                 data: expect.objectContaining({
                     type: MovementType.IN,
@@ -91,17 +90,17 @@ describe("InventoryService", () => {
                 }),
             });
 
-            // Verify Detail Creation
-            expect(prismaMock.inventoryMovementDetail.create).toHaveBeenCalledWith({
-                data: expect.objectContaining({
-                    inventoryMovementId: "mov-1",
-                    productId: "prod-1",
-                    quantity: 10,
-                    unitCost: 100,
-                }),
+            expect(prismaMock.inventoryMovementDetail.createMany).toHaveBeenCalledWith({
+                data: [
+                    expect.objectContaining({
+                        inventoryMovementId: "mov-1",
+                        productId: "prod-1",
+                        quantity: 10,
+                        unitCost: 100,
+                    }),
+                ],
             });
 
-            // Verify Inventory Update (IN adds to stock)
             expect(prismaMock.inventory.update).toHaveBeenCalledWith({
                 where: { id: "inv-1" },
                 data: {
@@ -110,16 +109,12 @@ describe("InventoryService", () => {
                 },
             });
 
-            // Verify Product Avg Cost Update
-            // Initial: 5 @ 100 = 500
-            // Incoming: 10 @ 100 = 1000
-            // Total: 1500 / 15 = 100
+            // Initial: 5 @ 100 = 500; Incoming: 10 @ 100 = 1000; Avg = 100
             expect(prismaMock.product.update).toHaveBeenCalledWith({
                 where: { id: "prod-1" },
                 data: { averageCost: new Decimal(100) },
             });
 
-            // Verify Outbox Event
             expect(enqueueIntegrationEventOnceMock).toHaveBeenCalledWith(prismaMock, expect.objectContaining({
                 topic: "INVENTORY",
                 type: "INVENTORY_MOVEMENT_CREATED",
@@ -130,7 +125,6 @@ describe("InventoryService", () => {
         });
 
         it("should create an OUT movement and decrement stock if sufficient", async () => {
-            // Setup Mocks
             const input: CreateInventoryMovementData = {
                 type: MovementType.OUT,
                 items: [
@@ -148,43 +142,40 @@ describe("InventoryService", () => {
             };
             (prismaMock.inventoryMovement.create as any).mockResolvedValue(mockMovement);
 
-            (prismaMock.product.findUniqueOrThrow as any).mockResolvedValue({ id: "prod-1", name: "Product 1" });
-
-            (prismaMock.inventory.findFirst as any).mockResolvedValue({
-                id: "inv-1",
-                quantity: 10,
-                unitCost: new Decimal(100)
-            });
-
-            // For OUT, findMany isn't needed for avg cost recalc if not IN?
-            // Actually code fetches it anyway for currentTotalValue calculation in updateInventory, 
-            // but avg cost update only happens on IN type.
+            (prismaMock.product.findMany as any).mockResolvedValue([
+                { id: "prod-1", name: "Product 1", sku: "SKU-1", averageCost: new Decimal(100) },
+            ]);
             (prismaMock.inventory.findMany as any).mockResolvedValue([
-                { quantity: 10, unitCost: new Decimal(100) }
+                {
+                    id: "inv-1",
+                    productId: "prod-1",
+                    warehouseId: "wh-1",
+                    batchNumber: null,
+                    quantity: 10,
+                    unitCost: new Decimal(100),
+                },
+            ]);
+            (prismaMock.inventory.groupBy as any).mockResolvedValue([
+                { productId: "prod-1", _sum: { quantity: 10 } },
             ]);
 
-
-            // Execute
             await InventoryService.createInventoryMovement(prismaMock, input);
 
-            // Verify Inventory Update (OUT decrements stock)
             expect(prismaMock.inventory.update).toHaveBeenCalledWith({
                 where: { id: "inv-1" },
                 data: {
                     quantity: { decrement: 2 },
                 },
             });
-
-            // Verify Outbox
-            expect(enqueueIntegrationEventOnceMock).toHaveBeenCalled();
+            // OUT no longer rescans inventory layers or rewrites product average cost
+            expect(prismaMock.product.update).not.toHaveBeenCalled();
         });
 
-        it("should throw error for OUT movement if insufficient stock", async () => {
-            // Setup Mocks
+        it("should throw error if insufficient stock for OUT movement", async () => {
             const input: CreateInventoryMovementData = {
                 type: MovementType.OUT,
                 items: [
-                    { productId: "prod-1", quantity: 20 } // Requesting 20
+                    { productId: "prod-1", quantity: 20 }
                 ],
                 warehouseId: "wh-1",
             };
@@ -192,26 +183,26 @@ describe("InventoryService", () => {
             const mockMovement = { id: "mov-3", type: MovementType.OUT };
             (prismaMock.inventoryMovement.create as any).mockResolvedValue(mockMovement);
 
-            (prismaMock.product.findUniqueOrThrow as any).mockResolvedValue({ id: "prod-1", name: "Product 1", sku: "SKU-1" });
-
-            // Available only 10
-            (prismaMock.inventory.findFirst as any).mockResolvedValue({
-                id: "inv-1",
-                quantity: 10,
-            });
+            (prismaMock.product.findMany as any).mockResolvedValue([
+                { id: "prod-1", name: "Product 1", sku: "SKU-1", averageCost: new Decimal(100) },
+            ]);
             (prismaMock.inventory.findMany as any).mockResolvedValue([
-                { quantity: 10, unitCost: new Decimal(100) }
+                {
+                    id: "inv-1",
+                    productId: "prod-1",
+                    warehouseId: "wh-1",
+                    batchNumber: null,
+                    quantity: 10,
+                    unitCost: new Decimal(100),
+                },
+            ]);
+            (prismaMock.inventory.groupBy as any).mockResolvedValue([
+                { productId: "prod-1", _sum: { quantity: 10 } },
             ]);
 
-            // Execute & Expect Error
             await expect(InventoryService.createInventoryMovement(prismaMock, input))
                 .rejects
                 .toThrow("Insufficient stock for product Product 1 (SKU: SKU-1). Available: 10, Requested: 20");
-
-            // Should NOT emit event or create details? 
-            // Actually details are created before updateInventory in the service code (lines 69-95)
-            // But if updateInventory throws, the whole transaction would fail in real usage.
-            // Since we are mocking the transaction client, we just verify the throw.
         });
     });
 });

@@ -84,26 +84,86 @@ export async function getMovementBatchById(id: string) {
   return SuperJSON.serialize(batch);
 }
 
-export async function getMovements() {
+export async function getMovements(
+  page: number = 1,
+  limit: number = 50,
+  startDate?: string,
+  endDate?: string,
+) {
   const session = await getSession();
   if (!session || !hasPermission(session.permissions, "inventory.view")) {
-    return [];
+    return {
+      movements: SuperJSON.serialize([]),
+      total: 0,
+      totalPages: 0,
+    };
   }
 
-  const movements = await prisma.inventoryMovementDetail.findMany({
-    include: {
-      product: true,
-      inventoryMovement: {
-        include: {
-          fromWarehouse: true,
-          toWarehouse: true,
+  const take = Math.min(Math.max(limit, 1), 200);
+  const skip = (Math.max(page, 1) - 1) * take;
+
+  const movementDateFilter: { gte?: Date; lte?: Date } = {};
+  if (startDate) movementDateFilter.gte = new Date(startDate);
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    movementDateFilter.lte = end;
+  }
+
+  const where = {
+    ...(Object.keys(movementDateFilter).length > 0
+      ? {
+          inventoryMovement: {
+            transactionDate: movementDateFilter,
+          },
+        }
+      : {}),
+  };
+
+  const [movements, total] = await Promise.all([
+    prisma.inventoryMovementDetail.findMany({
+      where,
+      select: {
+        id: true,
+        quantity: true,
+        unitCost: true,
+        batchNumber: true,
+        createdAt: true,
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+          },
+        },
+        inventoryMovement: {
+          select: {
+            id: true,
+            type: true,
+            reference: true,
+            transactionDate: true,
+            status: true,
+            fromWarehouse: {
+              select: { id: true, name: true },
+            },
+            toWarehouse: {
+              select: { id: true, name: true },
+            },
+          },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+    }),
+    prisma.inventoryMovementDetail.count({ where }),
+  ]);
 
-  return SuperJSON.serialize(movements);
+  return {
+    movements: SuperJSON.serialize(movements),
+    total,
+    totalPages: Math.ceil(total / take),
+  };
 }
 
 import { inventoryMovementSchema } from "@/lib/validation/schemas";

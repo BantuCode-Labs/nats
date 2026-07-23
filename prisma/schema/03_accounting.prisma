@@ -111,6 +111,8 @@ model JournalEntryLine {
   @@index([journalEntryId])
   @@index([accountId])
   @@index([contactId])
+  @@index([departmentId, accountId])
+  @@index([projectId, accountId])
 }
 
 model DefaultAccount {

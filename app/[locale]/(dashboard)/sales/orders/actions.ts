@@ -68,20 +68,23 @@ export async function getSalesOrders(
   const [orders, total] = await Promise.all([
     prisma.salesOrder.findMany({
       where,
-      include: {
-        contact: true,
-        department: true,
-        project: true,
-        attachments: true,
-        items: {
-          include: {
-            product: {
-              include: {
-                baseUnit: true,
-                salesUnit: true,
-              },
-            },
-          },
+      // List view only needs header fields — details load on the order page.
+      select: {
+        id: true,
+        orderNumber: true,
+        orderDate: true,
+        expectedDate: true,
+        status: true,
+        totalAmount: true,
+        contactId: true,
+        contact: {
+          select: { id: true, name: true },
+        },
+        department: {
+          select: { id: true, name: true },
+        },
+        project: {
+          select: { id: true, name: true },
         },
       },
       orderBy: { createdAt: "desc" },

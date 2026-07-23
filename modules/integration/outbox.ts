@@ -274,12 +274,18 @@ export async function processIntegrationOutboxEvent(outboxId: string) {
   }
 }
 
+/**
+ * Optionally process an outbox event inline after enqueue.
+ *
+ * Default is async (worker-only): set INTEGRATION_PROCESS_INLINE=true to process
+ * immediately in-request. Pass forceInline to override for tests/critical paths.
+ */
 export async function maybeProcessIntegrationOutboxEvent(
   outboxId: string,
   options?: { forceInline?: boolean }
 ) {
   const inline =
-    options?.forceInline === true || process.env.INTEGRATION_PROCESS_INLINE !== "false";
+    options?.forceInline === true || process.env.INTEGRATION_PROCESS_INLINE === "true";
 
   if (!inline) {
     return { processed: false as const };

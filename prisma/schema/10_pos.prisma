@@ -58,4 +58,7 @@ model HeldOrder {
 
   posSessionId String?
   posSession   POSSession? @relation(fields: [posSessionId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([posSessionId])
 }

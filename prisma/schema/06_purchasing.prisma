@@ -232,6 +232,11 @@ model PurchaseInvoice {
   cancelledById String?
 
   @@unique([contactId, invoiceNumber])
+  @@index([status, invoiceDate])
+  @@index([status, dueDate])
+  @@index([contactId, status])
+  @@index([createdAt])
+  @@index([purchaseOrderId])
 }
 
 model PurchaseInvoiceItem {
@@ -310,6 +315,10 @@ model PurchaseReturn {
 
   cancelledAt   DateTime?
   cancelledById String?
+
+  @@index([status, returnDate])
+  @@index([contactId, returnDate])
+  @@index([purchaseInvoiceId])
 }
 
 model PurchaseReturnItem {

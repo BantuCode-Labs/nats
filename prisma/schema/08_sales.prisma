@@ -338,6 +338,10 @@ model SalesReturn {
 
   cancelledAt   DateTime?
   cancelledById String?
+
+  @@index([status, returnDate])
+  @@index([contactId, returnDate])
+  @@index([salesInvoiceId])
 }
 
 model SalesReturnItem {

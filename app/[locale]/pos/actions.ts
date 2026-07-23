@@ -407,9 +407,28 @@ export async function getHeldOrders() {
 
   await HeldOrderService.cleanupExpired();
 
+  // Scope to the current cashier's open session when available.
+  const openSession = await prisma.pOSSession.findFirst({
+    where: { status: "OPEN", cashierId: session.userId },
+    select: { id: true },
+  });
+
   const heldOrders = await prisma.heldOrder.findMany({
+    where: openSession
+      ? {
+          OR: [
+            { posSessionId: openSession.id },
+            { userId: session.userId, posSessionId: null },
+          ],
+        }
+      : { userId: session.userId },
     orderBy: { createdAt: "desc" },
-    include: { customer: true },
+    take: 100,
+    include: {
+      customer: {
+        select: { id: true, name: true },
+      },
+    },
   });
 
   return SuperJSON.serialize(heldOrders);
