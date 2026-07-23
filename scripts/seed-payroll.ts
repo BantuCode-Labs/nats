@@ -2,51 +2,97 @@ import { prisma } from '@/lib/prisma';
 import { SalaryComponentType, PayrollPeriodStatus } from '@/prisma/generated/prisma/client';
 
 async function main() {
-    console.log('🌱 Seeding Payroll Data...');
+    console.log('🌱 Menyiapkan data penggajian...');
 
-    // 1. Ensure Salary Components Exist
-    console.log('Creating Salary Components...');
+    // 1. Pastikan komponen gaji tersedia
+    console.log('Membuat komponen gaji...');
 
-    let basicComponent = await prisma.salaryComponent.findFirst({ where: { name: 'Basic Salary' } });
-    if (!basicComponent) {
-        basicComponent = await prisma.salaryComponent.create({
-            data: {
-                name: 'Basic Salary',
-                type: SalaryComponentType.EARNING,
-                isTaxable: true,
-            },
+    async function ensureComponent(
+        name: string,
+        legacyNames: string[],
+        type: SalaryComponentType,
+        isTaxable: boolean,
+    ) {
+        let component = await prisma.salaryComponent.findFirst({ where: { name } });
+        if (component) return component;
+
+        for (const legacy of legacyNames) {
+            const old = await prisma.salaryComponent.findFirst({ where: { name: legacy } });
+            if (old) {
+                return prisma.salaryComponent.update({
+                    where: { id: old.id },
+                    data: { name, type, isTaxable },
+                });
+            }
+        }
+
+        return prisma.salaryComponent.create({
+            data: { name, type, isTaxable },
         });
     }
 
-    let transportComponent = await prisma.salaryComponent.findFirst({ where: { name: 'Transport Allowance' } });
-    if (!transportComponent) {
-        transportComponent = await prisma.salaryComponent.create({
-            data: {
-                name: 'Transport Allowance',
-                type: SalaryComponentType.EARNING,
-                isTaxable: false,
-            },
-        });
-    }
+    const basicComponent = await ensureComponent(
+        'Gaji Pokok',
+        ['Basic Salary'],
+        SalaryComponentType.EARNING,
+        true,
+    );
 
-    let taxComponent = await prisma.salaryComponent.findFirst({ where: { name: 'Income Tax' } });
-    if (!taxComponent) {
-        taxComponent = await prisma.salaryComponent.create({
-            data: {
-                name: 'Income Tax',
-                type: SalaryComponentType.DEDUCTION,
-                isTaxable: false,
-            },
-        });
-    }
+    const transportComponent = await ensureComponent(
+        'Tunjangan Transport',
+        ['Transport Allowance'],
+        SalaryComponentType.EARNING,
+        false,
+    );
 
-    // 2. Ensure Employees Exist
-    console.log('Checking/Creating Employees...');
+    const taxComponent = await ensureComponent(
+        'PPh 21',
+        ['Income Tax'],
+        SalaryComponentType.DEDUCTION,
+        false,
+    );
+
+    // 2. Pastikan karyawan tersedia
+    console.log('Memeriksa/membuat karyawan...');
     const employeesData = [
-        { name: 'John Doe', email: 'john.doe@example.com' },
-        { name: 'Jane Smith', email: 'jane.smith@example.com' },
-        { name: 'Robert Johnson', email: 'robert.johnson@example.com' },
+        {
+            name: 'Budi Santoso',
+            email: 'budi.santoso@example.com',
+            baseSalary: 12_500_000,
+            transport: 750_000,
+        },
+        {
+            name: 'Siti Rahayu',
+            email: 'siti.rahayu@example.com',
+            baseSalary: 15_000_000,
+            transport: 1_000_000,
+        },
+        {
+            name: 'Ahmad Wijaya',
+            email: 'ahmad.wijaya@example.com',
+            baseSalary: 9_500_000,
+            transport: 500_000,
+        },
     ];
+
+    // Migrasi email karyawan contoh lama
+    const legacyMap: Record<string, string> = {
+        'john.doe@example.com': 'budi.santoso@example.com',
+        'jane.smith@example.com': 'siti.rahayu@example.com',
+        'robert.johnson@example.com': 'ahmad.wijaya@example.com',
+    };
+    for (const [oldEmail, newEmail] of Object.entries(legacyMap)) {
+        const old = await prisma.contact.findFirst({
+            where: { email: oldEmail, type: 'EMPLOYEE' },
+        });
+        const neu = employeesData.find((e) => e.email === newEmail);
+        if (old && neu) {
+            await prisma.contact.update({
+                where: { id: old.id },
+                data: { name: neu.name, email: neu.email },
+            });
+        }
+    }
 
     const employees = [];
     for (const empData of employeesData) {
@@ -57,84 +103,95 @@ async function main() {
         if (!employee) {
             employee = await prisma.contact.create({
                 data: {
-                    ...empData,
+                    name: empData.name,
+                    email: empData.email,
                     type: 'EMPLOYEE',
                     isActive: true,
                 },
             });
-            console.log(`Created employee: ${employee.name}`);
+            console.log(`Karyawan dibuat: ${empData.name}`);
         } else {
-            console.log(`Found employee: ${employee.name}`);
+            await prisma.contact.update({
+                where: { id: employee.id },
+                data: { name: empData.name },
+            });
+            console.log(`Karyawan sudah ada: ${empData.name}`);
         }
-        employees.push(employee);
+        employees.push({ contact: employee, ...empData });
     }
 
-    // 3. Create Salary Structures
-    console.log('Assigning Salary Structures...');
-    const structures = [
-        {
-            baseSalary: 5000,
-            items: [
-                { componentId: transportComponent.id, amount: 200 },
-                { componentId: taxComponent.id, amount: 500 },
-            ],
-        },
-        {
-            baseSalary: 3000,
-            items: [
-                { componentId: transportComponent.id, amount: 150 },
-                { componentId: taxComponent.id, amount: 300 },
-            ],
-        },
-        {
-            baseSalary: 4000,
-            items: [
-                { componentId: transportComponent.id, amount: 100 },
-                { componentId: taxComponent.id, amount: 400 },
-            ],
-        },
-    ];
-
-    for (let i = 0; i < employees.length; i++) {
-        const emp = employees[i];
-        const structData = structures[i % structures.length];
-
-        // Check if active structure exists
-        const existing = await prisma.salaryStructure.findFirst({
-            where: { contactId: emp.id, isActive: true },
+    // 3. Buat struktur gaji
+    console.log('Membuat struktur gaji...');
+    for (const emp of employees) {
+        const existingStructure = await prisma.salaryStructure.findFirst({
+            where: { contactId: emp.contact.id, isActive: true },
         });
 
-        if (!existing) {
+        if (!existingStructure) {
             await prisma.salaryStructure.create({
                 data: {
-                    name: 'Standard Structure 2026',
-                    contactId: emp.id,
-                    baseSalary: structData.baseSalary,
+                    name: 'Struktur Standar 2026',
+                    contactId: emp.contact.id,
+                    baseSalary: emp.baseSalary,
                     isActive: true,
                     items: {
-                        create: structData.items.map((item) => ({
-                            componentId: item.componentId,
-                            amount: item.amount,
-                            formula: '', // Fixed amount
-                        })),
+                        create: [
+                            {
+                                componentId: basicComponent.id,
+                                amount: emp.baseSalary,
+                                formula: '',
+                            },
+                            {
+                                componentId: transportComponent.id,
+                                amount: emp.transport,
+                                formula: '',
+                            },
+                            {
+                                componentId: taxComponent.id,
+                                amount: Math.round(emp.baseSalary * 0.05),
+                                formula: '',
+                            },
+                        ],
                     },
                 },
             });
-            console.log(`Assigned salary structure to ${emp.name}`);
+            console.log(`Struktur gaji dibuat untuk ${emp.name}`);
         } else {
-            console.log(`Salary structure already exists for ${emp.name}`);
+            // Naikkan gaji lama berbasis USD ke skala IDR jika perlu
+            if (Number(existingStructure.baseSalary) < 1_000_000) {
+                await prisma.salaryStructure.update({
+                    where: { id: existingStructure.id },
+                    data: {
+                        name: 'Struktur Standar 2026',
+                        baseSalary: emp.baseSalary,
+                    },
+                });
+                console.log(`Struktur gaji diperbarui ke IDR untuk ${emp.name}`);
+            } else {
+                console.log(`Struktur gaji sudah ada untuk ${emp.name}`);
+            }
         }
     }
 
-    // 4. Create Payroll Period
-    console.log('Creating Payroll Period...');
+    // 4. Buat periode penggajian bulan ini
+    console.log('Membuat periode penggajian...');
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    const periodName = `Payroll ${startOfMonth.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+    const monthName = startOfMonth.toLocaleString('id-ID', { month: 'long' });
+    const periodName = `Penggajian ${monthName} ${now.getFullYear()}`;
 
     const existingPeriod = await prisma.payrollPeriod.findFirst({
-        where: { name: periodName },
+        where: {
+            OR: [
+                { name: periodName },
+                {
+                    name: {
+                        contains: startOfMonth.toLocaleString('default', { month: 'long' }),
+                    },
+                },
+            ],
+        },
     });
 
     if (!existingPeriod) {
@@ -146,12 +203,18 @@ async function main() {
                 status: PayrollPeriodStatus.DRAFT,
             },
         });
-        console.log(`Created payroll period: ${periodName}`);
+        console.log(`Periode penggajian dibuat: ${periodName}`);
+    } else if (existingPeriod.name.startsWith('Payroll ')) {
+        await prisma.payrollPeriod.update({
+            where: { id: existingPeriod.id },
+            data: { name: periodName },
+        });
+        console.log(`Periode penggajian diperbarui: ${periodName}`);
     } else {
-        console.log(`Payroll period already exists: ${periodName}`);
+        console.log(`Periode penggajian sudah ada: ${existingPeriod.name}`);
     }
 
-    console.log('✅ Payroll Seed Completed Successfully');
+    console.log('✅ Seeding penggajian selesai');
 }
 
 main()

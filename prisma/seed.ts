@@ -14,21 +14,21 @@ import { seedTransactions, seedBulkTransactions } from "./seed/transactions";
 import { SEED_COUNT } from "./seed/bulk_utils";
 
 async function main() {
-  console.log("🚀 Start seeding...");
+  console.log("🚀 Mulai seeding data (IDR / id-ID)...");
   const start = Date.now();
 
   try {
     await seedCompany();
-    await seedAccounting(); // Accounts, AccountBalance, Default Accounts, Tax Rates
-    await seedUsers(); // Roles, Users
-    await seedSampleJournalEntries(); // Sample JEs (needs the admin user)
-    await seedInventory(); // Warehouses, Units, Categories, Products
-    await seedContacts(); // Customers, Vendors
-    await seedHR(); // Departments, Employees, Salary Components
-    await seedProjects(); // Projects
-    await seedTransactions(); // Sales, Purchases, JEs
+    await seedAccounting(); // Akun, saldo, default, tarif pajak
+    await seedUsers(); // Peran & pengguna
+    await seedSampleJournalEntries(); // Contoh jurnal (butuh user admin)
+    await seedInventory(); // Gudang, satuan, kategori, produk
+    await seedContacts(); // Pelanggan & pemasok
+    await seedHR(); // Departemen, karyawan, komponen gaji
+    await seedProjects(); // Proyek
+    await seedTransactions(); // Penjualan, pembelian, kas
 
-    console.log("🛠️ Starting Bulk Seeding...");
+    console.log("🛠️ Mulai seeding massal...");
     await seedBulkUsers(50);
     await seedBulkContacts(50);
     await seedBulkInventory(SEED_COUNT);
@@ -36,15 +36,14 @@ async function main() {
     await seedBulkProjects(50);
     await seedBulkTransactions(SEED_COUNT);
 
-    // After every other module has produced its journal entries, walk them
-    // in chronological order and fill in `runningBalance` on every line and
-    // the aggregate `AccountBalance` row for every account.
+    // Setelah seluruh modul menghasilkan jurnal, hitung ulang runningBalance
+    // pada setiap baris dan agregat AccountBalance per akun.
     await reconcileJournalEntries();
 
     const end = Date.now();
-    console.log(`✅ Seeding completed in ${(end - start) / 1000}s`);
+    console.log(`✅ Seeding selesai dalam ${(end - start) / 1000}s`);
   } catch (e) {
-    console.error("❌ Seeding failed:", e);
+    console.error("❌ Seeding gagal:", e);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

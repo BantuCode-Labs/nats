@@ -4,18 +4,18 @@ import { seedCompany } from "./seed/company";
 import { seedUsers } from "./seed/users";
 
 async function main() {
-  console.log("🚀 Start minimal seeding...");
+  console.log("🚀 Mulai seeding minimal (IDR / id-ID)...");
   const start = Date.now();
 
   try {
     await seedCompany();
-    await seedAccounting(); // Accounts, Tax Rates
-    await seedUsers(); // Roles, Users
+    await seedAccounting(); // Akun & tarif pajak
+    await seedUsers(); // Peran & pengguna
 
     const end = Date.now();
-    console.log(`✅ Minimal seeding completed in ${(end - start) / 1000}s`);
+    console.log(`✅ Seeding minimal selesai dalam ${(end - start) / 1000}s`);
   } catch (e) {
-    console.error("❌ Minimal seeding failed:", e);
+    console.error("❌ Seeding minimal gagal:", e);
     process.exit(1);
   } finally {
     await prisma.$disconnect();

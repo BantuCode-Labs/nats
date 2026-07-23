@@ -1,117 +1,158 @@
 import { prisma } from "./utils";
 import { ContactType } from "../generated/prisma/client";
-import { faker } from "@faker-js/faker";
-import { getRandomItem } from "./bulk_utils";
+import {
+  faker,
+  randomCompanyName,
+  randomIndonesianAddress,
+  randomIndonesianPhone,
+} from "./bulk_utils";
 
 export async function seedContacts() {
-    console.log("Seeding Contacts (Customers & Vendors)...");
+  console.log("Menyiapkan kontak (pelanggan & pemasok)...");
 
-    // Seed Customers
-    const customers = [
-        {
-            name: "Acme Corp",
-            email: "contact@acme.com",
-            phone: "555-0100",
-            address: "123 Business Rd, Tech City",
-            type: ContactType.CUSTOMER,
-        },
-        {
-            name: "Global Industries",
-            email: "info@globalind.com",
-            phone: "555-0101",
-            address: "456 Enterprise Blvd, Commerce City",
-            type: ContactType.CUSTOMER,
-        },
-        {
-            name: "Local Shop",
-            email: "support@localshop.com",
-            phone: "555-0102",
-            address: "789 Market St, Smalltown",
-            type: ContactType.CUSTOMER,
-        },
-    ];
+  const customers = [
+    {
+      name: "PT Maju Bersama Sejahtera",
+      email: "pembelian@majubersama.co.id",
+      phone: "021-5551001",
+      address: "Jl. Gatot Subroto Kav. 12, Jakarta Selatan",
+      type: ContactType.CUSTOMER,
+    },
+    {
+      name: "CV Nusantara Retailindo",
+      email: "order@nusantaretail.co.id",
+      phone: "022-4208899",
+      address: "Jl. Asia Afrika No. 88, Bandung",
+      type: ContactType.CUSTOMER,
+    },
+    {
+      name: "Toko Berkah Mandiri",
+      email: "tokoberkah@gmail.com",
+      phone: "081234567890",
+      address: "Jl. Malioboro No. 15, Yogyakarta",
+      type: ContactType.CUSTOMER,
+    },
+  ];
 
-    for (const customer of customers) {
-        const existing = await prisma.contact.findFirst({
-            where: { name: customer.name, type: ContactType.CUSTOMER },
-        });
+  for (const customer of customers) {
+    const existing = await prisma.contact.findFirst({
+      where: { name: customer.name, type: ContactType.CUSTOMER },
+    });
 
-        if (existing) {
-            await prisma.contact.update({
-                where: { id: existing.id },
-                data: customer,
-            });
-        } else {
-            await prisma.contact.create({
-                data: customer,
-            });
-        }
+    if (existing) {
+      await prisma.contact.update({
+        where: { id: existing.id },
+        data: customer,
+      });
+    } else {
+      await prisma.contact.create({
+        data: customer,
+      });
     }
+  }
 
-    // Seed Vendors
-    const vendors = [
-        {
-            name: "Office Supplies Co",
-            email: "sales@officesupplies.com",
-            phone: "555-0200",
-            address: "101 Paper Ln, Print City",
-            type: ContactType.VENDOR,
-        },
-        {
-            name: "Tech Wholesalers",
-            email: "orders@techwhole.com",
-            phone: "555-0201",
-            address: "202 Silicon Dr, Valley Town",
-            type: ContactType.VENDOR,
-        },
-        {
-            name: "Maintenance Services Inc",
-            email: "service@maintserv.com",
-            phone: "555-0202",
-            address: "303 Fix It Ave, Repair City",
-            type: ContactType.VENDOR,
-        },
-    ];
-
-    for (const vendor of vendors) {
-        const existing = await prisma.contact.findFirst({
-            where: { name: vendor.name, type: ContactType.VENDOR },
-        });
-
-        if (existing) {
-            await prisma.contact.update({
-                where: { id: existing.id },
-                data: vendor,
-            });
-        } else {
-            await prisma.contact.create({
-                data: vendor,
-            });
-        }
+  // Migrasi nama kontak lama berbahasa Inggris jika masih ada
+  const legacyCustomers: Record<string, (typeof customers)[number]> = {
+    "Acme Corp": customers[0],
+    "Global Industries": customers[1],
+    "Local Shop": customers[2],
+  };
+  for (const [oldName, data] of Object.entries(legacyCustomers)) {
+    const legacy = await prisma.contact.findFirst({
+      where: { name: oldName, type: ContactType.CUSTOMER },
+    });
+    if (legacy) {
+      await prisma.contact.update({
+        where: { id: legacy.id },
+        data,
+      });
     }
+  }
+
+  const vendors = [
+    {
+      name: "PT Sumber Alat Tulis",
+      email: "sales@sumberatk.co.id",
+      phone: "021-5552001",
+      address: "Jl. Hayam Wuruk No. 45, Jakarta Barat",
+      type: ContactType.VENDOR,
+    },
+    {
+      name: "CV Teknologi Prima Distributor",
+      email: "order@teknologiprima.co.id",
+      phone: "031-5678901",
+      address: "Jl. Raya Darmo No. 120, Surabaya",
+      type: ContactType.VENDOR,
+    },
+    {
+      name: "PT Jasa Perawatan Gedung",
+      email: "layanan@perawatangedung.co.id",
+      phone: "021-5552003",
+      address: "Jl. Rasuna Said Blok X-5, Jakarta Selatan",
+      type: ContactType.VENDOR,
+    },
+  ];
+
+  for (const vendor of vendors) {
+    const existing = await prisma.contact.findFirst({
+      where: { name: vendor.name, type: ContactType.VENDOR },
+    });
+
+    if (existing) {
+      await prisma.contact.update({
+        where: { id: existing.id },
+        data: vendor,
+      });
+    } else {
+      await prisma.contact.create({
+        data: vendor,
+      });
+    }
+  }
+
+  const legacyVendors: Record<string, (typeof vendors)[number]> = {
+    "Office Supplies Co": vendors[0],
+    "Tech Wholesalers": vendors[1],
+    "Maintenance Services Inc": vendors[2],
+  };
+  for (const [oldName, data] of Object.entries(legacyVendors)) {
+    const legacy = await prisma.contact.findFirst({
+      where: { name: oldName, type: ContactType.VENDOR },
+    });
+    if (legacy) {
+      await prisma.contact.update({
+        where: { id: legacy.id },
+        data,
+      });
+    }
+  }
 }
 
 export async function seedBulkContacts(count: number) {
-    console.log(`Seeding ${count} Bulk Contacts (Customers & Vendors)...`);
+  console.log(`Menyiapkan ${count} kontak massal (pelanggan & pemasok)...`);
 
-    const contacts = [];
-    for (let i = 0; i < count; i++) {
-        const isCustomer = faker.datatype.boolean();
-        const type = isCustomer ? ContactType.CUSTOMER : ContactType.VENDOR;
-        const name = type === ContactType.CUSTOMER ? faker.company.name() : `${faker.company.name()} Supplies`;
+  const contacts = [];
+  for (let i = 0; i < count; i++) {
+    const isCustomer = faker.datatype.boolean();
+    const type = isCustomer ? ContactType.CUSTOMER : ContactType.VENDOR;
+    const name = randomCompanyName(!isCustomer);
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "")
+      .slice(0, 18);
 
-        contacts.push({
-            name,
-            email: faker.internet.email({ provider: 'example.com' }).toLowerCase(),
-            phone: faker.phone.number(),
-            address: faker.location.streetAddress(),
-            type,
-            isActive: true,
-        });
-    }
-
-    await prisma.contact.createMany({
-        data: contacts,
-        skipDuplicates: true,
+    contacts.push({
+      name,
+      email: `${slug || "kontak"}${i}@contoh.co.id`,
+      phone: randomIndonesianPhone(),
+      address: randomIndonesianAddress(),
+      type,
+      isActive: true,
     });
+  }
+
+  await prisma.contact.createMany({
+    data: contacts,
+    skipDuplicates: true,
+  });
 }

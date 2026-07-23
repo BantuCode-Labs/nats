@@ -32,7 +32,7 @@ function computeRunningBalance(
  * of the seeding process, after every other module has produced its JEs.
  */
 export async function reconcileJournalEntries() {
-  console.log("Reconciling JournalEntry running balances & AccountBalance...");
+  console.log("Menyelaraskan running balance jurnal & AccountBalance...");
 
   // Reset all AccountBalance rows to 0 so we recompute from scratch.
   await prisma.accountBalance.updateMany({ data: { balance: 0 } });
@@ -85,7 +85,7 @@ export async function reconcileJournalEntries() {
   }
 
   console.log(
-    `  ✔ Reconciled ${entries.length} journal entries across ${running.size} accounts.`,
+    `  ✔ Diselaraskan ${entries.length} jurnal pada ${running.size} akun.`,
   );
 }
 
@@ -105,7 +105,16 @@ export async function postJournalEntryWithRunningBalance(params: {
     description?: string;
   }[];
 }) {
-  // Validate double-entry invariant up front.
+  // Idempotent: skip if entryNumber already exists (re-run seed aman)
+  const existing = await prisma.journalEntry.findUnique({
+    where: { entryNumber: params.entryNumber },
+    select: { id: true },
+  });
+  if (existing) {
+    return existing;
+  }
+
+  // Validasi double-entry di awal.
   let totalDebit = new Decimal(0);
   let totalCredit = new Decimal(0);
   for (const l of params.lines) {
@@ -114,11 +123,11 @@ export async function postJournalEntryWithRunningBalance(params: {
   }
   if (!totalDebit.equals(totalCredit)) {
     throw new Error(
-      `Journal entry ${params.entryNumber} is unbalanced: D=${totalDebit.toString()} C=${totalCredit.toString()}`,
+      `Jurnal ${params.entryNumber} tidak seimbang: D=${totalDebit.toString()} C=${totalCredit.toString()}`,
     );
   }
 
-  // Ensure AccountBalance rows exist for all accounts we'll touch.
+  // Pastikan baris AccountBalance ada untuk semua akun yang disentuh.
   const accountIds = Array.from(new Set(params.lines.map((l) => l.accountId)));
   await prisma.$transaction(
     accountIds.map((accountId) =>
@@ -156,10 +165,7 @@ export async function postJournalEntryWithRunningBalance(params: {
     include: { lines: { orderBy: { lineNumber: "asc" } } },
   });
 
-  // Now fill runningBalance on the freshly-created lines, then push the
-  // aggregate to AccountBalance. AccountBalance already holds the
-  // pre-existing balance for each account from the rows we upserted above,
-  // but we need the prior value, not 0. Re-read it.
+  // Isi runningBalance baris baru, lalu update agregat AccountBalance.
   const priorBalances = await prisma.accountBalance.findMany({
     where: { accountId: { in: accountIds } },
   });
@@ -201,14 +207,14 @@ export async function postJournalEntryWithRunningBalance(params: {
 }
 
 export async function seedAccounting() {
-  console.log("Seeding Accounting Module...");
+  console.log("Menyiapkan modul akuntansi...");
 
   // 1. Chart of Accounts
   const accounts = [
-    // 1. ASSETS
+    // 1. ASET
     {
       code: "10000",
-      name: "Assets",
+      name: "Aset",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: false,
@@ -217,7 +223,7 @@ export async function seedAccounting() {
     },
     {
       code: "11000",
-      name: "Current Assets",
+      name: "Aset Lancar",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: false,
@@ -226,7 +232,7 @@ export async function seedAccounting() {
     },
     {
       code: "11100",
-      name: "Cash and Cash Equivalents",
+      name: "Kas dan Setara Kas",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -235,7 +241,7 @@ export async function seedAccounting() {
     },
     {
       code: "11110",
-      name: "Bank - Main",
+      name: "Bank Operasional",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -244,7 +250,7 @@ export async function seedAccounting() {
     },
     {
       code: "11120",
-      name: "Petty Cash",
+      name: "Kas Kecil",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -253,7 +259,7 @@ export async function seedAccounting() {
     },
     {
       code: "11130",
-      name: "E-Wallet",
+      name: "Dompet Digital",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -262,7 +268,7 @@ export async function seedAccounting() {
     },
     {
       code: "11200",
-      name: "Accounts Receivable",
+      name: "Piutang Usaha",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -271,7 +277,7 @@ export async function seedAccounting() {
     },
     {
       code: "11300",
-      name: "Inventory Asset",
+      name: "Persediaan",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -280,7 +286,7 @@ export async function seedAccounting() {
     },
     {
       code: "11400",
-      name: "Purchase Tax Receivable",
+      name: "PPN Masukan",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -289,7 +295,7 @@ export async function seedAccounting() {
     },
     {
       code: "11900",
-      name: "Uncategorized Asset",
+      name: "Aset Belum Dikategorikan",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -298,7 +304,7 @@ export async function seedAccounting() {
     },
     {
       code: "12000",
-      name: "Non-Current Assets",
+      name: "Aset Tidak Lancar",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: false,
@@ -307,7 +313,7 @@ export async function seedAccounting() {
     },
     {
       code: "12100",
-      name: "Fixed Assets",
+      name: "Aset Tetap",
       type: AccountType.asset,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -316,7 +322,7 @@ export async function seedAccounting() {
     },
     {
       code: "12200",
-      name: "Accumulated Depreciation",
+      name: "Akumulasi Penyusutan",
       type: AccountType.asset,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -324,10 +330,10 @@ export async function seedAccounting() {
       parentCode: "12000",
     },
 
-    // 2. LIABILITIES
+    // 2. LIABILITAS
     {
       code: "20000",
-      name: "Liabilities",
+      name: "Liabilitas",
       type: AccountType.liability,
       normalBalance: NormalBalance.credit,
       isPosting: false,
@@ -336,7 +342,7 @@ export async function seedAccounting() {
     },
     {
       code: "21000",
-      name: "Current Liabilities",
+      name: "Liabilitas Jangka Pendek",
       type: AccountType.liability,
       normalBalance: NormalBalance.credit,
       isPosting: false,
@@ -345,7 +351,7 @@ export async function seedAccounting() {
     },
     {
       code: "21100",
-      name: "Accounts Payable",
+      name: "Utang Usaha",
       type: AccountType.liability,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -354,7 +360,7 @@ export async function seedAccounting() {
     },
     {
       code: "21200",
-      name: "Sales Tax Payable",
+      name: "PPN Keluaran",
       type: AccountType.liability,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -363,7 +369,7 @@ export async function seedAccounting() {
     },
     {
       code: "21300",
-      name: "Payroll Liability",
+      name: "Utang Gaji",
       type: AccountType.liability,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -372,7 +378,7 @@ export async function seedAccounting() {
     },
     {
       code: "22000",
-      name: "Long-Term Liabilities",
+      name: "Liabilitas Jangka Panjang",
       type: AccountType.liability,
       normalBalance: NormalBalance.credit,
       isPosting: false,
@@ -380,10 +386,10 @@ export async function seedAccounting() {
       parentCode: "20000",
     },
 
-    // 3. EQUITY
+    // 3. EKUITAS
     {
       code: "30000",
-      name: "Equity",
+      name: "Ekuitas",
       type: AccountType.equity,
       normalBalance: NormalBalance.credit,
       isPosting: false,
@@ -392,7 +398,7 @@ export async function seedAccounting() {
     },
     {
       code: "31000",
-      name: "Capital",
+      name: "Modal",
       type: AccountType.equity,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -401,7 +407,7 @@ export async function seedAccounting() {
     },
     {
       code: "32000",
-      name: "Retained Earnings",
+      name: "Laba Ditahan",
       type: AccountType.equity,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -410,7 +416,7 @@ export async function seedAccounting() {
     },
     {
       code: "33000",
-      name: "Opening Balance Equity",
+      name: "Ekuitas Saldo Awal",
       type: AccountType.equity,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -418,10 +424,10 @@ export async function seedAccounting() {
       parentCode: "30000",
     },
 
-    // 4. REVENUE
+    // 4. PENDAPATAN
     {
       code: "40000",
-      name: "Revenue",
+      name: "Pendapatan",
       type: AccountType.revenue,
       normalBalance: NormalBalance.credit,
       isPosting: false,
@@ -430,7 +436,7 @@ export async function seedAccounting() {
     },
     {
       code: "41000",
-      name: "Operating Revenue",
+      name: "Pendapatan Operasional",
       type: AccountType.revenue,
       normalBalance: NormalBalance.credit,
       isPosting: false,
@@ -439,7 +445,7 @@ export async function seedAccounting() {
     },
     {
       code: "41100",
-      name: "Service Revenue",
+      name: "Pendapatan Jasa",
       type: AccountType.revenue,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -448,7 +454,7 @@ export async function seedAccounting() {
     },
     {
       code: "41200",
-      name: "Product Sales",
+      name: "Penjualan Produk",
       type: AccountType.revenue,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -457,7 +463,7 @@ export async function seedAccounting() {
     },
     {
       code: "41300",
-      name: "Consulting Income",
+      name: "Pendapatan Konsultasi",
       type: AccountType.revenue,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -466,7 +472,7 @@ export async function seedAccounting() {
     },
     {
       code: "42000",
-      name: "Sales Discount",
+      name: "Potongan Penjualan",
       type: AccountType.revenue,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -475,7 +481,7 @@ export async function seedAccounting() {
     },
     {
       code: "49000",
-      name: "Uncategorized Income",
+      name: "Pendapatan Lain-lain",
       type: AccountType.revenue,
       normalBalance: NormalBalance.credit,
       isPosting: true,
@@ -486,7 +492,7 @@ export async function seedAccounting() {
     // 5. EXPENSES
     {
       code: "50000",
-      name: "Expenses",
+      name: "Beban",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: false,
@@ -495,7 +501,7 @@ export async function seedAccounting() {
     },
     {
       code: "51000",
-      name: "Operating Expenses",
+      name: "Beban Operasional",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: false,
@@ -504,7 +510,7 @@ export async function seedAccounting() {
     },
     {
       code: "51100",
-      name: "Rent Expense",
+      name: "Beban Sewa",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -513,7 +519,7 @@ export async function seedAccounting() {
     },
     {
       code: "51200",
-      name: "Utilities Expense",
+      name: "Beban Utilitas",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -522,7 +528,7 @@ export async function seedAccounting() {
     },
     {
       code: "51300",
-      name: "Office Supplies",
+      name: "Beban ATK",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -531,7 +537,7 @@ export async function seedAccounting() {
     },
     {
       code: "51400",
-      name: "Salaries and Wages",
+      name: "Beban Gaji dan Upah",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -540,7 +546,7 @@ export async function seedAccounting() {
     },
     {
       code: "51500",
-      name: "Software Subscriptions",
+      name: "Beban Langganan Perangkat Lunak",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -549,7 +555,7 @@ export async function seedAccounting() {
     },
     {
       code: "51600",
-      name: "Travel Expense",
+      name: "Beban Perjalanan Dinas",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -558,7 +564,7 @@ export async function seedAccounting() {
     },
     {
       code: "51700",
-      name: "Marketing",
+      name: "Beban Pemasaran",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -567,7 +573,7 @@ export async function seedAccounting() {
     },
     {
       code: "51800",
-      name: "Insurance Expense",
+      name: "Beban Asuransi",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -576,7 +582,7 @@ export async function seedAccounting() {
     },
     {
       code: "51900",
-      name: "Depreciation Expense",
+      name: "Beban Penyusutan",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -585,7 +591,7 @@ export async function seedAccounting() {
     },
     {
       code: "52000",
-      name: "Cost of Goods Sold",
+      name: "Harga Pokok Penjualan",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -594,7 +600,7 @@ export async function seedAccounting() {
     },
     {
       code: "59000",
-      name: "Uncategorized Expense",
+      name: "Beban Belum Dikategorikan",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -603,7 +609,7 @@ export async function seedAccounting() {
     },
     {
       code: "80000",
-      name: "Other Expenses",
+      name: "Beban Lain-lain",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: false,
@@ -612,7 +618,7 @@ export async function seedAccounting() {
     },
     {
       code: "81000",
-      name: "Exchange Gain/Loss",
+      name: "Laba/Rugi Selisih Kurs",
       type: AccountType.expense,
       normalBalance: NormalBalance.debit,
       isPosting: true,
@@ -714,38 +720,66 @@ export async function seedAccounting() {
     }
   }
 
-  // 3. Tax Rates
+  // 3. Tarif Pajak
   const taxRates = [
     {
+      code: "PPN-11",
+      name: "PPN 11%",
+      rate: new Decimal(11.0),
+      description: "Pajak Pertambahan Nilai 11%",
+    },
+    {
+      code: "PPN-12",
+      name: "PPN 12%",
+      rate: new Decimal(12.0),
+      description: "Pajak Pertambahan Nilai 12%",
+    },
+    {
+      code: "PPN-0",
+      name: "PPN 0%",
+      rate: new Decimal(0.0),
+      description: "PPN tarif 0%",
+    },
+    {
+      code: "BEBAS",
+      name: "Bebas PPN",
+      rate: new Decimal(0.0),
+      description: "Dibebaskan dari PPN",
+    },
+    {
       code: "VAT-S",
-      name: "Standard VAT",
-      rate: new Decimal(10.0),
-      description: "Standard Rate 10%",
+      name: "PPN 11% (legacy)",
+      rate: new Decimal(11.0),
+      description: "Alias legacy Standard VAT → PPN 11%",
     },
     {
       code: "VAT-R",
-      name: "Reduced VAT",
-      rate: new Decimal(5.0),
-      description: "Reduced Rate 5%",
+      name: "PPN 12% (legacy)",
+      rate: new Decimal(12.0),
+      description: "Alias legacy Reduced VAT → PPN 12%",
     },
     {
       code: "VAT-Z",
-      name: "Zero Rated",
+      name: "PPN 0% (legacy)",
       rate: new Decimal(0.0),
-      description: "Zero Rated 0%",
+      description: "Alias legacy Zero Rated",
     },
     {
       code: "EXEMPT",
-      name: "Exempt",
+      name: "Bebas PPN (legacy)",
       rate: new Decimal(0.0),
-      description: "Tax Exempt",
+      description: "Alias legacy Tax Exempt",
     },
   ];
 
   for (const tax of taxRates) {
     await prisma.taxRate.upsert({
       where: { code: tax.code },
-      update: {},
+      update: {
+        name: tax.name,
+        rate: tax.rate,
+        description: tax.description,
+      },
       create: {
         code: tax.code,
         name: tax.name,
@@ -755,42 +789,36 @@ export async function seedAccounting() {
     });
   }
 
-  // 4. Cash Accounts
+  // 4. Rekening Kas/Bank
+  // Setiap rekening kas/bank memetakan ke GL unik (glAccountId @unique)
   const cashAccountsData = [
     {
-      name: "Main Cash Drawer",
+      name: "Kas Utama Kantor",
       type: CashAccountType.CASH,
-      glAccountCode: "11100", // Cash and Cash Equivalents - using parent for now as placeholder or maybe should be specific
-      // The original seeder used 11100 for cash drawer but mapped to a specific GL account.
-      // Let's use Petty Cash 11120 for actual cash drawer to be more precise or 11100 if general.
-      // Re-reading original seeder: "11100" was "Cash and Cash Equivalents". "11120" was "Petty Cash".
-      // Let's stick to what worked or map better.
-      // Let's map "Main Cash Drawer" to "Petty Cash" account for simplicity if no specific "Main Cash" account exists.
-      targetGlCode: "11120",
-      description: "Main office cash drawer",
+      targetGlCode: "11100",
+      description: "Kas harian operasional kantor",
     },
     {
-      name: "Main Bank Account",
+      name: "Rekening BCA Operasional",
       type: CashAccountType.BANK,
-      glAccountCode: "11110", // Bank - Main
       targetGlCode: "11110",
-      accountNumber: "123-456-7890",
-      bankName: "First National Bank",
-      description: "Primary operating account",
+      accountNumber: "1234567890",
+      bankName: "Bank Central Asia",
+      description: "Rekening operasional utama",
     },
     {
-      name: "Office Petty Cash",
+      name: "Kas Kecil Kantor",
       type: CashAccountType.PETTY_CASH,
-      targetGlCode: "11120", // Petty Cash
-      description: "Small expenses",
+      targetGlCode: "11120",
+      description: "Pengeluaran kecil harian",
     },
     {
-      name: "Digital Wallet",
+      name: "Dompet Digital",
       type: CashAccountType.EWALLET,
-      targetGlCode: "11130", // E-Wallet
-      bankName: "PayPal",
-      accountNumber: "company@example.com",
-      description: "Online payments",
+      targetGlCode: "11130",
+      bankName: "GoPay",
+      accountNumber: "081234567890",
+      description: "Penerimaan pembayaran digital",
     },
   ];
 
@@ -832,14 +860,14 @@ export async function seedAccounting() {
  * Must be called *after* `seedUsers` so the admin user exists.
  */
 export async function seedSampleJournalEntries() {
-  console.log("Seeding Sample Journal Entries...");
+  console.log("Menyiapkan contoh jurnal transaksi...");
 
   const adminUser = await prisma.user.findFirst({
     where: { email: "admin@example.com" },
   });
   if (!adminUser) {
     console.log(
-      "  Skipping sample JEs: admin user not found (run seedUsers first).",
+      "  Lewati contoh jurnal: pengguna admin tidak ditemukan (jalankan seedUsers dulu).",
     );
     return;
   }
@@ -886,7 +914,7 @@ export async function seedSampleJournalEntries() {
     !apAcc ||
     !equityOpenAcc
   ) {
-    console.log("  Skipping sample JEs: missing one or more core accounts.");
+    console.log("  Lewati contoh jurnal: beberapa akun inti tidak ditemukan.");
     return;
   }
 
@@ -894,205 +922,205 @@ export async function seedSampleJournalEntries() {
   const day = (offset: number) =>
     new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
 
-  // 1. Opening capital contribution — Bank +100,000 / Capital +100,000
+  // 1. Setoran modal awal — Bank +500jt / Modal +500jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-OPEN-0001",
     transactionDate: day(-30),
-    description: "Opening capital contribution by owner",
+    description: "Setoran modal awal pemilik",
     lines: [
       {
         accountId: bankAcc.id,
-        debitAmount: 100000,
+        debitAmount: 500_000_000,
         creditAmount: 0,
-        description: "Initial bank deposit",
+        description: "Setoran awal ke rekening bank",
       },
       {
         accountId: capitalAcc.id,
         debitAmount: 0,
-        creditAmount: 100000,
-        description: "Owner capital",
+        creditAmount: 500_000_000,
+        description: "Modal pemilik",
       },
     ],
   });
 
-  // 2. Cash sale of services — Cash +1,200 / Service Revenue +1,200
+  // 2. Penjualan jasa tunai — Kas +2,5jt / Pendapatan Jasa +2,5jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-SVC-0001",
     transactionDate: day(-25),
-    description: "Cash service revenue",
+    description: "Pendapatan jasa tunai",
     lines: [
       {
         accountId: cashAcc.id,
-        debitAmount: 1200,
+        debitAmount: 2_500_000,
         creditAmount: 0,
-        description: "Cash received for consulting",
+        description: "Penerimaan tunai jasa konsultasi",
       },
       {
         accountId: serviceAcc.id,
         debitAmount: 0,
-        creditAmount: 1200,
-        description: "Consulting income",
+        creditAmount: 2_500_000,
+        description: "Pendapatan konsultasi",
       },
     ],
   });
 
-  // 3. Credit sale — AR +2,400 / Product Sales +2,400
+  // 3. Penjualan kredit — Piutang +18,5jt / Penjualan Produk +18,5jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-SAL-0001",
     transactionDate: day(-20),
-    description: "Credit sale to customer",
+    description: "Penjualan kredit ke pelanggan",
     lines: [
       {
         accountId: arAcc.id,
-        debitAmount: 2400,
+        debitAmount: 18_500_000,
         creditAmount: 0,
-        description: "Invoice issued",
+        description: "Faktur penjualan diterbitkan",
       },
       {
         accountId: salesAcc.id,
         debitAmount: 0,
-        creditAmount: 2400,
-        description: "Product sales",
+        creditAmount: 18_500_000,
+        description: "Penjualan produk",
       },
     ],
   });
 
-  // 4. Customer pays on account — Bank +2,400 / AR -2,400
+  // 4. Pelunasan piutang — Bank +18,5jt / Piutang -18,5jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-REC-0001",
     transactionDate: day(-15),
-    description: "Customer payment received",
+    description: "Penerimaan pelunasan piutang pelanggan",
     lines: [
       {
         accountId: bankAcc.id,
-        debitAmount: 2400,
+        debitAmount: 18_500_000,
         creditAmount: 0,
-        description: "Bank receipt",
+        description: "Penerimaan transfer bank",
       },
       {
         accountId: arAcc.id,
         debitAmount: 0,
-        creditAmount: 2400,
-        description: "AR cleared",
+        creditAmount: 18_500_000,
+        description: "Pelunasan piutang usaha",
       },
     ],
   });
 
-  // 5. Pay rent — Rent Expense +2,000 / Bank -2,000
+  // 5. Pembayaran sewa kantor — Beban Sewa +25jt / Bank -25jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-EXP-0001",
     transactionDate: day(-10),
-    description: "Monthly office rent",
+    description: "Sewa kantor bulanan",
     lines: [
       {
         accountId: rentAcc.id,
-        debitAmount: 2000,
+        debitAmount: 25_000_000,
         creditAmount: 0,
-        description: "Rent expense",
+        description: "Beban sewa",
       },
       {
         accountId: bankAcc.id,
         debitAmount: 0,
-        creditAmount: 2000,
-        description: "Bank payment",
+        creditAmount: 25_000_000,
+        description: "Pembayaran via bank",
       },
     ],
   });
 
-  // 6. Pay utilities — Utilities +350 / Bank -350
+  // 6. Pembayaran utilitas — Beban Utilitas +3,5jt / Bank -3,5jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-EXP-0002",
     transactionDate: day(-8),
-    description: "Utility bill payment",
+    description: "Pembayaran tagihan utilitas",
     lines: [
       {
         accountId: utilitiesAcc.id,
-        debitAmount: 350,
+        debitAmount: 3_500_000,
         creditAmount: 0,
-        description: "Utilities expense",
+        description: "Beban listrik dan air",
       },
       {
         accountId: bankAcc.id,
         debitAmount: 0,
-        creditAmount: 350,
-        description: "Bank payment",
+        creditAmount: 3_500_000,
+        description: "Pembayaran via bank",
       },
     ],
   });
 
-  // 7. Accrue salaries — Salaries +5,000 / AP +5,000
+  // 7. Akrual gaji — Beban Gaji +45jt / Utang +45jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-EXP-0003",
     transactionDate: day(-5),
-    description: "Accrue monthly payroll",
+    description: "Akrual gaji karyawan bulanan",
     lines: [
       {
         accountId: salaryAcc.id,
-        debitAmount: 5000,
+        debitAmount: 45_000_000,
         creditAmount: 0,
-        description: "Salaries expense",
+        description: "Beban gaji",
       },
       {
         accountId: apAcc.id,
         debitAmount: 0,
-        creditAmount: 5000,
-        description: "Payroll payable",
+        creditAmount: 45_000_000,
+        description: "Utang gaji",
       },
     ],
   });
 
-  // 8. Pay salaries — AP -5,000 / Bank -5,000
+  // 8. Pembayaran gaji — Utang -45jt / Bank -45jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-EXP-0004",
     transactionDate: day(-2),
-    description: "Pay accrued payroll",
+    description: "Pembayaran gaji terutang",
     lines: [
       {
         accountId: apAcc.id,
-        debitAmount: 5000,
+        debitAmount: 45_000_000,
         creditAmount: 0,
-        description: "Clear payroll payable",
+        description: "Pelunasan utang gaji",
       },
       {
         accountId: bankAcc.id,
         debitAmount: 0,
-        creditAmount: 5000,
-        description: "Bank payment",
+        creditAmount: 45_000_000,
+        description: "Pembayaran via bank",
       },
     ],
   });
 
-  // 9. Opening balance equity adjustment — Bank +500 / Opening Bal Equity -500
+  // 9. Penyesuaian ekuitas saldo awal — Bank +1,5jt / Ekuitas Saldo Awal +1,5jt
   await postJournalEntryWithRunningBalance({
     userId: adminUser.id,
     entryNumber: "JE-ADJ-0001",
     transactionDate: day(-1),
-    description: "Opening balance equity adjustment",
+    description: "Penyesuaian ekuitas saldo awal",
     lines: [
       {
         accountId: bankAcc.id,
-        debitAmount: 500,
+        debitAmount: 1_500_000,
         creditAmount: 0,
-        description: "Bank adjustment",
+        description: "Penyesuaian saldo bank",
       },
       {
         accountId: equityOpenAcc.id,
         debitAmount: 0,
-        creditAmount: 500,
-        description: "Opening balance equity",
+        creditAmount: 1_500_000,
+        description: "Ekuitas saldo awal",
       },
     ],
   });
 
   console.log(
-    "  ✔ Sample JEs created with running balance and AccountBalance.",
+    "  ✔ Contoh jurnal dibuat dengan running balance dan AccountBalance.",
   );
 }

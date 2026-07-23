@@ -10,91 +10,335 @@ import {
   CashTransactionType,
   CashTransactionStatus,
   ProductionOrderStatus,
+  SalarySlipStatus,
 } from "../generated/prisma/client";
 import { Decimal } from "decimal.js";
-import { faker } from "@faker-js/faker";
 import {
+  faker,
   getRandomItem,
   generateUniqueSKU,
   getRandomDateInLastMonths,
   getWeightedRandomStatus,
   runInChunks,
+  randomIdrAmount,
+  randomIncomeDescription,
+  randomExpenseDescription,
+  randomJournalDescription,
+  randomReturnReason,
 } from "./bulk_utils";
 
-export async function seedTransactions() {
-  console.log("Seeding Initial Transactions...");
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
 
-  // 1. Get necessary data
+export async function seedTransactions() {
+  console.log("Menyiapkan transaksi awal...");
+
   const adminUser = await prisma.user.findFirst({
     where: { email: "admin@example.com" },
   });
   if (!adminUser) return;
 
-  // Get Customers & Vendors
-  const customerAcme = await prisma.contact.findFirst({
-    where: { name: "Acme Corp" },
-  });
-  const vendorOffice = await prisma.contact.findFirst({
-    where: { name: "Office Supplies Co" },
-  });
+  // Pelanggan & pemasok (dukung nama baru + legacy)
+  const customer =
+    (await prisma.contact.findFirst({
+      where: { name: "PT Maju Bersama Sejahtera" },
+    })) ||
+    (await prisma.contact.findFirst({ where: { name: "Acme Corp" } }));
 
-  // Get Products
+  const vendor =
+    (await prisma.contact.findFirst({
+      where: { name: "PT Sumber Alat Tulis" },
+    })) ||
+    (await prisma.contact.findFirst({
+      where: { name: "Office Supplies Co" },
+    }));
+
   const productLaptop = await prisma.product.findFirst({
     where: { sku: "ELEC-001" },
   });
+  const productChair = await prisma.product.findFirst({
+    where: { sku: "FURN-001" },
+  });
+  const productPaper = await prisma.product.findFirst({
+    where: { sku: "SUPP-001" },
+  });
 
-  // Get Accounts
   const salesAccount = await prisma.account.findFirst({
     where: { code: "41200" },
   });
   const bankAccount = await prisma.account.findFirst({
     where: { code: "11110" },
   });
-  const equityAccount = await prisma.account.findFirst({
-    where: { code: "33000" },
+  const inventoryAccount = await prisma.account.findFirst({
+    where: { code: "11300" },
   });
+  const cashAccounts = await prisma.cashAccount.findMany();
 
   if (
-    !customerAcme ||
-    !vendorOffice ||
+    !customer ||
+    !vendor ||
     !productLaptop ||
     !salesAccount ||
-    !bankAccount
+    !bankAccount ||
+    cashAccounts.length === 0
   ) {
-    console.log("Skipping initial transactions seeding: Missing dependencies.");
+    console.log(
+      "Lewati transaksi awal: dependensi belum lengkap.",
+    );
     return;
   }
 
-  // Standard initial records (SO-2026-001, etc.)
-  await prisma.salesOrder.upsert({
+  // Alur penjualan lengkap: SO -> Invoice -> Payment
+  // 2 unit Laptop Pro 15 @ Rp 18.500.000
+  const soQty = 2;
+  const soPrice = new Decimal(productLaptop.price);
+  const soTotal = soPrice.mul(soQty);
+  const orderDate = addDays(new Date(), -14);
+
+  const salesOrder = await prisma.salesOrder.upsert({
     where: { orderNumber: "SO-2026-001" },
-    update: {},
+    update: {
+      totalAmount: soTotal,
+      subtotal: soTotal,
+      status: SalesOrderStatus.CONFIRMED,
+    },
     create: {
       orderNumber: "SO-2026-001",
-      contactId: customerAcme.id,
-      orderDate: new Date(),
+      contactId: customer.id,
+      orderDate,
       status: SalesOrderStatus.CONFIRMED,
-      totalAmount: new Decimal(2400),
-      subtotal: new Decimal(2400),
+      totalAmount: soTotal,
+      subtotal: soTotal,
       createdById: adminUser.id,
       items: {
         create: [
           {
             productId: productLaptop.id,
-            quantity: 2,
-            unitPrice: new Decimal(1200),
-            totalPrice: new Decimal(2400),
+            quantity: soQty,
+            unitPrice: soPrice,
+            totalPrice: soTotal,
           },
         ],
       },
     },
   });
 
-  // ... (rest of initial seeding logic preserved or simplified)
+  const invoiceDate = addDays(orderDate, 2);
+  const invoice = await prisma.salesInvoice.upsert({
+    where: { invoiceNumber: "INV-2026-001" },
+    update: {
+      totalAmount: soTotal,
+      subtotal: soTotal,
+      balanceDue: new Decimal(0),
+      status: SalesInvoiceStatus.PAID,
+    },
+    create: {
+      invoiceNumber: "INV-2026-001",
+      contactId: customer.id,
+      salesOrderId: salesOrder.id,
+      invoiceDate,
+      dueDate: addDays(invoiceDate, 30),
+      status: SalesInvoiceStatus.PAID,
+      totalAmount: soTotal,
+      subtotal: soTotal,
+      balanceDue: new Decimal(0),
+      items: {
+        create: [
+          {
+            description: `Penjualan ${productLaptop.name} sesuai SO-2026-001`,
+            productId: productLaptop.id,
+            quantity: soQty,
+            unitPrice: soPrice,
+            totalPrice: soTotal,
+            accountId: salesAccount.id,
+          },
+        ],
+      },
+    },
+  });
+
+  const existingPay = await prisma.salesPayment.findFirst({
+    where: { paymentNumber: "PAY-2026-001" },
+  });
+  if (!existingPay) {
+    await prisma.salesPayment.create({
+      data: {
+        paymentNumber: "PAY-2026-001",
+        contactId: customer.id,
+        salesInvoiceId: invoice.id,
+        paymentDate: addDays(invoiceDate, 5),
+        amount: soTotal,
+        cashAccountId: getRandomItem(cashAccounts).id,
+      },
+    });
+  }
+
+  // Alur pembelian: PO -> Invoice -> Payment
+  if (productPaper && inventoryAccount) {
+    const poQty = 100;
+    const poCost = new Decimal(productPaper.cost);
+    const poTotal = poCost.mul(poQty);
+    const poDate = addDays(new Date(), -20);
+
+    const purchaseOrder = await prisma.purchaseOrder.upsert({
+      where: { orderNumber: "PO-2026-001" },
+      update: {
+        totalAmount: poTotal,
+        status: PurchaseOrderStatus.CLOSED,
+      },
+      create: {
+        orderNumber: "PO-2026-001",
+        contactId: vendor.id,
+        orderDate: poDate,
+        status: PurchaseOrderStatus.CLOSED,
+        totalAmount: poTotal,
+        createdById: adminUser.id,
+        items: {
+          create: [
+            {
+              productId: productPaper.id,
+              quantity: poQty,
+              unitCost: poCost,
+              totalCost: poTotal,
+            },
+          ],
+        },
+      },
+    });
+
+    const piDate = addDays(poDate, 3);
+    let purchaseInvoice = await prisma.purchaseInvoice.findFirst({
+      where: {
+        contactId: vendor.id,
+        invoiceNumber: "PINV-2026-001",
+      },
+    });
+
+    if (!purchaseInvoice) {
+      purchaseInvoice = await prisma.purchaseInvoice.create({
+        data: {
+          invoiceNumber: "PINV-2026-001",
+          contactId: vendor.id,
+          purchaseOrderId: purchaseOrder.id,
+          invoiceDate: piDate,
+          dueDate: addDays(piDate, 30),
+          status: PurchaseInvoiceStatus.PAID,
+          totalAmount: poTotal,
+          items: {
+            create: [
+              {
+                description: `Tagihan pemasok untuk PO-2026-001 (${productPaper.name})`,
+                quantity: poQty,
+                unitPrice: poCost,
+                totalPrice: poTotal,
+                accountId: inventoryAccount.id,
+              },
+            ],
+          },
+        },
+      });
+    } else {
+      purchaseInvoice = await prisma.purchaseInvoice.update({
+        where: { id: purchaseInvoice.id },
+        data: {
+          totalAmount: poTotal,
+          status: PurchaseInvoiceStatus.PAID,
+        },
+      });
+    }
+
+    const existingPPay = await prisma.purchasePayment.findFirst({
+      where: { paymentNumber: "PPAY-2026-001" },
+    });
+    if (!existingPPay) {
+      await prisma.purchasePayment.create({
+        data: {
+          paymentNumber: "PPAY-2026-001",
+          contactId: vendor.id,
+          purchaseInvoiceId: purchaseInvoice.id,
+          paymentDate: addDays(piDate, 7),
+          amount: poTotal,
+          cashAccountId: getRandomItem(cashAccounts).id,
+        },
+      });
+    }
+  }
+
+  // Pesanan penjualan kedua (belum lunas) — kursi
+  if (productChair) {
+    const qty = 5;
+    const price = new Decimal(productChair.price);
+    const total = price.mul(qty);
+    const date = addDays(new Date(), -7);
+
+    const so2 = await prisma.salesOrder.upsert({
+      where: { orderNumber: "SO-2026-002" },
+      update: {
+        totalAmount: total,
+        subtotal: total,
+        status: SalesOrderStatus.SHIPPED,
+      },
+      create: {
+        orderNumber: "SO-2026-002",
+        contactId: customer.id,
+        orderDate: date,
+        status: SalesOrderStatus.SHIPPED,
+        totalAmount: total,
+        subtotal: total,
+        createdById: adminUser.id,
+        items: {
+          create: [
+            {
+              productId: productChair.id,
+              quantity: qty,
+              unitPrice: price,
+              totalPrice: total,
+            },
+          ],
+        },
+      },
+    });
+
+    await prisma.salesInvoice.upsert({
+      where: { invoiceNumber: "INV-2026-002" },
+      update: {
+        totalAmount: total,
+        subtotal: total,
+        balanceDue: total,
+        status: SalesInvoiceStatus.ISSUED,
+      },
+      create: {
+        invoiceNumber: "INV-2026-002",
+        contactId: customer.id,
+        salesOrderId: so2.id,
+        invoiceDate: addDays(date, 1),
+        dueDate: addDays(date, 31),
+        status: SalesInvoiceStatus.ISSUED,
+        totalAmount: total,
+        subtotal: total,
+        balanceDue: total,
+        items: {
+          create: [
+            {
+              description: `Penjualan ${productChair.name} sesuai SO-2026-002`,
+              productId: productChair.id,
+              quantity: qty,
+              unitPrice: price,
+              totalPrice: total,
+              accountId: salesAccount.id,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  console.log("  ✔ Transaksi awal siap (SO/INV/PO dengan alur bisnis IDR).");
 }
 
 export async function seedBulkTransactions(count: number) {
-  console.log(`🚀 Starting Global Bulk Seeding (Target: >500 per table)...`);
+  console.log(`🚀 Memulai seeding massal transaksi (target: >500 per tabel)...`);
 
   const adminUser = await prisma.user.findFirst({
     where: { email: "admin@example.com" },
@@ -116,20 +360,28 @@ export async function seedBulkTransactions(count: number) {
     cashAccounts.length === 0
   ) {
     console.warn(
-      "⚠️ Missing critical dependencies for bulk transactions. Skipping.",
+      "⚠️ Dependensi transaksi massal belum lengkap. Dilewati.",
     );
     return;
   }
 
   const salesAccount = accounts.find((a) => a.code === "41200") || accounts[0];
   const bankAccount = accounts.find((a) => a.code === "11110") || accounts[0];
-  const cogsAccount = accounts.find((a) => a.code === "52000") || accounts[0];
-  const arAccount = accounts.find((a) => a.code === "11200") || accounts[0];
-  const apAccount = accounts.find((a) => a.code === "21100") || accounts[0];
+  const inventoryAccount =
+    accounts.find((a) => a.code === "11300") || accounts[0];
+  const expenseAccount =
+    accounts.find((a) => a.code === "59000") ||
+    accounts.find((a) => a.code === "51300") ||
+    accounts[0];
+  const rentAccount = accounts.find((a) => a.code === "51100") || expenseAccount;
+  const utilitiesAccount =
+    accounts.find((a) => a.code === "51200") || expenseAccount;
+  const marketingAccount =
+    accounts.find((a) => a.code === "51700") || expenseAccount;
 
-  // 1. SALES MODULE (SO -> INV -> PAYMENT)
-  console.log("--- Seeding Sales Module ---");
-  const salesOrdersCount = Math.floor(count * 0.8); // Scale based on count
+  // 1. PENJUALAN: SO -> Faktur -> Pembayaran
+  console.log("--- Modul Penjualan ---");
+  const salesOrdersCount = Math.floor(count * 0.8);
   const salesOrders = [];
   for (let i = 0; i < salesOrdersCount; i++) {
     const customer = getRandomItem(customers);
@@ -156,6 +408,7 @@ export async function seedBulkTransactions(count: number) {
       subtotal: total,
       createdById: adminUser.id,
       productId: product.id,
+      productName: product.name,
       qty,
       price,
     });
@@ -185,21 +438,26 @@ export async function seedBulkTransactions(count: number) {
         },
       });
 
-      // Randomly create Invoices for Confirmed/Shipped/Closed orders
       if (so.status !== SalesOrderStatus.CANCELLED && Math.random() > 0.1) {
-        // 90% transition
         const invStatus = getWeightedRandomStatus(
           [
             SalesInvoiceStatus.ISSUED,
             SalesInvoiceStatus.PAID,
             SalesInvoiceStatus.PARTIALLY_PAID,
           ],
-          [20, 70, 10], // Higher probability for PAID to ensure enough payments
+          [20, 70, 10],
         );
-        const invDate = new Date(
-          so.orderDate.getTime() +
-            24 * 60 * 60 * 1000 * faker.number.int({ min: 1, max: 5 }),
+        const invDate = addDays(
+          so.orderDate,
+          faker.number.int({ min: 1, max: 5 }),
         );
+        const paidAmount =
+          invStatus === SalesInvoiceStatus.PAID
+            ? so.totalAmount
+            : invStatus === SalesInvoiceStatus.PARTIALLY_PAID
+              ? so.totalAmount.mul(0.5)
+              : new Decimal(0);
+        const balanceDue = so.totalAmount.minus(paidAmount);
 
         const createdInv = await prisma.salesInvoice.create({
           data: {
@@ -207,18 +465,15 @@ export async function seedBulkTransactions(count: number) {
             contactId: so.contactId,
             salesOrderId: createdSO.id,
             invoiceDate: invDate,
-            dueDate: new Date(invDate.getTime() + 30 * 24 * 60 * 60 * 1000),
+            dueDate: addDays(invDate, 30),
             status: invStatus,
             totalAmount: so.totalAmount,
             subtotal: so.totalAmount,
-            balanceDue:
-              invStatus === SalesInvoiceStatus.PAID
-                ? new Decimal(0)
-                : so.totalAmount,
+            balanceDue,
             items: {
               create: [
                 {
-                  description: `Invoice for ${so.orderNumber}`,
+                  description: `Faktur penjualan ${so.productName} (${so.orderNumber})`,
                   productId: so.productId,
                   quantity: so.qty,
                   unitPrice: so.price,
@@ -230,18 +485,24 @@ export async function seedBulkTransactions(count: number) {
           },
         });
 
-        // If Paid, create a payment (90% of PAID invoices get a payment record)
-        if (invStatus === SalesInvoiceStatus.PAID && Math.random() > 0.1) {
+        if (
+          (invStatus === SalesInvoiceStatus.PAID ||
+            invStatus === SalesInvoiceStatus.PARTIALLY_PAID) &&
+          Math.random() > 0.1
+        ) {
           await prisma.salesPayment.create({
             data: {
               paymentNumber: createdInv.invoiceNumber.replace("INV", "PAY"),
               contactId: so.contactId,
               salesInvoiceId: createdInv.id,
-              paymentDate: new Date(
-                invDate.getTime() +
-                  24 * 60 * 60 * 1000 * faker.number.int({ min: 1, max: 10 }),
+              paymentDate: addDays(
+                invDate,
+                faker.number.int({ min: 1, max: 10 }),
               ),
-              amount: so.totalAmount,
+              amount:
+                invStatus === SalesInvoiceStatus.PAID
+                  ? so.totalAmount
+                  : paidAmount,
               cashAccountId: getRandomItem(cashAccounts).id,
             },
           });
@@ -250,8 +511,8 @@ export async function seedBulkTransactions(count: number) {
     }
   });
 
-  // 2. PURCHASING MODULE (PO -> INV -> PAYMENT)
-  console.log("--- Seeding Purchasing Module ---");
+  // 2. PEMBELIAN: PO -> Faktur -> Pembayaran
+  console.log("--- Modul Pembelian ---");
   const purchaseOrdersCount = Math.floor(count * 0.8);
   const purchaseOrders = [];
   for (let i = 0; i < purchaseOrdersCount; i++) {
@@ -277,6 +538,7 @@ export async function seedBulkTransactions(count: number) {
       totalAmount: total,
       createdById: adminUser.id,
       productId: product.id,
+      productName: product.name,
       qty,
       cost,
     });
@@ -306,14 +568,13 @@ export async function seedBulkTransactions(count: number) {
       });
 
       if (po.status !== PurchaseOrderStatus.DRAFT && Math.random() > 0.1) {
-        // 90% transition
         const piStatus = getWeightedRandomStatus(
           [PurchaseInvoiceStatus.BILLED, PurchaseInvoiceStatus.PAID],
           [30, 70],
         );
-        const piDate = new Date(
-          po.orderDate.getTime() +
-            24 * 60 * 60 * 1000 * faker.number.int({ min: 1, max: 7 }),
+        const piDate = addDays(
+          po.orderDate,
+          faker.number.int({ min: 1, max: 7 }),
         );
 
         const createdPI = await prisma.purchaseInvoice.create({
@@ -322,17 +583,17 @@ export async function seedBulkTransactions(count: number) {
             contactId: po.contactId,
             purchaseOrderId: createdPO.id,
             invoiceDate: piDate,
-            dueDate: new Date(piDate.getTime() + 30 * 24 * 60 * 60 * 1000),
+            dueDate: addDays(piDate, 30),
             status: piStatus,
             totalAmount: po.totalAmount,
             items: {
               create: [
                 {
-                  description: `Vendor Invoice for ${po.orderNumber}`,
+                  description: `Tagihan pemasok ${po.productName} (${po.orderNumber})`,
                   quantity: po.qty,
                   unitPrice: po.cost,
                   totalPrice: po.totalAmount,
-                  accountId: salesAccount.id,
+                  accountId: inventoryAccount.id,
                 },
               ],
             },
@@ -345,9 +606,9 @@ export async function seedBulkTransactions(count: number) {
               paymentNumber: createdPI.invoiceNumber.replace("PINV", "PPAY"),
               contactId: po.contactId,
               purchaseInvoiceId: createdPI.id,
-              paymentDate: new Date(
-                piDate.getTime() +
-                  24 * 60 * 60 * 1000 * faker.number.int({ min: 1, max: 5 }),
+              paymentDate: addDays(
+                piDate,
+                faker.number.int({ min: 1, max: 5 }),
               ),
               amount: po.totalAmount,
               cashAccountId: getRandomItem(cashAccounts).id,
@@ -358,16 +619,16 @@ export async function seedBulkTransactions(count: number) {
     }
   });
 
-  // 3. ACCOUNTING & BANK (JE + CASH TRANSACTIONS)
-  console.log("--- Seeding Accounting Module ---");
+  // 3. AKUNTANSI & KAS
+  console.log("--- Modul Akuntansi & Kas ---");
   const journalsCount = Math.floor(count * 0.6);
   const journals = [];
   for (let i = 0; i < journalsCount; i++) {
-    const amount = new Decimal(faker.commerce.price({ min: 50, max: 2000 }));
+    const amount = new Decimal(randomIdrAmount(100_000, 50_000_000));
     journals.push({
       entryNumber: generateUniqueSKU("JE-B", i),
       date: getRandomDateInLastMonths(6),
-      description: faker.finance.transactionDescription(),
+      description: randomJournalDescription(),
       amount,
     });
   }
@@ -389,12 +650,14 @@ export async function seedBulkTransactions(count: number) {
                 debitAmount: je.amount,
                 creditAmount: 0,
                 lineNumber: 1,
+                description: "Debit kas/bank",
               },
               {
                 accountId: salesAccount.id,
                 debitAmount: 0,
                 creditAmount: je.amount,
                 lineNumber: 2,
+                description: "Kredit pendapatan",
               },
             ],
           },
@@ -403,6 +666,12 @@ export async function seedBulkTransactions(count: number) {
     }
   });
 
+  const expenseAccounts = [
+    rentAccount,
+    utilitiesAccount,
+    marketingAccount,
+    expenseAccount,
+  ];
   const cashTxCount = Math.floor(count * 0.6);
   const cashTx = [];
   for (let i = 0; i < cashTxCount; i++) {
@@ -410,12 +679,23 @@ export async function seedBulkTransactions(count: number) {
       [CashTransactionType.INCOME, CashTransactionType.EXPENSE],
       [30, 70],
     );
-    const amount = new Decimal(faker.commerce.price({ min: 20, max: 500 }));
+    const amount = new Decimal(
+      type === CashTransactionType.INCOME
+        ? randomIdrAmount(100_000, 25_000_000)
+        : randomIdrAmount(50_000, 15_000_000),
+    );
     cashTx.push({
       date: getRandomDateInLastMonths(6),
       type,
       amount,
-      description: faker.finance.transactionDescription(),
+      description:
+        type === CashTransactionType.INCOME
+          ? randomIncomeDescription()
+          : randomExpenseDescription(),
+      counterAccountId:
+        type === CashTransactionType.INCOME
+          ? salesAccount.id
+          : getRandomItem(expenseAccounts).id,
     });
   }
 
@@ -441,7 +721,7 @@ export async function seedBulkTransactions(count: number) {
                 lineNumber: 1,
               },
               {
-                accountId: salesAccount.id,
+                accountId: tx.counterAccountId,
                 debitAmount:
                   tx.type === CashTransactionType.EXPENSE ? tx.amount : 0,
                 creditAmount:
@@ -464,7 +744,7 @@ export async function seedBulkTransactions(count: number) {
           allocations: {
             create: [
               {
-                accountId: salesAccount.id,
+                accountId: tx.counterAccountId,
                 amount: tx.amount,
                 description: tx.description,
               },
@@ -475,8 +755,8 @@ export async function seedBulkTransactions(count: number) {
     }
   });
 
-  // 4. PRODUCTION MODULE
-  console.log("--- Seeding Production Module ---");
+  // 4. PRODUKSI
+  console.log("--- Modul Produksi ---");
   const productionOrdersCount = Math.floor(count * 0.6);
   const productionOrders = [];
   for (let i = 0; i < productionOrdersCount; i++) {
@@ -506,14 +786,14 @@ export async function seedBulkTransactions(count: number) {
             [50, 30, 20],
           ),
           startDate: mo.date,
-          endDate: new Date(mo.date.getTime() + 2 * 24 * 60 * 60 * 1000),
+          endDate: addDays(mo.date, 2),
         },
       });
     }
   });
 
-  // 5. SALES RETURNS (Refunds)
-  console.log("--- Seeding Sales Returns ---");
+  // 5. RETUR PENJUALAN
+  console.log("--- Retur Penjualan ---");
   const salesInvoices = await prisma.salesInvoice.findMany({
     take: 200,
     where: { status: SalesInvoiceStatus.PAID },
@@ -523,16 +803,13 @@ export async function seedBulkTransactions(count: number) {
   for (let i = 0; i < returnsCount; i++) {
     const inv = getRandomItem(salesInvoices);
     if (!inv) continue;
-    const date = new Date(
-      inv.invoiceDate.getTime() +
-        24 * 60 * 60 * 1000 * faker.number.int({ min: 5, max: 20 }),
-    );
+    const date = addDays(inv.invoiceDate, faker.number.int({ min: 5, max: 20 }));
     salesReturns.push({
       returnNumber: generateUniqueSKU("SR-B", i),
       contactId: inv.contactId,
       salesInvoiceId: inv.id,
       date,
-      amount: inv.totalAmount.mul(0.5), // Partial refund
+      amount: inv.totalAmount.mul(0.5),
     });
   }
 
@@ -546,45 +823,56 @@ export async function seedBulkTransactions(count: number) {
           returnDate: sr.date,
           totalAmount: sr.amount,
           status: SalesReturnStatus.COMPLETED,
-          reason: faker.commerce.productAdjective() + " defect",
+          reason: randomReturnReason(),
         },
       });
     }
   });
 
-  // 6. PAYROLL (Salary Slips)
-  console.log("--- Seeding Payroll Module ---");
+  // 6. PAYROLL (Slip Gaji)
+  console.log("--- Modul Penggajian ---");
   const employees = await prisma.contact.findMany({
     where: { type: "EMPLOYEE" },
     take: 100,
   });
   const periods = await prisma.payrollPeriod.findMany();
-  const salarySlips = [];
-  for (let i = 0; i < 600; i++) {
-    const emp = getRandomItem(employees);
-    const period = getRandomItem(periods);
-    salarySlips.push({
-      contactId: emp.id,
-      periodId: period.id,
-      gross: new Decimal(faker.number.int({ min: 3000, max: 8000 })),
-      net: new Decimal(faker.number.int({ min: 2500, max: 7500 })),
-      status: "PAID",
-    });
-  }
 
-  await runInChunks(salarySlips, 100, async (chunk) => {
-    for (const slip of chunk) {
-      await prisma.salarySlip.create({
-        data: {
-          contactId: slip.contactId,
-          periodId: slip.periodId,
-          grossSalary: slip.gross,
-          netSalary: slip.net,
-          status: "PAID",
-        },
+  if (employees.length > 0 && periods.length > 0) {
+    const salarySlips = [];
+    const slipCount = Math.min(600, employees.length * periods.length * 2);
+    for (let i = 0; i < slipCount; i++) {
+      const emp = getRandomItem(employees);
+      const period = getRandomItem(periods);
+      const gross = randomIdrAmount(4_500_000, 25_000_000);
+      const deductions = Math.round(gross * 0.08);
+      const net = gross - deductions;
+      salarySlips.push({
+        contactId: emp.id,
+        periodId: period.id,
+        gross: new Decimal(gross),
+        deductions: new Decimal(deductions),
+        net: new Decimal(net),
       });
     }
-  });
 
-  console.log("✅ Global Bulk Seeding Completed.");
+    await runInChunks(salarySlips, 100, async (chunk) => {
+      for (const slip of chunk) {
+        await prisma.salarySlip.create({
+          data: {
+            contactId: slip.contactId,
+            periodId: slip.periodId,
+            grossSalary: slip.gross,
+            totalDeductions: slip.deductions,
+            netSalary: slip.net,
+            status: SalarySlipStatus.PAID,
+            paidAt: getRandomDateInLastMonths(3),
+          },
+        });
+      }
+    });
+  } else {
+    console.warn("  Karyawan/periode penggajian belum ada. Slip gaji dilewati.");
+  }
+
+  console.log("✅ Seeding massal transaksi selesai.");
 }
