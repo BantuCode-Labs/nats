@@ -198,101 +198,148 @@ export class PayrollService {
             ? await this.ensureStatutoryComponents()
             : new Map<string, string>();
 
-        const slips = [];
         const skipped: string[] = [];
+        type PreparedSlip = {
+            contactId: string;
+            grossSalary: number;
+            totalDeductions: number;
+            netSalary: number;
+            items: Array<{
+                componentId: string;
+                amount: number;
+                type: SalaryComponentType;
+            }>;
+        };
+        const prepared: PreparedSlip[] = [];
 
+        // Precompute all slips outside the DB write transaction (statutory calc can be slow).
+        for (const emp of employees) {
+            const structure = emp.salaryStructures[0];
+            if (!structure) {
+                skipped.push(emp.name);
+                continue;
+            }
+
+            const baseSalary = new Decimal(structure.baseSalary);
+            let grossSalary = baseSalary;
+            let totalDeductions = new Decimal(0);
+            const slipItems: Array<{
+                componentId: string;
+                amount: number;
+                type: SalaryComponentType;
+            }> = [];
+
+            // First pass: fixed amounts + earnings formulas with BASE
+            for (const item of structure.items) {
+                let amount = new Decimal(item.amount);
+                if (item.formula) {
+                    try {
+                        const evaluated = evaluateFormula(item.formula, {
+                            BASE: baseSalary.toNumber(),
+                            AMOUNT: Number(item.amount),
+                            GROSS: grossSalary.toNumber(),
+                        });
+                        amount = new Decimal(evaluated);
+                    } catch {
+                        // fall back to fixed amount
+                    }
+                }
+
+                slipItems.push({
+                    componentId: item.componentId,
+                    amount: amount.toNumber(),
+                    type: item.component.type,
+                });
+
+                if (item.component.type === SalaryComponentType.EARNING) {
+                    grossSalary = grossSalary.plus(amount);
+                } else if (item.component.type === SalaryComponentType.DEDUCTION) {
+                    totalDeductions = totalDeductions.plus(amount);
+                }
+            }
+
+            // Statutory deductions (PPh21, BPJS employee share)
+            if (applyStatutory) {
+                const statutory = await StatutoryService.calculateForEmployee({
+                    monthlyGross: grossSalary.toNumber(),
+                    taxFilingStatus: emp.employeeDetail?.taxFilingStatus || 'TK0',
+                    hasNpwp: emp.employeeDetail?.hasNpwp ?? true,
+                });
+
+                for (const ded of statutory) {
+                    if (ded.employeeAmount <= 0) continue;
+                    const componentId = statutoryComponentMap.get(ded.type);
+                    if (!componentId) continue;
+
+                    // Avoid double-counting if structure already has same component
+                    const already = slipItems.find((i) => i.componentId === componentId);
+                    if (already) continue;
+
+                    slipItems.push({
+                        componentId,
+                        amount: ded.employeeAmount,
+                        type: SalaryComponentType.DEDUCTION,
+                    });
+                    totalDeductions = totalDeductions.plus(ded.employeeAmount);
+                }
+            }
+
+            const netSalary = grossSalary.minus(totalDeductions);
+            prepared.push({
+                contactId: emp.id,
+                grossSalary: grossSalary.toNumber(),
+                totalDeductions: totalDeductions.toNumber(),
+                netSalary: netSalary.toNumber(),
+                items: slipItems,
+            });
+        }
+
+        // Short write transaction: delete old drafts, bulk-create slips + items.
         await prisma.$transaction(async (tx) => {
             await tx.salarySlip.deleteMany({
                 where: { periodId, status: SalarySlipStatus.DRAFT },
             });
 
-            for (const emp of employees) {
-                const structure = emp.salaryStructures[0];
-                if (!structure) {
-                    skipped.push(emp.name);
-                    continue;
-                }
-
-                const baseSalary = new Decimal(structure.baseSalary);
-                let grossSalary = baseSalary;
-                let totalDeductions = new Decimal(0);
-                const slipItems: Array<{
-                    componentId: string;
-                    amount: number;
-                    type: SalaryComponentType;
-                }> = [];
-
-                // First pass: fixed amounts + earnings formulas with BASE
-                for (const item of structure.items) {
-                    let amount = new Decimal(item.amount);
-                    if (item.formula) {
-                        try {
-                            const evaluated = evaluateFormula(item.formula, {
-                                BASE: baseSalary.toNumber(),
-                                AMOUNT: Number(item.amount),
-                                GROSS: grossSalary.toNumber(),
-                            });
-                            amount = new Decimal(evaluated);
-                        } catch {
-                            // fall back to fixed amount
-                        }
-                    }
-
-                    slipItems.push({
-                        componentId: item.componentId,
-                        amount: amount.toNumber(),
-                        type: item.component.type,
-                    });
-
-                    if (item.component.type === SalaryComponentType.EARNING) {
-                        grossSalary = grossSalary.plus(amount);
-                    } else if (item.component.type === SalaryComponentType.DEDUCTION) {
-                        totalDeductions = totalDeductions.plus(amount);
-                    }
-                }
-
-                // Statutory deductions (PPh21, BPJS employee share)
-                if (applyStatutory) {
-                    const statutory = await StatutoryService.calculateForEmployee({
-                        monthlyGross: grossSalary.toNumber(),
-                        taxFilingStatus: emp.employeeDetail?.taxFilingStatus || 'TK0',
-                        hasNpwp: emp.employeeDetail?.hasNpwp ?? true,
-                    });
-
-                    for (const ded of statutory) {
-                        if (ded.employeeAmount <= 0) continue;
-                        const componentId = statutoryComponentMap.get(ded.type);
-                        if (!componentId) continue;
-
-                        // Avoid double-counting if structure already has same component
-                        const already = slipItems.find((i) => i.componentId === componentId);
-                        if (already) continue;
-
-                        slipItems.push({
-                            componentId,
-                            amount: ded.employeeAmount,
-                            type: SalaryComponentType.DEDUCTION,
-                        });
-                        totalDeductions = totalDeductions.plus(ded.employeeAmount);
-                    }
-                }
-
-                const netSalary = grossSalary.minus(totalDeductions);
-
-                const slip = await tx.salarySlip.create({
-                    data: {
+            const SLIP_CHUNK = 100;
+            for (let i = 0; i < prepared.length; i += SLIP_CHUNK) {
+                const chunk = prepared.slice(i, i + SLIP_CHUNK);
+                await tx.salarySlip.createMany({
+                    data: chunk.map((p) => ({
                         periodId,
-                        contactId: emp.id,
-                        grossSalary: grossSalary.toNumber(),
-                        totalDeductions: totalDeductions.toNumber(),
-                        netSalary: netSalary.toNumber(),
+                        contactId: p.contactId,
+                        grossSalary: p.grossSalary,
+                        totalDeductions: p.totalDeductions,
+                        netSalary: p.netSalary,
                         status: SalarySlipStatus.DRAFT,
-                        items: {
-                            create: slipItems,
-                        },
-                    },
+                    })),
                 });
-                slips.push(slip);
+            }
+
+            // Map created slips by contactId to attach items
+            const createdSlips = await tx.salarySlip.findMany({
+                where: { periodId, status: SalarySlipStatus.DRAFT },
+                select: { id: true, contactId: true },
+            });
+            const slipIdByContact = new Map(
+                createdSlips.map((s) => [s.contactId, s.id]),
+            );
+
+            const itemRows = prepared.flatMap((p) => {
+                const slipId = slipIdByContact.get(p.contactId);
+                if (!slipId) return [];
+                return p.items.map((item) => ({
+                    slipId,
+                    componentId: item.componentId,
+                    amount: item.amount,
+                    type: item.type,
+                }));
+            });
+
+            const ITEM_CHUNK = 500;
+            for (let i = 0; i < itemRows.length; i += ITEM_CHUNK) {
+                await tx.salarySlipItem.createMany({
+                    data: itemRows.slice(i, i + ITEM_CHUNK),
+                });
             }
 
             await tx.payrollPeriod.update({
@@ -303,7 +350,7 @@ export class PayrollService {
 
         return {
             periodId,
-            totalSlips: slips.length,
+            totalSlips: prepared.length,
             skipped,
             missingStructureCount: skipped.length,
         };
@@ -386,6 +433,7 @@ export class PayrollService {
                 },
             });
 
+            // One run-level event (handlers can fan out). Avoid N per-slip outbox writes.
             await enqueueIntegrationEvent(tx, {
                 topic: 'PAYROLL',
                 type: 'PAYROLL_RUN_COMPLETED',
@@ -396,23 +444,10 @@ export class PayrollService {
                     periodId,
                     totalAmount: netPay.toString(),
                     userId,
+                    slipIds: slips.map((s) => s.id),
+                    slipCount: slips.length,
                 },
             });
-
-            for (const slip of slips) {
-                await enqueueIntegrationEvent(tx, {
-                    topic: 'PAYROLL',
-                    type: 'SALARY_SLIP_PUBLISHED',
-                    aggregateType: 'SALARY_SLIP',
-                    aggregateId: slip.id,
-                    payload: {
-                        salarySlipId: slip.id,
-                        contactId: slip.contactId,
-                        netSalary: slip.netSalary.toString(),
-                        userId,
-                    },
-                });
-            }
 
             await tx.auditLog.create({
                 data: {

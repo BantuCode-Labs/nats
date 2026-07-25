@@ -48,9 +48,19 @@ export async function getProductionOrders(
     const [orders, total] = await Promise.all([
         prisma.productionOrder.findMany({
             where,
-            include: {
-                product: true,
-                billOfMaterial: true,
+            select: {
+                id: true,
+                orderNumber: true,
+                plannedQuantity: true,
+                producedQuantity: true,
+                status: true,
+                startDate: true,
+                product: {
+                    select: { id: true, name: true },
+                },
+                billOfMaterial: {
+                    select: { id: true, name: true },
+                },
             },
             orderBy: { createdAt: "desc" },
             skip,

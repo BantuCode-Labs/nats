@@ -81,7 +81,9 @@ export async function generateExportFile<T>(
       success: true,
       filename,
       mimeType,
+      // Keep base64 for server-action clients; buffer for binary API (no triple-copy).
       base64: buffer.toString("base64"),
+      buffer,
       rowCount: rows.length,
     };
   } catch (error) {

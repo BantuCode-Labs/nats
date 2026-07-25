@@ -58,20 +58,22 @@ export class JournalService {
       prisma.journalEntry.findMany({
         where,
         orderBy: { postedAt: "desc" },
-        include: {
-          lines: {
-            include: {
-              account: true,
-              contact: true,
-              department: true,
-              project: true,
-            },
-            orderBy: { lineNumber: "asc" },
-          },
+        // List needs header + debit totals only; full lines load on detail page.
+        select: {
+          id: true,
+          entryNumber: true,
+          transactionDate: true,
+          description: true,
+          status: true,
+          postedAt: true,
           user: {
             select: { name: true, email: true },
           },
-          attachments: true,
+          lines: {
+            select: {
+              debitAmount: true,
+            },
+          },
         },
         skip,
         take: pageSize,

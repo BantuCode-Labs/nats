@@ -77,6 +77,10 @@ model Product {
 
   @@index([categoryId])
   @@index([sku])
+  // Hot-path list/search filters (trigram GIN indexes added via SQL migration)
+  @@index([isActive, name])
+  @@index([isActive, categoryId])
+  @@index([isActive, createdAt])
 }
 
 model PriceHistory {
@@ -124,8 +128,8 @@ model Warehouse {
   posSessions POSSession[]
 
   locations Location[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Location {

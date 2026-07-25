@@ -57,16 +57,24 @@ export async function getSalesReturns(
   const [returns, total] = await Promise.all([
     prisma.salesReturn.findMany({
       where,
-      include: {
-        contact: true,
-        salesOrder: true,
-        salesInvoice: true,
-        items: {
-          include: {
-            product: true,
-          },
+      select: {
+        id: true,
+        returnNumber: true,
+        returnDate: true,
+        status: true,
+        totalAmount: true,
+        contactId: true,
+        salesOrderId: true,
+        salesInvoiceId: true,
+        contact: {
+          select: { id: true, name: true },
         },
-        attachments: true,
+        salesOrder: {
+          select: { id: true, orderNumber: true },
+        },
+        salesInvoice: {
+          select: { id: true, invoiceNumber: true },
+        },
       },
       orderBy: { createdAt: "desc" },
       skip,

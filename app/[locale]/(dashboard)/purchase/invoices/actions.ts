@@ -71,13 +71,31 @@ export async function getPurchaseInvoices(
   const [invoices, total] = await Promise.all([
     prisma.purchaseInvoice.findMany({
       where,
-      include: {
-        contact: true,
-        purchaseOrder: true,
-        department: true,
-        project: true,
-        items: true,
-        payments: true,
+      // List view: header + payment amounts only (line items load on detail).
+      select: {
+        id: true,
+        invoiceNumber: true,
+        invoiceDate: true,
+        dueDate: true,
+        status: true,
+        totalAmount: true,
+        purchaseOrderId: true,
+        contactId: true,
+        contact: {
+          select: { id: true, name: true },
+        },
+        purchaseOrder: {
+          select: { id: true, orderNumber: true },
+        },
+        department: {
+          select: { id: true, name: true },
+        },
+        project: {
+          select: { id: true, name: true },
+        },
+        payments: {
+          select: { amount: true },
+        },
       },
       orderBy: { createdAt: "desc" },
       skip,

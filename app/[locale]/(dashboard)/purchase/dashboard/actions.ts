@@ -112,44 +112,33 @@ export async function getPurchaseTrends() {
   }
 
   try {
-    // Get last 6 months
     const today = new Date();
-    const sixMonthsAgo = subMonths(startOfMonth(today), 5);
-
-    const orders = await prisma.purchaseOrder.findMany({
-      where: {
-        createdAt: {
-          gte: sixMonthsAgo,
-        },
-        status: {
-          not: PurchaseOrderStatus.CANCELLED,
-        },
-      },
-      select: {
-        createdAt: true,
-        totalAmount: true,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
+    const months = Array.from({ length: 6 }, (_, idx) => {
+      const offset = 5 - idx;
+      const date = subMonths(today, offset);
+      return {
+        key: format(date, "MMM yyyy"),
+        start: startOfMonth(date),
+        end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999),
+      };
     });
 
-    // Group by month
+    // One aggregate per month in parallel — avoid loading all orders into Node.
+    const amounts = await Promise.all(
+      months.map(async ({ start, end }) => {
+        const agg = await prisma.purchaseOrder.aggregate({
+          where: {
+            createdAt: { gte: start, lte: end },
+            status: { not: PurchaseOrderStatus.CANCELLED },
+          },
+          _sum: { totalAmount: true },
+        });
+        return Number(agg._sum.totalAmount ?? 0);
+      }),
+    );
+
     const monthlyData = new Map<string, number>();
-
-    // Initialize months
-    for (let i = 0; i < 6; i++) {
-      const date = subMonths(today, i);
-      const key = format(date, "MMM yyyy");
-      monthlyData.set(key, 0);
-    }
-
-    orders.forEach((order) => {
-      const key = format(order.createdAt, "MMM yyyy");
-      if (monthlyData.has(key)) {
-        monthlyData.set(key, (monthlyData.get(key) || 0) + order.totalAmount.toNumber());
-      }
-    });
+    months.forEach((m, i) => monthlyData.set(m.key, amounts[i]));
 
     // Sort by date (reverse the map iteration or reconstruction)
     // Actually we initialized current to past, so keys are "Feb 2026", "Jan 2026"...

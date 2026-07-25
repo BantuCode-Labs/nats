@@ -11,14 +11,19 @@ import { POSSessionService } from "@/modules/pos/services/pos-session.service";
 import { HeldOrderService } from "@/modules/pos/services/held-order.service";
 import { POSCartItem } from "./types";
 
-export async function getPOSSessions() {
+export async function getPOSSessions(page: number = 1, limit: number = 50) {
   const session = await getSession();
   if (!session || !hasPermission(session.permissions, "pos.access")) {
     return SuperJSON.serialize([]);
   }
 
+  const take = Math.min(Math.max(limit, 1), 100);
+  const skip = (Math.max(page, 1) - 1) * take;
+
   const sessions = await prisma.pOSSession.findMany({
     orderBy: { startTime: "desc" },
+    skip,
+    take,
     include: {
       warehouse: {
         select: {
@@ -40,18 +45,19 @@ export async function getPOSSessions() {
     },
   });
 
-  const sessionsWithCashier = await Promise.all(
-    sessions.map(async (s: any) => {
-      const cashier = await prisma.user.findUnique({
-        where: { id: s.cashierId },
-        select: { name: true },
-      });
-      return {
-        ...s,
-        cashier,
-      };
-    }),
-  );
+  const cashierIds = [...new Set(sessions.map((s) => s.cashierId))];
+  const cashiers = cashierIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: cashierIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const cashierById = new Map(cashiers.map((c) => [c.id, { name: c.name }]));
+
+  const sessionsWithCashier = sessions.map((s) => ({
+    ...s,
+    cashier: cashierById.get(s.cashierId) ?? null,
+  }));
 
   return SuperJSON.serialize(sessionsWithCashier);
 }
@@ -71,6 +77,15 @@ export async function getPOSProducts(
     });
   }
 
+  const q = query?.trim() ?? "";
+  // Exact SKU / barcode fast path: equality hits unique index before ILIKE scan.
+  const looksLikeSku =
+    q.length > 0 &&
+    q.length <= 64 &&
+    !/\s/.test(q) &&
+    page === 1 &&
+    !categoryId;
+
   // Resolve the active POS session's warehouse so stock reflects only that location.
   const activePosSession = await prisma.pOSSession.findFirst({
     where: {
@@ -80,19 +95,31 @@ export async function getPOSProducts(
     select: { warehouseId: true },
   });
 
-  const where: any = {
+  const where: {
+    isActive: boolean;
+    categoryId?: string;
+    OR?: Array<Record<string, unknown>>;
+    sku?: { equals: string; mode: "insensitive" };
+  } = {
     isActive: true,
   };
 
-  if (query) {
-    where.OR = [
-      { name: { contains: query, mode: "insensitive" } },
-      { sku: { contains: query, mode: "insensitive" } },
-    ];
-  }
-
   if (categoryId && categoryId !== "all") {
     where.categoryId = categoryId;
+  }
+
+  if (looksLikeSku) {
+    // Prefer exact SKU match (unique index) for scanner / barcode entry.
+    where.OR = [
+      { sku: { equals: q, mode: "insensitive" } },
+      { name: { contains: q, mode: "insensitive" } },
+      { sku: { contains: q, mode: "insensitive" } },
+    ];
+  } else if (q) {
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { sku: { contains: q, mode: "insensitive" } },
+    ];
   }
 
   const now = new Date();
@@ -101,25 +128,74 @@ export async function getPOSProducts(
     ? { warehouseId: activePosSession.warehouseId }
     : undefined;
 
+  const productSelect = {
+    id: true,
+    name: true,
+    sku: true,
+    price: true,
+    image: true,
+    categoryId: true,
+    category: { select: { id: true, name: true } },
+    inventory: {
+      where: inventoryWhere,
+      select: { quantity: true },
+    },
+    discounts: {
+      where: {
+        isActive: true,
+        startDate: { lte: now },
+        OR: [{ endDate: null as Date | null }, { endDate: { gte: now } }],
+      },
+      select: {
+        code: true,
+        type: true,
+        value: true,
+      },
+    },
+  };
+
+  // Exact SKU hit: return that product first without a full ILIKE scan when possible.
+  if (looksLikeSku) {
+    const exact = await prisma.product.findFirst({
+      where: {
+        isActive: true,
+        sku: { equals: q, mode: "insensitive" },
+      },
+      select: productSelect,
+    });
+    if (exact) {
+      const totalStock = exact.inventory.reduce(
+        (acc, inv) => acc + inv.quantity,
+        0,
+      );
+      return SuperJSON.serialize({
+        items: [
+          {
+            id: exact.id,
+            name: exact.name,
+            sku: exact.sku,
+            price: exact.price.toNumber(),
+            image: exact.image,
+            categoryId: exact.categoryId,
+            categoryName: exact.category?.name || null,
+            stock: totalStock,
+            availableDiscounts: exact.discounts.map((d) => ({
+              code: d.code,
+              type: d.type,
+              value: d.value.toNumber(),
+            })),
+          },
+        ],
+        total: 1,
+        hasMore: false,
+      });
+    }
+  }
+
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      include: {
-        category: true,
-        inventory: {
-          where: inventoryWhere,
-          include: {
-            warehouse: true,
-          },
-        },
-        discounts: {
-          where: {
-            isActive: true,
-            startDate: { lte: now },
-            OR: [{ endDate: null }, { endDate: { gte: now } }],
-          },
-        },
-      },
+      select: productSelect,
       orderBy: { name: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -265,40 +341,67 @@ export async function closePOSSession(
   revalidatePath("/pos");
 }
 
-export async function getPOSSessionTransactions(sessionId: string) {
+export async function getPOSSessionTransactions(
+  sessionId: string,
+  page: number = 1,
+  limit: number = 100,
+) {
+  const take = Math.min(Math.max(limit, 1), 200);
+  const skip = (Math.max(page, 1) - 1) * take;
+
   const transactions = await prisma.salesInvoice.findMany({
     where: { posSessionId: sessionId },
     orderBy: { createdAt: "desc" },
-    include: {
+    skip,
+    take,
+    select: {
+      id: true,
+      invoiceNumber: true,
+      createdAt: true,
+      totalAmount: true,
       contact: {
         select: {
           name: true,
         },
       },
       items: {
-        include: {
-          product: true,
+        select: {
+          quantity: true,
         },
       },
-      posSession: true,
+      posSession: {
+        select: {
+          id: true,
+          cashierId: true,
+        },
+      },
     },
   });
 
-  const transactionsWithCashier = await Promise.all(
-    transactions.map(async (t: any) => {
-      const cashier = await prisma.user.findUnique({
-        where: { id: t.posSession?.cashierId },
-        select: { name: true },
-      });
-      return {
-        ...t,
-        posSession: {
+  const cashierIds = [
+    ...new Set(
+      transactions
+        .map((t) => t.posSession?.cashierId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const cashiers = cashierIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: cashierIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const cashierById = new Map(cashiers.map((c) => [c.id, { name: c.name }]));
+
+  const transactionsWithCashier = transactions.map((t) => ({
+    ...t,
+    posSession: t.posSession
+      ? {
           ...t.posSession,
-          cashier,
-        },
-      };
-    }),
-  );
+          cashier: cashierById.get(t.posSession.cashierId) ?? null,
+        }
+      : null,
+  }));
 
   return SuperJSON.serialize(transactionsWithCashier);
 }

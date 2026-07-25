@@ -95,52 +95,87 @@ const lockTimeoutMs = getIntEnv("INTEGRATION_LOCK_TIMEOUT_MS", 60_000);
 const backoffBaseMs = getIntEnv("INTEGRATION_BACKOFF_BASE_MS", 5_000);
 const backoffMaxMs = getIntEnv("INTEGRATION_BACKOFF_MAX_MS", 5 * 60_000);
 
+/**
+ * Atomically claim a batch of outbox rows with FOR UPDATE SKIP LOCKED.
+ * Avoids the chatty findMany → per-id updateMany claim race under concurrency.
+ */
+async function claimPendingOutboxBatch(
+  limit: number,
+  claimWorkerId: string,
+): Promise<Array<{ id: string; type: string; payload: unknown; attempts: number }>> {
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - lockTimeoutMs);
+
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<
+      Array<{ id: string; type: string; payload: unknown; attempts: number }>
+    >`
+      SELECT id, type, payload, attempts
+      FROM "IntegrationOutbox"
+      WHERE (
+        (
+          status IN ('PENDING', 'FAILED')
+          AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
+          AND attempts < ${maxAttempts}
+        )
+        OR (
+          status = 'PROCESSING'
+          AND "lockedAt" IS NOT NULL
+          AND "lockedAt" <= ${staleBefore}
+          AND attempts < ${maxAttempts}
+        )
+      )
+      ORDER BY "createdAt" ASC
+      LIMIT ${limit}
+      FOR UPDATE SKIP LOCKED
+    `;
+
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    await tx.integrationOutbox.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        status: "PROCESSING",
+        lockedAt: now,
+        lockedBy: claimWorkerId,
+        attempts: { increment: 1 },
+        lastError: null,
+      },
+    });
+
+    // Return rows with attempts already incremented (matches process path)
+    return rows.map((r) => ({
+      ...r,
+      attempts: r.attempts + 1,
+    }));
+  });
+}
+
 export async function dispatchPendingIntegrationEvents(
   options?: { limit?: number; concurrency?: number }
 ): Promise<DispatchPendingIntegrationEventsResult> {
   const limit = options?.limit ?? 50;
   const concurrency = Math.max(1, options?.concurrency ?? 4);
-  const now = new Date();
-  const staleBefore = new Date(now.getTime() - lockTimeoutMs);
-  const pending = await prisma.integrationOutbox.findMany({
-    where: {
-      OR: [
-        {
-          status: { in: ["PENDING", "FAILED"] },
-          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
-          attempts: { lt: maxAttempts },
-        },
-        {
-          status: "PROCESSING",
-          lockedAt: { lte: staleBefore },
-          attempts: { lt: maxAttempts },
-        },
-      ],
-    },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-    take: limit,
-  });
 
-  if (pending.length === 0) {
+  const claimed = await claimPendingOutboxBatch(limit, workerId);
+  if (claimed.length === 0) {
     return { attempted: 0, processed: 0, failed: 0 };
   }
 
   let processed = 0;
   let failed = 0;
-
-  const ids = pending.map((r) => r.id);
   let cursor = 0;
 
-  const workerCount = Math.min(concurrency, ids.length);
+  const workerCount = Math.min(concurrency, claimed.length);
   await Promise.all(
     Array.from({ length: workerCount }, async () => {
       while (true) {
-        const id = ids[cursor];
+        const row = claimed[cursor];
         cursor += 1;
-        if (!id) return;
+        if (!row) return;
         try {
-          await processIntegrationOutboxEvent(id);
+          await processClaimedIntegrationOutboxEvent(row);
           processed += 1;
         } catch {
           failed += 1;
@@ -149,7 +184,98 @@ export async function dispatchPendingIntegrationEvents(
     })
   );
 
-  return { attempted: pending.length, processed, failed };
+  return { attempted: claimed.length, processed, failed };
+}
+
+/**
+ * Process an already-claimed outbox row (status=PROCESSING, attempts incremented).
+ */
+async function processClaimedIntegrationOutboxEvent(outbox: {
+  id: string;
+  type: string;
+  payload: unknown;
+  attempts: number;
+}) {
+  const now = new Date();
+  const handlers = getIntegrationHandlers(outbox.type);
+  if (!handlers) {
+    await prisma.integrationOutbox.update({
+      where: { id: outbox.id },
+      data: {
+        status: "DEAD",
+        deadAt: now,
+        lastError: `No handler for ${outbox.type}`,
+        lockedAt: null,
+        lockedBy: null,
+      },
+    });
+    return;
+  }
+
+  try {
+    for (const handler of handlers) {
+      await prisma.$transaction(async (tx) => {
+        const alreadyProcessed = await tx.integrationInbox.findUnique({
+          where: {
+            consumer_outboxId: { consumer: handler.consumer, outboxId: outbox.id },
+          },
+          select: { id: true },
+        });
+
+        if (alreadyProcessed) {
+          return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (handler as any).handle(tx, outbox.payload);
+
+        await tx.integrationInbox.create({
+          data: { consumer: handler.consumer, outboxId: outbox.id },
+        });
+      });
+    }
+
+    await prisma.integrationOutbox.update({
+      where: { id: outbox.id },
+      data: {
+        status: "PROCESSED",
+        processedAt: now,
+        lockedAt: null,
+        lockedBy: null,
+        nextAttemptAt: null,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const attempts = outbox.attempts;
+    const isDead = attempts >= maxAttempts;
+    const backoffMs = computeExponentialBackoffMs(attempts, {
+      baseMs: backoffBaseMs,
+      maxMs: backoffMaxMs,
+    });
+    const nextAttemptAt = new Date(now.getTime() + backoffMs);
+
+    await prisma.integrationOutbox.update({
+      where: { id: outbox.id },
+      data: isDead
+        ? {
+          status: "DEAD",
+          deadAt: now,
+          lastError: message,
+          lockedAt: null,
+          lockedBy: null,
+        }
+        : {
+          status: "FAILED",
+          lastError: message,
+          nextAttemptAt,
+          lockedAt: null,
+          lockedBy: null,
+        },
+    });
+
+    throw error;
+  }
 }
 
 export async function processIntegrationOutboxEvent(outboxId: string) {

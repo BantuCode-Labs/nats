@@ -4,20 +4,29 @@ import { useCallback, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "@/hooks/use-toast";
 import {
-  createExportFile,
-  downloadBase64File,
+  downloadBlob,
   EXPORT_LIMITS,
   type ExportColumn,
   type ExportFormat,
 } from "@/lib/export";
 
 export type UseReportExportOptions<T> = {
-  /** Async fetcher that returns the FULL unpaginated dataset for export. */
-  fetchRows: () => Promise<T[]>;
-  /** Column definitions for the export file. */
-  columns: ExportColumn<T>[] | (() => ExportColumn<T>[]);
-  /** Base filename without extension. */
-  filename: string | (() => string);
+  /**
+   * Async fetcher that returns the FULL unpaginated dataset for export.
+   * Prefer `serverJobId` for large reports so rows stay on the server.
+   */
+  fetchRows?: () => Promise<T[]>;
+  /**
+   * Server-side export job id (see lib/export/registry).
+   * When set, the client only sends jobId + context — no row payload.
+   */
+  serverJobId?: string;
+  /** Context passed to the server export job (filters, dates, etc.). */
+  serverJobContext?: Record<string, unknown> | (() => Record<string, unknown>);
+  /** Column definitions for the export file. Optional when using serverJobId. */
+  columns?: ExportColumn<T>[] | (() => ExportColumn<T>[]);
+  /** Base filename without extension. Optional when using serverJobId. */
+  filename?: string | (() => string);
   /** Excel sheet name. */
   sheetName?: string;
   /** Optional estimated/known row count for large-export warning before fetch. */
@@ -55,6 +64,65 @@ export function useReportExport<T extends Record<string, unknown>>(
       setExportingFormat(format);
 
       try {
+        // Prefer server-side job (rows never leave the server).
+        if (options.serverJobId) {
+          const context =
+            typeof options.serverJobContext === "function"
+              ? options.serverJobContext()
+              : (options.serverJobContext ?? {});
+
+          const response = await fetch("/api/export/job", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId: options.serverJobId,
+              format,
+              context,
+            }),
+          });
+
+          if (!response.ok) {
+            let message = t("export_failed");
+            try {
+              const err = (await response.json()) as { error?: string };
+              if (err.error) message = err.error;
+            } catch {
+              // ignore
+            }
+            toast({
+              title: t("error"),
+              description: message,
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const blob = await response.blob();
+          const disposition = response.headers.get("Content-Disposition") ?? "";
+          const match = /filename="([^"]+)"/.exec(disposition);
+          const downloadName =
+            match?.[1] ?? `export.${format === "xlsx" ? "xlsx" : "csv"}`;
+          const rowCount = Number(
+            response.headers.get("X-Export-Row-Count") ?? 0,
+          );
+
+          downloadBlob(blob, downloadName);
+          toast({
+            title: t("success"),
+            description: t("export_success", { count: rowCount }),
+          });
+          return;
+        }
+
+        if (!options.fetchRows) {
+          toast({
+            title: t("error"),
+            description: t("export_failed"),
+            variant: "destructive",
+          });
+          return;
+        }
+
         const rows = await options.fetchRows();
 
         if (!rows.length) {
@@ -79,7 +147,8 @@ export function useReportExport<T extends Record<string, unknown>>(
 
         // Confirm after fetch if we didn't know the size and it's large
         if (
-          (estimated === undefined || estimated <= EXPORT_LIMITS.WARN_ROW_COUNT) &&
+          (estimated === undefined ||
+            estimated <= EXPORT_LIMITS.WARN_ROW_COUNT) &&
           rows.length > EXPORT_LIMITS.WARN_ROW_COUNT
         ) {
           const proceed = window.confirm(
@@ -95,12 +164,21 @@ export function useReportExport<T extends Record<string, unknown>>(
           typeof options.columns === "function"
             ? options.columns()
             : options.columns;
+        if (!columns?.length) {
+          toast({
+            title: t("error"),
+            description: t("export_failed"),
+            variant: "destructive",
+          });
+          return;
+        }
+
         const filename =
           typeof options.filename === "function"
             ? options.filename()
-            : options.filename;
+            : (options.filename ?? "export");
 
-        // Serialize rows to plain objects (strip class instances)
+        // Serialize rows to plain objects (strip class instances / accessors)
         const plainRows = rows.map((row) => {
           const plain: Record<string, unknown> = {};
           for (const col of columns) {
@@ -113,38 +191,55 @@ export function useReportExport<T extends Record<string, unknown>>(
           return plain;
         });
 
-        // Columns without accessors (values already resolved into plainRows)
         const plainColumns: ExportColumn[] = columns.map((col) => ({
           key: col.key,
           header: col.header,
-          format: col.format
-            ? (value, r) =>
-                col.format!(value, r as T)
-            : undefined,
         }));
 
-        const result = await createExportFile({
-          rows: plainRows,
-          columns: plainColumns,
-          format,
-          filename,
-          sheetName: options.sheetName,
+        // Binary API avoids base64 triple-copy of large files over server actions.
+        const response = await fetch("/api/export/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rows: plainRows,
+            columns: plainColumns,
+            format,
+            filename,
+            sheetName: options.sheetName,
+          }),
         });
 
-        if (!result.success) {
+        if (!response.ok) {
+          let message = t("export_failed");
+          try {
+            const err = (await response.json()) as { error?: string };
+            if (err.error) message = err.error;
+          } catch {
+            // ignore parse errors
+          }
           toast({
             title: t("error"),
-            description: result.error || t("export_failed"),
+            description: message,
             variant: "destructive",
           });
           return;
         }
 
-        downloadBase64File(result.base64, result.filename, result.mimeType);
+        const blob = await response.blob();
+        const disposition = response.headers.get("Content-Disposition") ?? "";
+        const match = /filename="([^"]+)"/.exec(disposition);
+        const downloadName =
+          match?.[1] ??
+          `${filename}.${format === "xlsx" ? "xlsx" : "csv"}`;
+        const rowCount = Number(
+          response.headers.get("X-Export-Row-Count") ?? plainRows.length,
+        );
+
+        downloadBlob(blob, downloadName);
 
         toast({
           title: t("success"),
-          description: t("export_success", { count: result.rowCount }),
+          description: t("export_success", { count: rowCount }),
         });
       } catch (error) {
         console.error("Export failed:", error);

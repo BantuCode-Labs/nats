@@ -139,7 +139,11 @@ export default function BOMsPage() {
         },
         {
             header: t("items"),
-            cell: (item) => item.items?.length || 0,
+            cell: (item) =>
+                // Prefer _count from slim list query; fall back to items array for detail payloads.
+                (item as { _count?: { items?: number }; items?: unknown[] })._count?.items ??
+                item.items?.length ??
+                0,
             className: "text-right",
             headerClassName: "text-right",
         },

@@ -26,6 +26,11 @@ export type ExportResult =
       mimeType: string;
       /** Base64-encoded file contents for server → client transfer. */
       base64: string;
+      /**
+       * Raw file bytes. Prefer this for binary API responses to avoid
+       * base64 encode/decode. Present when generation ran on the server.
+       */
+      buffer?: Buffer;
       rowCount: number;
     }
   | {

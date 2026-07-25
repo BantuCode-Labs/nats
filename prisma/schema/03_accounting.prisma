@@ -29,6 +29,7 @@ model Account {
   cashTransactionAllocations CashTransactionAllocation[]
 
   balance AccountBalance?
+  periodBalances AccountPeriodBalance[]
 
   // Payroll
   salaryComponents SalaryComponent[] @relation("SalaryComponentAccount")
@@ -126,6 +127,22 @@ model DefaultAccount {
 
   @@index([purpose])
   @@index([accountId])
+}
+
+/// Monthly cumulative account balances for fast report generation.
+/// periodEnd is the last day of the month (UTC date, time zeroed).
+/// debitTotal / creditTotal are sums of posted journal lines from the beginning of time through periodEnd.
+model AccountPeriodBalance {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  periodEnd   DateTime @db.Date
+  debitTotal  Decimal  @default(0) @db.Decimal(18, 2)
+  creditTotal Decimal  @default(0) @db.Decimal(18, 2)
+  computedAt  DateTime @default(now())
+
+  @@unique([accountId, periodEnd])
+  @@index([periodEnd])
 }
 
 enum DefaultAccountPurpose {

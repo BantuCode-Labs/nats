@@ -1,5 +1,6 @@
 /**
  * Trigger a browser file download from a base64 payload.
+ * Prefer downloadBlob / the binary export API for large files.
  */
 export function downloadBase64File(
   base64: string,
@@ -11,7 +12,13 @@ export function downloadBase64File(
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  const blob = new Blob([bytes], { type: mimeType });
+  downloadBlob(new Blob([bytes], { type: mimeType }), filename);
+}
+
+/**
+ * Trigger a browser file download from a Blob (binary path — no base64).
+ */
+export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

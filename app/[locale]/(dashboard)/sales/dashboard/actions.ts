@@ -83,54 +83,35 @@ export async function getSalesTrends() {
   }
 
   try {
-    // Get last 6 months
     const today = new Date();
-    const sixMonthsAgo = subMonths(startOfMonth(today), 5);
-
-    const orders = await prisma.salesOrder.findMany({
-      where: {
-        createdAt: {
-          gte: sixMonthsAgo,
-        },
-        status: {
-          not: SalesOrderStatus.CANCELLED,
-        },
-      },
-      select: {
-        createdAt: true,
-        totalAmount: true,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
+    const months = Array.from({ length: 6 }, (_, idx) => {
+      const offset = 5 - idx;
+      const date = subMonths(today, offset);
+      return {
+        key: format(date, "MMM yyyy"),
+        start: startOfMonth(date),
+        end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999),
+      };
     });
 
-    // Group by month
-    const monthlyData = new Map<string, number>();
+    // One aggregate per month in parallel — avoid loading all orders into Node.
+    const amounts = await Promise.all(
+      months.map(async ({ start, end }) => {
+        const agg = await prisma.salesOrder.aggregate({
+          where: {
+            createdAt: { gte: start, lte: end },
+            status: { not: SalesOrderStatus.CANCELLED },
+          },
+          _sum: { totalAmount: true },
+        });
+        return Number(agg._sum.totalAmount ?? 0);
+      }),
+    );
 
-    // Initialize months
-    for (let i = 0; i < 6; i++) {
-      const date = subMonths(today, i);
-      const key = format(date, "MMM yyyy");
-      monthlyData.set(key, 0);
-    }
-
-    orders.forEach((order) => {
-      const key = format(order.createdAt, "MMM yyyy");
-      if (monthlyData.has(key)) {
-        monthlyData.set(key, (monthlyData.get(key) || 0) + order.totalAmount.toNumber());
-      }
-    });
-
-    const result = [];
-    for (let i = 5; i >= 0; i--) {
-      const date = subMonths(today, i);
-      const key = format(date, "MMM yyyy");
-      result.push({
-        name: key,
-        amount: monthlyData.get(key) || 0
-      });
-    }
+    const result = months.map((m, i) => ({
+      name: m.key,
+      amount: amounts[i],
+    }));
 
     return { success: true, data: result };
   } catch (error) {

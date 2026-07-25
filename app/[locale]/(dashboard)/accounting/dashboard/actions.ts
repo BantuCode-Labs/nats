@@ -148,65 +148,58 @@ export async function getDashboardSummary() {
 export async function getFinancialTrends() {
   return authorizedAction("reports.view", async () => {
     const now = new Date();
-    const months = 6;
-    const trends = [];
+    const monthWindows = Array.from({ length: 6 }, (_, idx) => {
+      const offset = 5 - idx;
+      const date = subMonths(now, offset);
+      return {
+        start: startOfMonth(date),
+        end: endOfMonth(date),
+        monthLabel: format(date, "MMM yyyy"),
+      };
+    });
 
-    for (let i = months - 1; i >= 0; i--) {
-      const date = subMonths(now, i);
-      const start = startOfMonth(date);
-      const end = endOfMonth(date);
-      const monthLabel = format(date, "MMM yyyy");
+    // Preload revenue/expense account types once; run month aggregates in parallel.
+    const plAccounts = await prisma.account.findMany({
+      where: { type: { in: ["revenue", "expense"] }, isActive: true },
+      select: { id: true, type: true },
+    });
+    const typeMap = new Map(plAccounts.map((a) => [a.id, a.type]));
+    const plAccountIds = plAccounts.map((a) => a.id);
 
-      const agg = await prisma.journalEntryLine.groupBy({
-        by: ["accountId"],
-        where: {
-          journalEntry: {
-            status: "posted",
-            transactionDate: {
-              gte: start,
-              lte: end,
-            },
-          },
-          account: {
-            type: {
-              in: ["revenue", "expense"],
-            },
-          },
-        },
-        _sum: {
-          creditAmount: true,
-          debitAmount: true,
-        },
-      });
-
-      const accountIds = agg.map((a) => a.accountId);
-      const accounts = await prisma.account.findMany({
-        where: { id: { in: accountIds } },
-        select: { id: true, type: true },
-      });
-      const typeMap = new Map(accounts.map((a) => [a.id, a.type]));
-
-      let revenue = 0;
-      let expense = 0;
-
-      agg.forEach((item) => {
-        const type = typeMap.get(item.accountId);
-        const credit = item._sum.creditAmount?.toNumber() || 0;
-        const debit = item._sum.debitAmount?.toNumber() || 0;
-
-        if (type === "revenue") {
-          revenue += credit - debit;
-        } else if (type === "expense") {
-          expense += debit - credit;
+    const trends = await Promise.all(
+      monthWindows.map(async ({ start, end, monthLabel }) => {
+        if (plAccountIds.length === 0) {
+          return { name: monthLabel, revenue: 0, expense: 0 };
         }
-      });
 
-      trends.push({
-        name: monthLabel,
-        revenue,
-        expense,
-      });
-    }
+        const agg = await prisma.journalEntryLine.groupBy({
+          by: ["accountId"],
+          where: {
+            accountId: { in: plAccountIds },
+            journalEntry: {
+              status: "posted",
+              transactionDate: { gte: start, lte: end },
+            },
+          },
+          _sum: {
+            creditAmount: true,
+            debitAmount: true,
+          },
+        });
+
+        let revenue = 0;
+        let expense = 0;
+        for (const item of agg) {
+          const type = typeMap.get(item.accountId);
+          const credit = item._sum.creditAmount?.toNumber() || 0;
+          const debit = item._sum.debitAmount?.toNumber() || 0;
+          if (type === "revenue") revenue += credit - debit;
+          else if (type === "expense") expense += debit - credit;
+        }
+
+        return { name: monthLabel, revenue, expense };
+      }),
+    );
 
     return { success: true, data: trends };
   })();

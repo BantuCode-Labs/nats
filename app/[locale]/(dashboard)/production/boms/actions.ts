@@ -42,12 +42,17 @@ export async function getBOMs(
     const [boms, total] = await Promise.all([
         prisma.billOfMaterial.findMany({
             where,
-            include: {
-                product: true,
-                items: {
-                    include: {
-                        product: true,
-                    }
+            select: {
+                id: true,
+                bomNumber: true,
+                name: true,
+                quantity: true,
+                isActive: true,
+                product: {
+                    select: { id: true, name: true },
+                },
+                _count: {
+                    select: { items: true },
                 },
             },
             orderBy: { createdAt: "desc" },

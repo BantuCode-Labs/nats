@@ -55,13 +55,18 @@ export async function getPurchaseReceives(
   const [receives, total] = await Promise.all([
     prisma.purchaseReceive.findMany({
       where,
-      include: {
-        contact: true,
-        purchaseOrder: true,
-        items: {
-          include: {
-            product: true,
-          },
+      select: {
+        id: true,
+        receiveNumber: true,
+        receiveDate: true,
+        status: true,
+        contactId: true,
+        purchaseOrderId: true,
+        contact: {
+          select: { id: true, name: true },
+        },
+        purchaseOrder: {
+          select: { id: true, orderNumber: true },
         },
       },
       orderBy: { createdAt: "desc" },

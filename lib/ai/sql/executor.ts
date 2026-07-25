@@ -53,19 +53,14 @@ export async function executeSecureQuery(
 
   try {
     // Prisma $queryRawUnsafe is used only after strict validation.
-    // Timeout via Promise.race to avoid long-running scans.
-    const queryPromise = prisma.$queryRawUnsafe<Record<string, unknown>[]>(
-      validation.sql,
-    );
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(
-        () => reject(new Error(`Query timed out after ${QUERY_TIMEOUT_MS}ms`)),
-        QUERY_TIMEOUT_MS,
+    // SET LOCAL statement_timeout cancels the query on the Postgres side
+    // (Promise.race alone leaves the DB query running after JS timeout).
+    let rows = await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SET LOCAL statement_timeout = '${QUERY_TIMEOUT_MS}'`,
       );
+      return tx.$queryRawUnsafe<Record<string, unknown>[]>(validation.sql);
     });
-
-    let rows = await Promise.race([queryPromise, timeoutPromise]);
 
     // Serialize Prisma-specific values
     rows = rows.map((row) => serializeRow(row));
@@ -94,10 +89,19 @@ export async function executeSecureQuery(
       executionMs: Date.now() - started,
     };
   } catch (error) {
-    const message =
+    const rawMessage =
       error instanceof Prisma.PrismaClientKnownRequestError
         ? error.message
         : (error as Error).message;
+
+    // Postgres cancel from statement_timeout surfaces as query_canceled / 57014.
+    const timedOut =
+      /statement timeout|query_canceled|57014|canceling statement/i.test(
+        rawMessage,
+      );
+    const message = timedOut
+      ? `Query timed out after ${QUERY_TIMEOUT_MS}ms`
+      : rawMessage;
 
     await logQueryAudit(
       ctx,

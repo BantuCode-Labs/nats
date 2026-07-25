@@ -7,10 +7,18 @@
 
 import { authorizedAction } from "@/lib/permissions/protected-action";
 import { AccountType } from "@/prisma/generated/prisma/enums";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { getSession } from "@/lib/auth/auth";
 import { hasPermission } from "@/lib/permissions/utils";
 import { AccountService } from "@/modules/accounting/services/account.service";
+
+const fetchAccountsCached = unstable_cache(
+  async (page?: number, pageSize?: number) => {
+    return AccountService.getAccounts(page, pageSize);
+  },
+  ["chart-of-accounts"],
+  { revalidate: 300, tags: ["chart-of-accounts"] },
+);
 
 /**
  * Fetch accounts for list or tree display.
@@ -34,7 +42,7 @@ export async function getAccounts(page?: number, pageSize?: number) {
   }
 
   try {
-    return await AccountService.getAccounts(page, pageSize);
+    return await fetchAccountsCached(page, pageSize);
   } catch (error) {
     console.error("Failed to fetch accounts:", error);
     if (!page || !pageSize) return [];
@@ -72,6 +80,7 @@ export const createAccount = authorizedAction(
       const account = await AccountService.createAccount(data, session.userId);
 
       revalidatePath("/accounting/accounts");
+      revalidateTag("chart-of-accounts", "max");
       return { success: true, data: account };
     } catch (error: any) {
       console.error(error);
@@ -111,6 +120,7 @@ export async function updateAccount(id: string, data: { name: string }) {
   try {
     await AccountService.updateAccount(id, data);
     revalidatePath("/accounting/accounts");
+    revalidateTag("chart-of-accounts", "max");
     return { success: true };
   } catch (error) {
     console.error(error);
@@ -130,6 +140,7 @@ export async function deleteAccount(id: string) {
   try {
     await AccountService.deleteAccount(id);
     revalidatePath("/accounting/accounts");
+    revalidateTag("chart-of-accounts", "max");
     return { success: true };
   } catch (error: any) {
     console.error(error);

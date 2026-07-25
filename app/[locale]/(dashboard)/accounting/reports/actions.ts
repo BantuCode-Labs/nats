@@ -1,8 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import {
+  getCumulativeBalancesAsOf,
+  getPeriodBalances,
+} from "@/modules/accounting/services/period-balance.service";
 import { Account, ContactType } from "@/prisma/generated/prisma/client";
 import { AccountType } from "@/prisma/generated/prisma/enums";
+import { cache } from "react";
 
 // --- Types ---
 
@@ -102,50 +107,58 @@ type AccountNode = Account & {
 
 // --- Helper Functions ---
 
+// Nested reports (BS / Cash Flow / Equity) call this many times with the same
+// windows; React.cache collapses duplicate work within a single request.
+const getAccountBalancesCached = cache(
+  async (
+    startKey: string,
+    endKey: string,
+    typesKey: string,
+  ): Promise<{
+    accounts: Account[];
+    balanceMap: Map<string, { debit: number; credit: number }>;
+  }> => {
+    const startDate = startKey === "null" ? null : new Date(startKey);
+    const endDate = new Date(endKey);
+    const accountTypes = typesKey
+      ? (typesKey.split(",") as AccountType[])
+      : undefined;
+
+    const whereClause = accountTypes ? { type: { in: accountTypes } } : {};
+    const accounts = await prisma.account.findMany({
+      where: {
+        isActive: true,
+        ...whereClause,
+      },
+      orderBy: { code: "asc" },
+    });
+
+    // Prefer monthly AccountPeriodBalance snapshots + residual live scan
+    // over a full journalEntryLine.groupBy over the entire history.
+    const accountIds = accountTypes
+      ? accounts.map((a) => a.id)
+      : undefined;
+    const options = accountIds ? { accountIds } : undefined;
+
+    const balanceMap = startDate
+      ? await getPeriodBalances(startDate, endDate, options)
+      : await getCumulativeBalancesAsOf(endDate, options);
+
+    return { accounts, balanceMap };
+  },
+);
+
 async function getAccountBalances(
   startDate: Date | null,
   endDate: Date,
-  accountTypes?: AccountType[]
+  accountTypes?: AccountType[],
 ) {
-  const whereClause = accountTypes ? { type: { in: accountTypes } } : {};
-  const accounts = await prisma.account.findMany({
-    where: {
-      isActive: true,
-      ...whereClause,
-    },
-    orderBy: { code: "asc" },
-  });
-
-  const dateFilter: { lte: Date; gte?: Date } = {
-    lte: endDate,
-  };
-  if (startDate) {
-    dateFilter.gte = startDate;
-  }
-
-  const balances = await prisma.journalEntryLine.groupBy({
-    by: ["accountId"],
-    where: {
-      journalEntry: {
-        status: "posted",
-        transactionDate: dateFilter,
-      },
-    },
-    _sum: {
-      debitAmount: true,
-      creditAmount: true,
-    },
-  });
-
-  const balanceMap = new Map<string, { debit: number; credit: number }>();
-  balances.forEach((b) => {
-    balanceMap.set(b.accountId, {
-      debit: b._sum.debitAmount?.toNumber() || 0,
-      credit: b._sum.creditAmount?.toNumber() || 0,
-    });
-  });
-
-  return { accounts, balanceMap };
+  const typesKey = accountTypes ? [...accountTypes].sort().join(",") : "";
+  return getAccountBalancesCached(
+    startDate ? startDate.toISOString() : "null",
+    endDate.toISOString(),
+    typesKey,
+  );
 }
 
 function buildAccountHierarchy(
@@ -362,24 +375,18 @@ async function _getProfitAndLoss(
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  const { accounts, balanceMap } = await getAccountBalances(start, end, [
-    "revenue",
-    "expense",
+  const [currentBalances, previousBalances] = await Promise.all([
+    getAccountBalances(start, end, ["revenue", "expense"]),
+    comparativeStartDate && comparativeEndDate
+      ? getAccountBalances(
+          new Date(comparativeStartDate),
+          new Date(comparativeEndDate),
+          ["revenue", "expense"],
+        )
+      : Promise.resolve(null),
   ]);
-
-  let previousBalanceMap: Map<
-    string,
-    { debit: number; credit: number }
-  > | null = null;
-  if (comparativeStartDate && comparativeEndDate) {
-    const prevStart = new Date(comparativeStartDate);
-    const prevEnd = new Date(comparativeEndDate);
-    const prevResult = await getAccountBalances(prevStart, prevEnd, [
-      "revenue",
-      "expense",
-    ]);
-    previousBalanceMap = prevResult.balanceMap;
-  }
+  const { accounts, balanceMap } = currentBalances;
+  const previousBalanceMap = previousBalances?.balanceMap ?? null;
 
   const revenueAccounts = accounts.filter((a) => a.type === "revenue");
   const expenseAccounts = accounts.filter((a) => a.type === "expense");
@@ -473,42 +480,25 @@ async function _getBalanceSheet(
   comparativeDate?: string
 ): Promise<BalanceSheetReport> {
   const asOf = new Date(date);
+  const prevAsOf = comparativeDate ? new Date(comparativeDate) : null;
 
-  // 1. Get Asset, Liability, Equity balances (Cumulative)
-  const { accounts, balanceMap } = await getAccountBalances(null, asOf, [
-    "asset",
-    "liability",
-    "equity",
-  ]);
-
-  let previousBalanceMap: Map<
-    string,
-    { debit: number; credit: number }
-  > | null = null;
-  if (comparativeDate) {
-    const prevAsOf = new Date(comparativeDate);
-    const prevResult = await getAccountBalances(null, prevAsOf, [
-      "asset",
-      "liability",
-      "equity",
+  // Fetch BS + P&L (retained earnings) windows in parallel; comparative too.
+  const [mainResult, plResult, prevMainResult, prevPlResult] =
+    await Promise.all([
+      getAccountBalances(null, asOf, ["asset", "liability", "equity"]),
+      getAccountBalances(null, asOf, ["revenue", "expense"]),
+      prevAsOf
+        ? getAccountBalances(null, prevAsOf, ["asset", "liability", "equity"])
+        : Promise.resolve(null),
+      prevAsOf
+        ? getAccountBalances(null, prevAsOf, ["revenue", "expense"])
+        : Promise.resolve(null),
     ]);
-    previousBalanceMap = prevResult.balanceMap;
-  }
 
-  // 2. Calculate Retained Earnings
-  const { accounts: plAccounts, balanceMap: plBalanceMap } =
-    await getAccountBalances(null, asOf, ["revenue", "expense"]);
-
-  let prevPlBalanceMap: Map<string, { debit: number; credit: number }> | null =
-    null;
-  if (comparativeDate) {
-    const prevAsOf = new Date(comparativeDate);
-    const prevPlResult = await getAccountBalances(null, prevAsOf, [
-      "revenue",
-      "expense",
-    ]);
-    prevPlBalanceMap = prevPlResult.balanceMap;
-  }
+  const { accounts, balanceMap } = mainResult;
+  const previousBalanceMap = prevMainResult?.balanceMap ?? null;
+  const { accounts: plAccounts, balanceMap: plBalanceMap } = plResult;
+  const prevPlBalanceMap = prevPlResult?.balanceMap ?? null;
 
   function calculateRE(
     accounts: Account[],
@@ -676,16 +666,14 @@ async function _getCashFlowStatement(
   comparativeStartDate?: string,
   comparativeEndDate?: string
 ): Promise<CashFlowReport> {
-  // Base Report
-  const current = await calculateCashFlowForPeriod(startDate, endDate);
-
-  let previous: Partial<CashFlowReport> = {};
-  if (comparativeStartDate && comparativeEndDate) {
-    previous = await calculateCashFlowForPeriod(
-      comparativeStartDate,
-      comparativeEndDate
-    );
-  }
+  // Current + comparative periods in parallel when comparative is requested.
+  const [current, previousResult] = await Promise.all([
+    calculateCashFlowForPeriod(startDate, endDate),
+    comparativeStartDate && comparativeEndDate
+      ? calculateCashFlowForPeriod(comparativeStartDate, comparativeEndDate)
+      : Promise.resolve(null),
+  ]);
+  const previous: Partial<CashFlowReport> = previousResult ?? {};
 
   // Merge (Operating Activities mostly)
   // For Cash Flow, row-by-row comparison is tricky because rows are dynamic (e.g. "Change in AR").
@@ -740,11 +728,16 @@ async function calculateCashFlowForPeriod(
   endDate: string
 ): Promise<CashFlowReport> {
   const start = new Date(startDate);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const end = new Date(endDate);
+  const dayBeforeStart = new Date(start.getTime() - 86400000)
+    .toISOString()
+    .split("T")[0];
 
-  // Operating Activities
-  const pl = await _getProfitAndLoss(startDate, endDate);
+  // PL + opening/closing BS are independent — run in parallel (shared cache helps).
+  const [pl, balanceSheetStart, balanceSheetEnd] = await Promise.all([
+    _getProfitAndLoss(startDate, endDate),
+    _getBalanceSheet(dayBeforeStart),
+    _getBalanceSheet(endDate),
+  ]);
   const netIncome = pl.netIncome;
 
   const operatingActivities: ReportAccountLine[] = [
@@ -782,10 +775,6 @@ async function calculateCashFlowForPeriod(
   }
 
   // Changes in Working Capital
-  const balanceSheetStart = await _getBalanceSheet(
-    new Date(start.getTime() - 86400000).toISOString().split("T")[0]
-  );
-  const balanceSheetEnd = await _getBalanceSheet(endDate);
 
   let changeInReceivables = 0;
   let changeInPayables = 0;
@@ -1167,42 +1156,54 @@ export async function getFinancialRatios(date: string): Promise<{ success: boole
 export async function validateJournalEntries(startDate: string, endDate: string) {
   const session = await getSession();
   return authorizedAction("reports.view", async (startDate: string, endDate: string) => {
-    // 1. Find entries where sum(debit) != sum(credit)
-    // This requires grouping by journalEntryId and summing
-
-    const entries = await prisma.journalEntry.findMany({
+    // Aggregate in SQL instead of loading every line into memory.
+    const sums = await prisma.journalEntryLine.groupBy({
+      by: ["journalEntryId"],
       where: {
-        transactionDate: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
+        journalEntry: {
+          transactionDate: {
+            gte: new Date(startDate),
+            lte: new Date(endDate),
+          },
+          status: "posted",
         },
-        status: "posted"
       },
-      include: {
-        lines: true
-      }
+      _sum: {
+        debitAmount: true,
+        creditAmount: true,
+      },
     });
 
-    const unbalancedEntries = [];
+    const unbalancedIds = sums
+      .map((row) => {
+        const debit = Number(row._sum.debitAmount || 0);
+        const credit = Number(row._sum.creditAmount || 0);
+        return {
+          id: row.journalEntryId,
+          difference: debit - credit,
+        };
+      })
+      .filter((row) => Math.abs(row.difference) > 0.01);
 
-    for (const entry of entries) {
-      let totalDebit = 0;
-      let totalCredit = 0;
-      for (const line of entry.lines) {
-        totalDebit += line.debitAmount.toNumber();
-        totalCredit += line.creditAmount.toNumber();
-      }
+    const entries =
+      unbalancedIds.length === 0
+        ? []
+        : await prisma.journalEntry.findMany({
+            where: { id: { in: unbalancedIds.map((u) => u.id) } },
+            select: {
+              id: true,
+              entryNumber: true,
+              transactionDate: true,
+            },
+          });
 
-      // Use a small epsilon for floating point comparison
-      if (Math.abs(totalDebit - totalCredit) > 0.01) {
-        unbalancedEntries.push({
-          id: entry.id,
-          entryNumber: entry.entryNumber,
-          date: entry.transactionDate,
-          difference: totalDebit - totalCredit
-        });
-      }
-    }
+    const diffById = new Map(unbalancedIds.map((u) => [u.id, u.difference]));
+    const unbalancedEntries = entries.map((entry) => ({
+      id: entry.id,
+      entryNumber: entry.entryNumber,
+      date: entry.transactionDate,
+      difference: diffById.get(entry.id) ?? 0,
+    }));
 
     if (session) {
       await logReportGeneration(session.userId, "VALIDATION_REPORT", "JSON", "SUCCESS", { startDate, endDate, unbalancedCount: unbalancedEntries.length });
@@ -1224,14 +1225,14 @@ async function _getStatementOfChangesInEquity(
     .toISOString()
     .split("T")[0];
 
-  const bsStart = await _getBalanceSheet(dayBeforeStart);
-  const pl = await _getProfitAndLoss(startDate, endDate);
-  const bsEnd = await _getBalanceSheet(endDate);
-
-  let bsPrevEnd: BalanceSheetReport | null = null;
-  if (comparativeEndDate) {
-    bsPrevEnd = await _getBalanceSheet(comparativeEndDate);
-  }
+  const [bsStart, pl, bsEnd, bsPrevEnd] = await Promise.all([
+    _getBalanceSheet(dayBeforeStart),
+    _getProfitAndLoss(startDate, endDate),
+    _getBalanceSheet(endDate),
+    comparativeEndDate
+      ? _getBalanceSheet(comparativeEndDate)
+      : Promise.resolve(null),
+  ]);
 
   function flatten(nodes: ReportAccountLine[]): ReportAccountLine[] {
     let res: ReportAccountLine[] = [];

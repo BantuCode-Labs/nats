@@ -79,15 +79,23 @@ export async function getProducts(
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      include: {
-        category: true,
-        baseUnit: true,
-        purchaseUnit: true,
-        salesUnit: true,
+      // List: stock total + base unit only (not all warehouses/units).
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        price: true,
+        cost: true,
+        minStock: true,
+        categoryId: true,
+        category: {
+          select: { id: true, name: true },
+        },
+        baseUnit: {
+          select: { id: true, symbol: true, name: true },
+        },
         inventory: {
-          include: {
-            warehouse: true,
-          },
+          select: { quantity: true },
         },
       },
       orderBy: { name: "asc" },

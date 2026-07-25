@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { DefaultAccountPurpose } from "@/prisma/generated/prisma/client"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache"
 import { authorizedAction } from "@/lib/permissions/protected-action"
 import { getSession } from "@/lib/auth/auth"
 import { hasPermission } from "@/lib/permissions/utils"
@@ -18,17 +18,45 @@ export type DefaultAccountWithAccount = {
   }
 }
 
+const fetchDefaultAccountsCached = unstable_cache(
+  async () => {
+    return prisma.defaultAccount.findMany({
+      where: { isActive: true },
+      include: {
+        account: {
+          select: { id: true, code: true, name: true },
+        },
+      },
+    })
+  },
+  ["default-accounts"],
+  { revalidate: 300, tags: ["default-accounts"] },
+)
+
+const fetchActiveAccountsCached = unstable_cache(
+  async () => {
+    return prisma.account.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        type: true,
+      },
+      orderBy: { code: "asc" },
+    })
+  },
+  ["active-accounts-select"],
+  { revalidate: 300, tags: ["chart-of-accounts"] },
+)
+
 export async function getDefaultAccounts() {
   const session = await getSession()
   if (!session || !hasPermission(session.permissions, "default_accounts.view")) {
     return []
   }
 
-  const defaultAccounts = await prisma.defaultAccount.findMany({
-    where: { isActive: true },
-    include: { account: true },
-  })
-  return defaultAccounts
+  return fetchDefaultAccountsCached()
 }
 
 export async function getAccounts() {
@@ -37,17 +65,7 @@ export async function getAccounts() {
     return []
   }
 
-  const accounts = await prisma.account.findMany({
-    where: { isActive: true },
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      type: true,
-    },
-    orderBy: { code: "asc" },
-  })
-  return accounts
+  return fetchActiveAccountsCached()
 }
 
 export async function updateDefaultAccount(purpose: DefaultAccountPurpose, accountId: string) {
@@ -91,6 +109,7 @@ export async function updateDefaultAccount(purpose: DefaultAccountPurpose, accou
     })
 
     revalidatePath("/accounting/configuration/default-accounts")
+    revalidateTag("default-accounts", "max")
     return { success: true }
   } catch (error) {
     console.error("Error updating default account:", error)
@@ -139,6 +158,7 @@ export const saveDefaultAccounts = authorizedAction(
       })
 
       revalidatePath("/accounting/configuration/default-accounts")
+      revalidateTag("default-accounts", "max")
       return { success: true }
     } catch (error) {
       console.error("Error saving default accounts:", error)
