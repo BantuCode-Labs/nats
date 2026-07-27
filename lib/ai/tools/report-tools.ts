@@ -290,12 +290,12 @@ export const runStandardReportTool: AITool = {
         case "equity_change": {
           const data = await fetchEquityData({ startDate: start, endDate: end });
           const rows = (data.items || []).map((i: any) => serializePrisma(i));
-          const table = rowsToMarkdownTable(rows as Record<string, unknown>[]);
+          const table = rowsToMarkdownTable(rows as any as Record<string, unknown>[]);
           return includeAnalysis
             ? withAnalysis(
                 `Changes in Equity (${start} → ${end})`,
                 table,
-                rows as Record<string, unknown>[],
+                rows as any as Record<string, unknown>[],
               )
             : `## Changes in Equity\n\n${table}`;
         }
@@ -310,7 +310,7 @@ export const runStandardReportTool: AITool = {
         }
         case "ar_aging": {
           const data = await getARAgingSummary(new Date(asOf));
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           const table = rowsToMarkdownTable(rows);
           return includeAnalysis
             ? withAnalysis(`AR Aging Summary (as of ${asOf})`, table, rows)
@@ -318,7 +318,7 @@ export const runStandardReportTool: AITool = {
         }
         case "receivable": {
           const data = await getReceivableReport(new Date(start), new Date(end));
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           const table = rowsToMarkdownTable(rows);
           return includeAnalysis
             ? withAnalysis(`Receivables (${start} → ${end})`, table, rows)
@@ -329,7 +329,7 @@ export const runStandardReportTool: AITool = {
             new Date(start),
             new Date(end),
           );
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Customer Recap (${start} → ${end})`,
@@ -343,7 +343,7 @@ export const runStandardReportTool: AITool = {
             new Date(start),
             new Date(end),
           );
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Sales by Product (${start} → ${end})`,
@@ -357,7 +357,7 @@ export const runStandardReportTool: AITool = {
             new Date(start),
             new Date(end),
           );
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Profitability (${start} → ${end})`,
@@ -368,7 +368,7 @@ export const runStandardReportTool: AITool = {
         }
         case "ap_aging": {
           const data = await getAPAgingSummary(new Date(asOf));
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `AP Aging Summary (as of ${asOf})`,
@@ -379,7 +379,7 @@ export const runStandardReportTool: AITool = {
         }
         case "payable": {
           const data = await getPayableReport(new Date(start), new Date(end));
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Payables (${start} → ${end})`,
@@ -393,7 +393,7 @@ export const runStandardReportTool: AITool = {
             new Date(start),
             new Date(end),
           );
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Vendor Recap (${start} → ${end})`,
@@ -404,7 +404,7 @@ export const runStandardReportTool: AITool = {
         }
         case "cash_balance": {
           const data = await getCashBalanceReport(new Date(start), new Date(end));
-          const rows = serializePrisma(data.entries || []) as Record<
+          const rows = serializePrisma(data.entries || []) as any as Record<
             string,
             unknown
           >[];
@@ -427,7 +427,7 @@ export const runStandardReportTool: AITool = {
             (data as any).points ||
               (data as any).entries ||
               (Array.isArray(data) ? data : [data]),
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           let md = `## Cash Flow Summary (${start} → ${end})\n\n`;
           if ((data as any).totals) {
             const t = (data as any).totals;
@@ -450,7 +450,7 @@ export const runStandardReportTool: AITool = {
           const rows = serializePrisma(
             (data as any).entries ||
               (Array.isArray(data) ? data : [data]),
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Daily Cash Movement (${start} → ${end})`,
@@ -463,7 +463,7 @@ export const runStandardReportTool: AITool = {
           const data = await getStockValuationReport();
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Stock Valuation", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
@@ -472,14 +472,14 @@ export const runStandardReportTool: AITool = {
           const data = await getLowStockReport();
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Low Stock Alert", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
         }
         case "slow_moving": {
           const data = await getSlowMovingReport(new Date(asOf));
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Slow Moving Inventory", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
@@ -489,7 +489,7 @@ export const runStandardReportTool: AITool = {
             new Date(start),
             new Date(end),
           );
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Inventory Movement (${start} → ${end})`,
@@ -501,7 +501,7 @@ export const runStandardReportTool: AITool = {
         case "budget_variance": {
           const fiscalYear = new Date(end).getFullYear();
           const data = await getBudgetVarianceReport({ fiscalYear });
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Budget Variance (FY ${fiscalYear})`,
@@ -513,7 +513,7 @@ export const runStandardReportTool: AITool = {
         case "overspending": {
           const fiscalYear = new Date(end).getFullYear();
           const data = await getOverspendingReport({ fiscalYear });
-          const rows = serializePrisma(data) as Record<string, unknown>[];
+          const rows = serializePrisma(data) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Overspending Report", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
@@ -522,7 +522,7 @@ export const runStandardReportTool: AITool = {
           const data = await getAssetRegisterReport();
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Asset Register", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
@@ -531,7 +531,7 @@ export const runStandardReportTool: AITool = {
           const data = await getDepreciationSummaryReport();
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Depreciation Summary", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
@@ -540,19 +540,19 @@ export const runStandardReportTool: AITool = {
           const data = await getAssetValuationReport();
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Asset Valuation", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
         }
         case "production_output": {
-          const data = await getProductionOutputReport({
-            startDate: new Date(start),
-            endDate: new Date(end),
-          } as any);
+          const data = await getProductionOutputReport(
+            new Date(start),
+            new Date(end),
+          );
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Production Output (${start} → ${end})`,
@@ -562,13 +562,13 @@ export const runStandardReportTool: AITool = {
             : rowsToMarkdownTable(rows);
         }
         case "material_consumption": {
-          const data = await getMaterialConsumptionReport({
-            startDate: new Date(start),
-            endDate: new Date(end),
-          } as any);
+          const data = await getMaterialConsumptionReport(
+            new Date(start),
+            new Date(end),
+          );
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis(
                 `Material Consumption (${start} → ${end})`,
@@ -581,7 +581,7 @@ export const runStandardReportTool: AITool = {
           const data = await getWipReport();
           const rows = serializePrisma(
             Array.isArray(data) ? data : (data as any).entries || [data],
-          ) as Record<string, unknown>[];
+          ) as any as Record<string, unknown>[];
           return includeAnalysis
             ? withAnalysis("Work in Progress", rowsToMarkdownTable(rows), rows)
             : rowsToMarkdownTable(rows);
