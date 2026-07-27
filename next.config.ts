@@ -12,10 +12,12 @@ const nextConfig: NextConfig = {
   images: {
     // Add specific hostnames here when using external image sources.
     // Do NOT use hostname: "*" — it enables SSRF and image proxy abuse.
-    // Examples:
-    //   { protocol: "https", hostname: "your-minio-domain.com" },
-    //   { protocol: "https", hostname: "cdn.your-company.com" },
-    remotePatterns: [],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
   },
   async redirects() {
     return [
