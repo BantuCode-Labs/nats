@@ -35,7 +35,7 @@ export async function login(prevState: unknown, formData: FormData) {
   if (!user) {
     return {
       errors: {
-        email: ["User is not registered"],
+        email: ["Invalid email or password"],
       },
     };
   }
@@ -74,6 +74,11 @@ export async function logout() {
 }
 
 export async function loginDemo() {
+  // Security guard: demo login is disabled in production
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Demo login is not available in production.");
+  }
+
   const email = "demo@nats-accounting.com";
   const password = "demo-password-123";
 

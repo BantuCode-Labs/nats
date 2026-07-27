@@ -1,7 +1,15 @@
 import { NextRequest } from "next/server";
 import { searchProductBySku } from "@/lib/sku-search";
+import { getSession } from "@/lib/auth/auth";
 
 export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   const sku = req.nextUrl.searchParams.get("sku");
   if (!sku || !sku.trim()) {
     return new Response(JSON.stringify({ error: "SKU parameter is required" }), {

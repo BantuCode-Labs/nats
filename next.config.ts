@@ -10,12 +10,12 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["pino", "pino-pretty", "next-logger"],
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*",
-      },
-    ],
+    // Add specific hostnames here when using external image sources.
+    // Do NOT use hostname: "*" — it enables SSRF and image proxy abuse.
+    // Examples:
+    //   { protocol: "https", hostname: "your-minio-domain.com" },
+    //   { protocol: "https", hostname: "cdn.your-company.com" },
+    remotePatterns: [],
   },
   async redirects() {
     return [
